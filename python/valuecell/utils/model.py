@@ -121,6 +121,13 @@ def model_should_use_json_mode(model: AgnoModel) -> bool:
                     )
                     return True
 
+                if "volces.com" in base_url_str:
+                    logger.debug(
+                        "Detected Volcengine ARK API - disabling JSON mode "
+                        "(json_object is unsupported for some models)"
+                    )
+                    return False
+
                 # For other OpenAI-compatible APIs, use JSON mode as safer default
                 # Most OpenAI-compatible APIs support JSON mode but not structured outputs
                 logger.debug(

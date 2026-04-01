@@ -69,6 +69,18 @@ class LlmComposer(BaseComposer):
             use_json_mode=model_utils.model_should_use_json_mode(self._model),
             debug_mode=env_utils.agent_debug_mode_enabled(),
         )
+        self._fallback_agent = AgnoAgent(
+            model=self._model,
+            markdown=False,
+            instructions=[
+                SYSTEM_PROMPT,
+                (
+                    "Return valid JSON object only. "
+                    "Schema: {\"items\": [...], \"rationale\": \"...\"}."
+                ),
+            ],
+            debug_mode=env_utils.agent_debug_mode_enabled(),
+        )
 
     def _build_prompt_text(self) -> str:
         """Return a resolved prompt text by fusing custom_prompt and prompt_text.
@@ -203,15 +215,30 @@ class LlmComposer(BaseComposer):
         agent's `response.content` is returned (or validated) as a
         `LlmPlanProposal`.
         """
-        response = await asyncio.wait_for(
-            self.agent.arun(prompt), timeout=self._max_llm_wait_time_sec
-        )
+        try:
+            response = await asyncio.wait_for(
+                self.agent.arun(prompt), timeout=self._max_llm_wait_time_sec
+            )
+        except Exception as exc:
+            if self._is_response_format_unsupported_error(exc):
+                logger.warning(
+                    "Structured output not supported for model {}; "
+                    "falling back to plain-text JSON parsing",
+                    model_utils.describe_model(self._model),
+                )
+                return await self._call_llm_fallback(prompt)
+            raise
         # Agent may return a raw object or a wrapper with `.content`.
         content = getattr(response, "content", None) or response
         logger.debug("Received LLM response {}", content)
         # If the agent already returned a validated model, return it directly
         if isinstance(content, TradePlanProposal):
             return content
+        if isinstance(content, dict):
+            try:
+                return TradePlanProposal.model_validate(content)
+            except Exception:
+                pass
 
         logger.error("LLM output failed validation: {}", content)
         return TradePlanProposal(
@@ -223,6 +250,100 @@ class LlmComposer(BaseComposer):
                 f"Raw output: {content}"
             ),
         )
+
+    async def _call_llm_fallback(self, prompt: str) -> TradePlanProposal:
+        response = await asyncio.wait_for(
+            self._fallback_agent.arun(prompt), timeout=self._max_llm_wait_time_sec
+        )
+        content = getattr(response, "content", None) or response
+        if isinstance(content, TradePlanProposal):
+            return content
+        if isinstance(content, dict):
+            try:
+                normalized = self._normalize_fallback_plan_payload(content)
+                return TradePlanProposal.model_validate(normalized)
+            except Exception:
+                pass
+
+        raw_content = str(content)
+        json_payload = self._extract_json_payload(raw_content)
+        try:
+            parsed = json.loads(json_payload)
+            normalized = self._normalize_fallback_plan_payload(parsed)
+            return TradePlanProposal.model_validate(normalized)
+        except Exception:
+            logger.error("Fallback LLM output failed validation: {}", raw_content)
+            return TradePlanProposal(
+                items=[],
+                rationale=(
+                    "LLM output failed validation. The model you chose "
+                    f"`{model_utils.describe_model(self._model)}` "
+                    "is incompatible with structured outputs and fallback parsing failed. "
+                    f"Raw output: {raw_content}"
+                ),
+            )
+
+    def _is_response_format_unsupported_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        return "response_format.type" in message and (
+            "not supported" in message or "not valid" in message
+        )
+
+    def _extract_json_payload(self, text: str) -> str:
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            blocks = stripped.split("```")
+            for block in blocks:
+                candidate = block.strip()
+                if not candidate:
+                    continue
+                if candidate.startswith("json"):
+                    candidate = candidate[4:].strip()
+                if candidate.startswith("{") and candidate.endswith("}"):
+                    return candidate
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return stripped[start : end + 1]
+        return stripped
+
+    def _normalize_fallback_plan_payload(self, payload):
+        if not isinstance(payload, dict):
+            return payload
+        normalized_payload = dict(payload)
+        raw_items = normalized_payload.get("items")
+        if not isinstance(raw_items, list):
+            return normalized_payload
+
+        normalized_items = []
+        for raw_item in raw_items:
+            if not isinstance(raw_item, dict):
+                normalized_items.append(raw_item)
+                continue
+
+            normalized_item = dict(raw_item)
+            if "instrument" not in normalized_item and isinstance(
+                normalized_item.get("symbol"), str
+            ):
+                normalized_item["instrument"] = {"symbol": normalized_item["symbol"]}
+
+            allowed_fields = {
+                "instrument",
+                "action",
+                "target_qty",
+                "leverage",
+                "confidence",
+                "rationale",
+            }
+            normalized_item = {
+                key: value
+                for key, value in normalized_item.items()
+                if key in allowed_fields
+            }
+            normalized_items.append(normalized_item)
+
+        normalized_payload["items"] = normalized_items
+        return normalized_payload
 
     async def _send_plan_to_discord(self, plan: TradePlanProposal) -> None:
         """Send plan rationale to Discord when there are actionable items.

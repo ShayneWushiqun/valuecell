@@ -33,16 +33,17 @@ from .schemas import AppInfoData, SuccessResponse
 
 
 def _ensure_system_env_and_load() -> None:
-    """Ensure the system `.env` exists and is loaded; use only the system path.
+    """Ensure environment files are available and loaded.
 
     Behavior:
     - If the system `.env` exists, load it with `override=True`.
     - If not, and the repository has `.env.example`, copy it to the system path and then load.
-    - Do not create or load the repository root `.env`.
+    - If repository root `.env` exists, load it last as local override.
     """
     try:
         repo_root = Path(__file__).resolve().parents[4]
         sys_env = get_system_env_path()
+        repo_env = repo_root / ".env"
         example_file = repo_root / ".env.example"
 
         try:
@@ -54,27 +55,36 @@ def _ensure_system_env_and_load() -> None:
         except Exception:
             pass
 
-        # Load system .env into process environment
+        env_files = []
         if sys_env.exists():
+            env_files.append(sys_env)
+        if repo_env.exists():
+            env_files.append(repo_env)
+
+        if env_files:
             try:
                 from dotenv import load_dotenv
 
-                load_dotenv(sys_env, override=True)
+                for env_file in env_files:
+                    load_dotenv(env_file, override=True)
             except Exception:
                 # Fallback manual parsing
                 try:
-                    with open(sys_env, "r", encoding="utf-8") as f:
-                        for line in f:
-                            line = line.strip()
-                            if line and not line.startswith("#") and "=" in line:
-                                key, value = line.split("=", 1)
-                                key = key.strip()
-                                value = value.strip()
-                                if (value.startswith('"') and value.endswith('"')) or (
-                                    value.startswith("'") and value.endswith("'")
-                                ):
-                                    value = value[1:-1]
-                                os.environ[key] = value
+                    for env_file in env_files:
+                        with open(env_file, "r", encoding="utf-8") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line and not line.startswith("#") and "=" in line:
+                                    key, value = line.split("=", 1)
+                                    key = key.strip()
+                                    value = value.strip()
+                                    if (
+                                        value.startswith('"') and value.endswith('"')
+                                    ) or (
+                                        value.startswith("'") and value.endswith("'")
+                                    ):
+                                        value = value[1:-1]
+                                    os.environ[key] = value
                 except Exception:
                     pass
     except Exception:

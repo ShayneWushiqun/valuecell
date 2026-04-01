@@ -22,10 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 def load_env_file_early() -> None:
-    """Load environment variables from system application directory.
+    """Load environment variables from system and repository .env files.
 
     Behavior:
     - Loads from system path (e.g., ~/Library/Application Support/ValueCell/.env on macOS)
+    - If repository root .env exists, load it last as local override
     - Auto-creates from .env.example if not exists
     - Used by both local development and packaged client
     """
@@ -33,9 +34,10 @@ def load_env_file_early() -> None:
         from dotenv import load_dotenv
 
         # Resolve system `.env` and fallback create from example
-        current_dir = Path(__file__).parent
-        project_root = current_dir.parent.parent.parent
+        current_dir = Path(__file__).resolve().parent
+        project_root = current_dir.parents[1]
         sys_env = get_system_env_path()
+        repo_env = project_root / ".env"
         example_file = project_root / ".env.example"
 
         try:
@@ -51,16 +53,18 @@ def load_env_file_early() -> None:
                 logger.info(f"⚠️  Failed to prepare system .env: {e}")
 
         if sys_env.exists():
-            # Load with override=True to allow .env file to override system variables
-            # This is especially important for LANG which is often set by the system
             load_dotenv(sys_env, override=True)
 
-            # Optional: Log successful loading if DEBUG is enabled
             if os.getenv("AGENT_DEBUG_MODE", "false").lower() == "true":
                 logger.info(f"✓ Environment variables loaded from {sys_env}")
+
+        if repo_env.exists():
+            load_dotenv(repo_env, override=True)
+            if os.getenv("AGENT_DEBUG_MODE", "false").lower() == "true":
+                logger.info(f"✓ Environment variables loaded from {repo_env}")
                 logger.info(f"  LANG: {os.environ.get('LANG', 'not set')}")
                 logger.info(f"  TIMEZONE: {os.environ.get('TIMEZONE', 'not set')}")
-        else:
+        elif not sys_env.exists():
             # Only log if debug mode is enabled
             if os.getenv("AGENT_DEBUG_MODE", "false").lower() == "true":
                 logger.info(f"ℹ️  No system .env file found at {sys_env}")
@@ -76,11 +80,12 @@ def load_env_file_early() -> None:
 
 
 def _load_env_file_manual() -> None:
-    """Fallback manual parsing for system .env file."""
+    """Fallback manual parsing for system and repository .env files."""
     try:
-        current_dir = Path(__file__).parent
-        project_root = current_dir.parent.parent.parent
+        current_dir = Path(__file__).resolve().parent
+        project_root = current_dir.parents[1]
         sys_env = get_system_env_path()
+        repo_env = project_root / ".env"
         example_file = project_root / ".env.example"
 
         try:
@@ -93,20 +98,24 @@ def _load_env_file_manual() -> None:
             # Fail silently to avoid breaking imports
             pass
 
+        env_files = []
         if sys_env.exists():
-            with open(sys_env, "r", encoding="utf-8") as f:
+            env_files.append(sys_env)
+        if repo_env.exists():
+            env_files.append(repo_env)
+
+        for env_file in env_files:
+            with open(env_file, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:
                         key, value = line.split("=", 1)
                         key = key.strip()
                         value = value.strip()
-                        # Remove quotes if present
                         if (value.startswith('"') and value.endswith('"')) or (
                             value.startswith("'") and value.endswith("'")
                         ):
                             value = value[1:-1]
-                        # Always set the value (override existing env vars to match dotenv behavior)
                         os.environ[key] = value
     except Exception:
         # Fail silently to avoid breaking imports

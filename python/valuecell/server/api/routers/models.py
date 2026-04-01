@@ -539,6 +539,8 @@ def create_models_router() -> APIRouter:
             direct_timeout_s = 5.0
             if provider == "google":
                 direct_timeout_s = 30.0
+            if provider in {"openrouter", "openai-compatible"}:
+                direct_timeout_s = 12.0
 
             def _normalize_model_id_for_provider(provider_name: str, mid: str) -> str:
                 """Normalize model id for specific providers to avoid 404s.
@@ -745,6 +747,8 @@ def create_models_router() -> APIRouter:
                             f"{bu}/compatible-mode/v1/chat/completions",
                             "openai_like",
                         )
+                    if "volces.com" in lower:
+                        return f"{bu}/chat/completions", "openai_like"
                     # If base_url provided but host is unrecognized:
                     # - For openai-compatible, treat as generic OpenAI-like
                     # - For Google/Azure, ignore base_url and fall through to provider fallback
@@ -791,6 +795,8 @@ def create_models_router() -> APIRouter:
                 if provider == "openai-compatible":
                     if base_url:
                         bu = _normalize_base_url(base_url)
+                        if "volces.com" in bu.lower():
+                            return f"{bu}/chat/completions", "openai_like"
                         if bu.endswith("/v1"):
                             return f"{bu}/chat/completions", "openai_like"
                         return f"{bu}/v1/chat/completions", "openai_like"
