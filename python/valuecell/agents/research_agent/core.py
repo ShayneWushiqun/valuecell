@@ -14,6 +14,7 @@ from valuecell.agents.research_agent.prompts import (
 )
 from valuecell.agents.research_agent.sources import (
     fetch_ashare_filings,
+    fetch_ashare_news,
     fetch_event_sec_filings,
     fetch_periodic_sec_filings,
     search_crypto_people,
@@ -34,6 +35,7 @@ class ResearchAgent(BaseAgent):
             fetch_periodic_sec_filings,
             fetch_event_sec_filings,
             fetch_ashare_filings,
+            fetch_ashare_news,
             web_search,
             search_crypto_projects,
             search_crypto_vcs,

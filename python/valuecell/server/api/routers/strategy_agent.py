@@ -76,7 +76,7 @@ def create_strategy_agent_router() -> APIRouter:
             )
             if (
                 request.exchange_config.trading_mode == TradingMode.VIRTUAL
-                and request.exchange_config.exchange_id not in {None, ""}
+                and request.exchange_config.exchange_id not in {None, "", "ashare"}
             ):
                 logger.warning(
                     "Virtual trading requested on non-default exchange_id '{}'. Ensure this is intended.",

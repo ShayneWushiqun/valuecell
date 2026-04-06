@@ -1,4 +1,5 @@
 import {
+  AShareAgentPng,
   AzurePng,
   BinancePng,
   BlockchainPng,
@@ -39,5 +40,6 @@ export const EXCHANGE_ICONS = {
   hyperliquid: HyperliquidPng,
   mexc: MexcPng,
   okx: OkxPng,
+  ashare: AShareAgentPng,
   virtual: ValueCellAgentPng,
 };

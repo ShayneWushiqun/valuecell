@@ -4,6 +4,8 @@ import yfinance as yf
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
+from valuecell.adapters.assets.ashare_provider import AShareDataProvider
+
 from .stockstats_utils import yf_retry
 
 
@@ -64,6 +66,23 @@ def get_news_yfinance(
     Returns:
         Formatted string containing news articles
     """
+    provider_ticker = _to_valuecell_ashare_ticker(ticker)
+    if provider_ticker:
+        provider = AShareDataProvider()
+        news_items = provider.get_recent_news(provider_ticker, limit=10)
+        if not news_items:
+            return f"No news found for {ticker}"
+
+        news_str = ""
+        for item in news_items:
+            news_str += f"### {item.get('title', 'No title')} (source: {item.get('source', 'unknown')})\n"
+            if item.get("content"):
+                news_str += f"{item['content']}\n"
+            if item.get("url"):
+                news_str += f"Link: {item['url']}\n"
+            news_str += "\n"
+        return f"## {ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
+
     try:
         stock = yf.Ticker(ticker)
         news = yf_retry(lambda: stock.get_news(count=20))
@@ -102,6 +121,17 @@ def get_news_yfinance(
 
     except Exception as e:
         return f"Error fetching news for {ticker}: {str(e)}"
+
+
+def _to_valuecell_ashare_ticker(ticker: str) -> str | None:
+    normalized = ticker.strip().upper()
+    if normalized.endswith(".SS"):
+        return f"SSE:{normalized[:-3]}"
+    if normalized.endswith(".SZ"):
+        return f"SZSE:{normalized[:-3]}"
+    if normalized.endswith(".BJ"):
+        return f"BSE:{normalized[:-3]}"
+    return None
 
 
 def get_global_news_yfinance(

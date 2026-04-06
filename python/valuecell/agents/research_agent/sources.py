@@ -12,6 +12,7 @@ from edgar import Company
 from edgar.entity.filings import EntityFilings
 from loguru import logger
 
+from valuecell.adapters.assets.ashare_provider import AShareDataProvider
 from valuecell.agents.sources import (
     get_person_detail,
     get_project_detail,
@@ -80,6 +81,43 @@ def _parse_date(d: str | date | None) -> Optional[date]:
     raise ValueError(
         f"Invalid date format: {d}. Expect YYYY-MM-DD, YYYY/MM/DD, or YYYYMMDD."
     )
+
+
+async def fetch_ashare_news(stock_code: str, limit: int = 8) -> str:
+    provider = AShareDataProvider()
+    ticker = _normalize_ashare_stock_code(stock_code)
+    news_items = await asyncio.to_thread(provider.get_recent_news, ticker, limit)
+    if not news_items:
+        return f"No recent A-share news found for {ticker}."
+
+    lines = [f"A-share news for {ticker}:"]
+    for index, item in enumerate(news_items, start=1):
+        title = item.get("title") or "Untitled"
+        source = item.get("source") or "unknown"
+        published_at = item.get("published_at") or "unknown time"
+        url = item.get("url") or ""
+        content = item.get("content") or ""
+        lines.append(
+            f"{index}. [{source}] {title} ({published_at})\nURL: {url}\nSummary: {content}"
+        )
+    return "\n\n".join(lines)
+
+
+def _normalize_ashare_stock_code(stock_code: str) -> str:
+    normalized = str(stock_code).strip().upper()
+    if ":" in normalized:
+        return normalized
+    if normalized.endswith(".SH"):
+        return f"SSE:{normalized[:-3]}"
+    if normalized.endswith(".SZ"):
+        return f"SZSE:{normalized[:-3]}"
+    if normalized.endswith(".BJ"):
+        return f"BSE:{normalized[:-3]}"
+    if normalized.startswith("6"):
+        return f"SSE:{normalized}"
+    if normalized.startswith(("0", "2", "3")):
+        return f"SZSE:{normalized}"
+    return f"BSE:{normalized}"
 
 
 async def _write_and_ingest(

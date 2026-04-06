@@ -131,6 +131,15 @@ class AdapterManager:
         except Exception as e:
             logger.error(f"Failed to configure BaoStock adapter: {e}")
 
+    def configure_tushare(self, api_key: str | None = None, **kwargs) -> None:
+        try:
+            from .tushare_adapter import TushareAdapter
+
+            adapter = TushareAdapter(api_key=api_key, **kwargs)
+            self.register_adapter(adapter)
+        except Exception as e:
+            logger.error(f"Failed to configure Tushare adapter: {e}")
+
     def get_available_adapters(self) -> List[DataSource]:
         """Get list of available data adapters."""
         with self.lock:

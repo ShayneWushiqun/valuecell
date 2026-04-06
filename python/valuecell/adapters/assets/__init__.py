@@ -30,6 +30,7 @@ Usage Example:
 """
 
 from .akshare_adapter import AKShareAdapter
+from .tushare_adapter import TushareAdapter
 
 # Base adapter classes
 from .base import (
@@ -97,6 +98,7 @@ __all__ = [
     # Adapters
     "YFinanceAdapter",
     "AKShareAdapter",
+    "TushareAdapter",
     # Managers
     "AdapterManager",
     "WatchlistManager",

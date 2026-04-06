@@ -27,13 +27,13 @@ import {
 } from "@/components/valuecell/form/exchange-form";
 import { TradingStrategyForm } from "@/components/valuecell/form/trading-strategy-form";
 import { StepIndicator } from "@/components/valuecell/step-indicator";
-import { TRADING_SYMBOLS } from "@/constants/agent";
+import { getTradingSymbolsByExchange, TRADING_SYMBOLS } from "@/constants/agent";
+import { useAppForm } from "@/hooks/use-form";
 import {
   createAiModelSchema,
   createExchangeSchema,
   createTradingStrategySchema,
 } from "@/constants/schema";
-import { useAppForm } from "@/hooks/use-form";
 import { tracker } from "@/lib/tracker";
 import type { CreateStrategy, Strategy } from "@/types/strategy";
 
@@ -112,7 +112,9 @@ const CreateStrategyModal: FC<CreateStrategyModalProps> = ({
       const { trading_mode, exchange_id } = form2.state.values;
       const exchangeName =
         trading_mode === "virtual"
-          ? "Virtual"
+          ? exchange_id === "ashare"
+            ? "A-Share Virtual"
+            : "Crypto Virtual"
           : EXCHANGE_OPTIONS.find((ex) => ex.value === exchange_id)?.label ||
             exchange_id;
 
@@ -126,6 +128,7 @@ const CreateStrategyModal: FC<CreateStrategyModalProps> = ({
       }
 
       form3.setFieldValue("strategy_name", newName);
+      form3.setFieldValue("symbols", getTradingSymbolsByExchange(exchange_id));
       setCurrentStep(3);
     },
   });
@@ -222,6 +225,7 @@ const CreateStrategyModal: FC<CreateStrategyModalProps> = ({
               form={form3}
               prompts={prompts}
               tradingMode={form2.state.values.trading_mode}
+              exchangeId={form2.state.values.exchange_id}
             />
           )}
         </div>

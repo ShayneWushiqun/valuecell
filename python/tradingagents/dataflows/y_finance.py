@@ -4,7 +4,15 @@ from dateutil.relativedelta import relativedelta
 import pandas as pd
 import yfinance as yf
 import os
+
+from valuecell.adapters.assets.ashare_provider import AShareDataProvider
+
 from .stockstats_utils import StockstatsUtils, _clean_dataframe, yf_retry, load_ohlcv, filter_financials_by_date
+from .tushare_finance import (
+    get_ashare_fundamentals,
+    get_ashare_statement,
+    is_tushare_ashare_ticker,
+)
 
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
@@ -14,6 +22,40 @@ def get_YFin_data_online(
 
     datetime.strptime(start_date, "%Y-%m-%d")
     datetime.strptime(end_date, "%Y-%m-%d")
+
+    ashare_ticker = _to_valuecell_ashare_ticker(symbol)
+    if ashare_ticker:
+        provider = AShareDataProvider()
+        prices = provider.get_historical_prices(
+            ashare_ticker,
+            datetime.strptime(start_date, "%Y-%m-%d"),
+            datetime.strptime(end_date, "%Y-%m-%d"),
+            "1d",
+        )
+        if not prices:
+            return (
+                f"No data found for symbol '{symbol}' between {start_date} and {end_date}"
+            )
+
+        data = pd.DataFrame(
+            [
+                {
+                    "Date": price.timestamp,
+                    "Open": float(price.open_price or price.price),
+                    "High": float(price.high_price or price.price),
+                    "Low": float(price.low_price or price.price),
+                    "Close": float(price.close_price or price.price),
+                    "Volume": float(price.volume or 0.0),
+                }
+                for price in prices
+            ]
+        )
+        data = _clean_dataframe(data)
+        csv_string = data.to_csv(index=False)
+        header = f"# Stock data for {symbol.upper()} from {start_date} to {end_date}\n"
+        header += f"# Total records: {len(data)}\n"
+        header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        return header + csv_string
 
     # Create ticker object
     ticker = yf.Ticker(symbol.upper())
@@ -46,6 +88,17 @@ def get_YFin_data_online(
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
     return header + csv_string
+
+
+def _to_valuecell_ashare_ticker(symbol: str) -> str | None:
+    normalized = symbol.strip().upper()
+    if normalized.endswith(".SS"):
+        return f"SSE:{normalized[:-3]}"
+    if normalized.endswith(".SZ"):
+        return f"SZSE:{normalized[:-3]}"
+    if normalized.endswith(".BJ"):
+        return f"BSE:{normalized[:-3]}"
+    return None
 
 def get_stock_stats_indicators_window(
     symbol: Annotated[str, "ticker symbol of the company"],
@@ -251,6 +304,9 @@ def get_fundamentals(
 ):
     """Get company fundamentals overview from yfinance."""
     try:
+        if is_tushare_ashare_ticker(ticker):
+            return get_ashare_fundamentals(ticker, curr_date)
+
         ticker_obj = yf.Ticker(ticker.upper())
         info = yf_retry(lambda: ticker_obj.info)
 
@@ -309,6 +365,9 @@ def get_balance_sheet(
 ):
     """Get balance sheet data from yfinance."""
     try:
+        if is_tushare_ashare_ticker(ticker):
+            return get_ashare_statement(ticker, "balance_sheet", freq, curr_date)
+
         ticker_obj = yf.Ticker(ticker.upper())
 
         if freq.lower() == "quarterly":
@@ -341,6 +400,9 @@ def get_cashflow(
 ):
     """Get cash flow data from yfinance."""
     try:
+        if is_tushare_ashare_ticker(ticker):
+            return get_ashare_statement(ticker, "cashflow", freq, curr_date)
+
         ticker_obj = yf.Ticker(ticker.upper())
 
         if freq.lower() == "quarterly":
@@ -373,6 +435,9 @@ def get_income_statement(
 ):
     """Get income statement data from yfinance."""
     try:
+        if is_tushare_ashare_ticker(ticker):
+            return get_ashare_statement(ticker, "income_statement", freq, curr_date)
+
         ticker_obj = yf.Ticker(ticker.upper())
 
         if freq.lower() == "quarterly":

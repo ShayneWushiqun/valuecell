@@ -2,6 +2,7 @@
 
 import os
 from functools import lru_cache
+from urllib.parse import quote_plus
 
 from valuecell.config.constants import PROJECT_ROOT
 from valuecell.utils.env import get_system_env_dir
@@ -30,6 +31,27 @@ def _default_db_path() -> str:
     return f"sqlite:///{os.path.join(str(system_dir), 'valuecell.db')}"
 
 
+def _get_csv_env(name: str) -> list[str]:
+    raw_value = os.getenv(name, "")
+    if not raw_value:
+        return []
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
+def _build_mysql_database_url() -> str | None:
+    host = os.getenv("DB_HOST")
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    database = os.getenv("DB_NAME")
+
+    if not all([host, user, password, database]):
+        return None
+
+    port = os.getenv("DB_PORT", "3306")
+    encoded_password = quote_plus(password)
+    return f"mysql+pymysql://{user}:{encoded_password}@{host}:{port}/{database}"
+
+
 class Settings:
     """Server configuration settings."""
 
@@ -53,10 +75,13 @@ class Settings:
         # Prefer `VALUECELL_DATABASE_URL` if provided; otherwise use system application directory default.
         env_db = os.getenv("VALUECELL_DATABASE_URL")
         if env_db:
-            # If it's already a full DSN (sqlite or other), use as-is
             self.DATABASE_URL = env_db
         else:
-            self.DATABASE_URL = _default_db_path()
+            self.DATABASE_URL = _build_mysql_database_url() or _default_db_path()
+
+        self.TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN")
+        self.TAVILY_API_KEYS = _get_csv_env("TAVILY_API_KEYS")
+        self.SERPAPI_API_KEYS = _get_csv_env("SERPAPI_API_KEYS")
 
         # File Paths
         self.BASE_DIR = PROJECT_ROOT

@@ -6,7 +6,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { SelectItem } from "@/components/ui/select";
-import { TRADING_SYMBOLS } from "@/constants/agent";
+import { getTradingSymbolsByExchange, TRADING_SYMBOLS } from "@/constants/agent";
 import { withForm } from "@/hooks/use-form";
 import type { Strategy } from "@/types/strategy";
 
@@ -23,17 +23,20 @@ export const CopyStrategyForm = withForm({
   },
   props: {
     tradingMode: "live" as "live" | "virtual",
+    exchangeId: "" as string,
   },
-  render({ form, tradingMode }) {
+  render({ form, tradingMode, exchangeId }) {
+    const symbolOptions = getTradingSymbolsByExchange(exchangeId);
+
     return (
       <FieldGroup className="gap-6">
         <form.AppField
           listeners={{
             onChange: ({ value }: { value: Strategy["strategy_type"] }) => {
               if (value === "GridStrategy") {
-                form.setFieldValue("symbols", [TRADING_SYMBOLS[0]]);
+                form.setFieldValue("symbols", [symbolOptions[0]]);
               } else {
-                form.setFieldValue("symbols", TRADING_SYMBOLS);
+                form.setFieldValue("symbols", symbolOptions);
               }
             },
           }}
@@ -104,7 +107,7 @@ export const CopyStrategyForm = withForm({
                       maxSelected={
                         strategyType === "GridStrategy" ? 1 : undefined
                       }
-                      options={TRADING_SYMBOLS}
+                      options={symbolOptions}
                       value={field.state.value}
                       onValueChange={(value) => field.handleChange(value)}
                       placeholder="Select trading symbols..."

@@ -7,6 +7,9 @@ from yfinance.exceptions import YFRateLimitError
 from stockstats import wrap
 from typing import Annotated
 import os
+
+from valuecell.adapters.assets.ashare_provider import AShareDataProvider
+
 from .config import get_config
 
 logger = logging.getLogger(__name__)
@@ -44,6 +47,17 @@ def _clean_dataframe(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def _to_valuecell_ashare_ticker(symbol: str) -> str | None:
+    normalized = symbol.strip().upper()
+    if normalized.endswith(".SS"):
+        return f"SSE:{normalized[:-3]}"
+    if normalized.endswith(".SZ"):
+        return f"SZSE:{normalized[:-3]}"
+    if normalized.endswith(".BJ"):
+        return f"BSE:{normalized[:-3]}"
+    return None
+
+
 def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
     """Fetch OHLCV data with caching, filtered to prevent look-ahead bias.
 
@@ -65,19 +79,42 @@ def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
         config["data_cache_dir"],
         f"{symbol}-YFin-data-{start_str}-{end_str}.csv",
     )
+    ashare_ticker = _to_valuecell_ashare_ticker(symbol)
 
     if os.path.exists(data_file):
         data = pd.read_csv(data_file, on_bad_lines="skip")
     else:
-        data = yf_retry(lambda: yf.download(
-            symbol,
-            start=start_str,
-            end=end_str,
-            multi_level_index=False,
-            progress=False,
-            auto_adjust=True,
-        ))
-        data = data.reset_index()
+        if ashare_ticker:
+            provider = AShareDataProvider()
+            prices = provider.get_historical_prices(
+                ashare_ticker,
+                pd.to_datetime(start_str).to_pydatetime(),
+                pd.to_datetime(end_str).to_pydatetime(),
+                "1d",
+            )
+            data = pd.DataFrame(
+                [
+                    {
+                        "Date": price.timestamp,
+                        "Open": float(price.open_price or price.price),
+                        "High": float(price.high_price or price.price),
+                        "Low": float(price.low_price or price.price),
+                        "Close": float(price.close_price or price.price),
+                        "Volume": float(price.volume or 0.0),
+                    }
+                    for price in prices
+                ]
+            )
+        else:
+            data = yf_retry(lambda: yf.download(
+                symbol,
+                start=start_str,
+                end=end_str,
+                multi_level_index=False,
+                progress=False,
+                auto_adjust=True,
+            ))
+            data = data.reset_index()
         data.to_csv(data_file, index=False)
 
     data = _clean_dataframe(data)

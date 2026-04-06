@@ -73,6 +73,13 @@ class DatabaseInitializer:
 
             # Get all table names from metadata
             expected_tables = list(Base.metadata.tables.keys())
+            expected_tables.extend(
+                [
+                    "conversations",
+                    "conversation_items",
+                    "tasks",
+                ]
+            )
 
             if not expected_tables:
                 logger.info("No tables defined in models")
@@ -144,35 +151,40 @@ class DatabaseInitializer:
 
             # Create conversation-related tables that are not in SQLAlchemy models
             logger.info("Creating conversation-related tables...")
+            is_mysql = self.engine.dialect.name.startswith("mysql")
+            text_type = "LONGTEXT" if is_mysql else "TEXT"
+            id_type = "VARCHAR(255)" if is_mysql else "TEXT"
+            status_type = "VARCHAR(64)" if is_mysql else "TEXT"
+            index_if_not_exists = "" if is_mysql else "IF NOT EXISTS "
             with self.engine.connect() as conn:
                 # Create conversations table
                 conn.execute(
-                    text("""
+                    text(f"""
                     CREATE TABLE IF NOT EXISTS conversations (
-                        conversation_id TEXT PRIMARY KEY,
-                        user_id TEXT,
-                        title TEXT,
-                        agent_name TEXT,
+                        conversation_id {id_type} PRIMARY KEY,
+                        user_id {id_type},
+                        title {text_type},
+                        agent_name {id_type},
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        status TEXT DEFAULT 'active'
+                        status {status_type} DEFAULT 'active'
                     )
                 """)
                 )
 
                 # Create conversation_items table
                 conn.execute(
-                    text("""
+                    text(f"""
                     CREATE TABLE IF NOT EXISTS conversation_items (
-                        item_id TEXT PRIMARY KEY,
-                        role TEXT NOT NULL,
-                        event TEXT NOT NULL,
-                        conversation_id TEXT NOT NULL,
-                        thread_id TEXT,
-                        task_id TEXT,
-                        payload TEXT,
-                        agent_name TEXT,
-                        metadata TEXT,
+                        item_id {id_type} PRIMARY KEY,
+                        role {status_type} NOT NULL,
+                        event {status_type} NOT NULL,
+                        conversation_id {id_type} NOT NULL,
+                        thread_id {id_type},
+                        task_id {id_type},
+                        payload {text_type},
+                        agent_name {id_type},
+                        metadata {text_type},
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -180,52 +192,52 @@ class DatabaseInitializer:
 
                 # Create index for conversation_items
                 conn.execute(
-                    text("""
-                    CREATE INDEX IF NOT EXISTS idx_item_conv_time 
+                    text(f"""
+                    CREATE INDEX {index_if_not_exists}idx_item_conv_time 
                     ON conversation_items(conversation_id, created_at)
                 """)
                 )
 
                 # Create tasks table for task management
                 conn.execute(
-                    text("""
+                    text(f"""
                     CREATE TABLE IF NOT EXISTS tasks (
-                        task_id TEXT PRIMARY KEY,
-                        title TEXT,
-                        query TEXT NOT NULL,
-                        conversation_id TEXT NOT NULL,
-                        thread_id TEXT NOT NULL,
-                        user_id TEXT NOT NULL,
-                        agent_name TEXT NOT NULL,
-                        status TEXT NOT NULL DEFAULT 'pending',
-                        pattern TEXT NOT NULL DEFAULT 'once',
-                        schedule_config TEXT,
+                        task_id {id_type} PRIMARY KEY,
+                        title {text_type},
+                        query {text_type} NOT NULL,
+                        conversation_id {id_type} NOT NULL,
+                        thread_id {id_type} NOT NULL,
+                        user_id {id_type} NOT NULL,
+                        agent_name {id_type} NOT NULL,
+                        status {status_type} NOT NULL DEFAULT 'pending',
+                        pattern {status_type} NOT NULL DEFAULT 'once',
+                        schedule_config {text_type},
                         handoff_from_super_agent INTEGER DEFAULT 0,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         started_at TIMESTAMP,
                         completed_at TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        error_message TEXT
+                        error_message {text_type}
                     )
                     """)
                 )
 
                 # Indexes for common task queries
                 conn.execute(
-                    text("""
-                    CREATE INDEX IF NOT EXISTS idx_tasks_conversation 
+                    text(f"""
+                    CREATE INDEX {index_if_not_exists}idx_tasks_conversation 
                     ON tasks(conversation_id)
                     """)
                 )
                 conn.execute(
-                    text("""
-                    CREATE INDEX IF NOT EXISTS idx_tasks_user 
+                    text(f"""
+                    CREATE INDEX {index_if_not_exists}idx_tasks_user 
                     ON tasks(user_id)
                     """)
                 )
                 conn.execute(
-                    text("""
-                    CREATE INDEX IF NOT EXISTS idx_tasks_status 
+                    text(f"""
+                    CREATE INDEX {index_if_not_exists}idx_tasks_status 
                     ON tasks(status)
                     """)
                 )
@@ -431,6 +443,8 @@ class DatabaseInitializer:
 
         if ticker in fallback_configs:
             config = fallback_configs[ticker]
+            metadata = config.get("metadata")
+            asset_metadata = metadata if isinstance(metadata, dict) else {}
             return {
                 "symbol": ticker,
                 "name": config["name"],
@@ -438,7 +452,7 @@ class DatabaseInitializer:
                 "sector": config.get("sector"),
                 "is_active": True,
                 "asset_metadata": {
-                    **config.get("metadata", {}),
+                    **asset_metadata,
                     "exchange": config.get("exchange"),
                     "source": "fallback_data",
                     "initialized_at": "database_init",

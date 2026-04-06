@@ -26,7 +26,7 @@ import {
   ExchangeForm,
 } from "@/components/valuecell/form/exchange-form";
 import { StepIndicator } from "@/components/valuecell/step-indicator";
-import { TRADING_SYMBOLS } from "@/constants/agent";
+import { getTradingSymbolsByExchange, TRADING_SYMBOLS } from "@/constants/agent";
 import {
   createAiModelSchema,
   createCopyTradingStrategySchema,
@@ -118,7 +118,9 @@ const CopyStrategyModal: FC<CopyStrategyModalProps> = ({
       const { trading_mode, exchange_id } = form2.state.values;
       const exchangeName =
         trading_mode === "virtual"
-          ? "Virtual"
+          ? exchange_id === "ashare"
+            ? "A-Share Virtual"
+            : "Crypto Virtual"
           : EXCHANGE_OPTIONS.find((ex) => ex.value === exchange_id)?.label ||
             exchange_id;
 
@@ -132,6 +134,7 @@ const CopyStrategyModal: FC<CopyStrategyModalProps> = ({
       }
 
       form3.setFieldValue("strategy_name", newName);
+      form3.setFieldValue("symbols", getTradingSymbolsByExchange(exchange_id));
       setCurrentStep(3);
     },
   });
@@ -233,6 +236,7 @@ const CopyStrategyModal: FC<CopyStrategyModalProps> = ({
             <CopyStrategyForm
               form={form3}
               tradingMode={form2.state.values.trading_mode}
+              exchangeId={form2.state.values.exchange_id}
             />
           )}
         </div>

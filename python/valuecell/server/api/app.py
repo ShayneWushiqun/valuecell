@@ -136,6 +136,15 @@ def create_app() -> FastAPI:
             except Exception as e:
                 logger.info(f"✗ AKShare adapter failed: {e}")
 
+            try:
+                if settings.TUSHARE_TOKEN:
+                    manager.configure_tushare(api_key=settings.TUSHARE_TOKEN)
+                    logger.info("✓ Tushare adapter configured")
+                else:
+                    logger.info("• Tushare adapter skipped: token not configured")
+            except Exception as e:
+                logger.info(f"✗ Tushare adapter failed: {e}")
+
             # Configure BaoStock (free, no API key required)
             try:
                 manager.configure_baostock()

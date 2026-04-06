@@ -43,6 +43,17 @@ export const EXCHANGE_OPTIONS = [
   },
 ];
 
+export const VIRTUAL_EXCHANGE_OPTIONS = [
+  {
+    value: "ashare",
+    label: "A-Share",
+  },
+  {
+    value: "okx",
+    label: "Crypto Paper",
+  },
+];
+
 const getPlaceholder = (
   exchangeId: string,
   fieldType:
@@ -159,7 +170,7 @@ export const ExchangeForm = withForm({
             onChange: ({ value }) => {
               form.reset({
                 trading_mode: value,
-                exchange_id: value === "live" ? "okx" : "",
+                exchange_id: value === "live" ? "okx" : "ashare",
                 api_key: "",
                 secret_key: "",
                 passphrase: "",
@@ -193,7 +204,31 @@ export const ExchangeForm = withForm({
         <form.Subscribe selector={(state) => state.values.trading_mode}>
           {(tradingMode) => {
             return (
-              tradingMode === "live" && (
+              <>
+                {tradingMode === "virtual" && (
+                  <form.AppField name="exchange_id">
+                    {(field) => (
+                      <field.SelectField label="Simulation Market">
+                        {VIRTUAL_EXCHANGE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <PngIcon
+                                src={
+                                  EXCHANGE_ICONS[
+                                    option.value as keyof typeof EXCHANGE_ICONS
+                                  ]
+                                }
+                              />
+                              {option.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </field.SelectField>
+                    )}
+                  </form.AppField>
+                )}
+
+                {tradingMode === "live" && (
                 <>
                   <form.AppField name="exchange_id">
                     {(field) => (
@@ -326,7 +361,8 @@ export const ExchangeForm = withForm({
                     </Button>
                   </div>
                 </>
-              )
+                )}
+              </>
             );
           }}
         </form.Subscribe>

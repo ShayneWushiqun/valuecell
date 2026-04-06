@@ -1,6 +1,7 @@
 import asyncio
 import itertools
 from collections import defaultdict
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from loguru import logger
@@ -10,6 +11,7 @@ from valuecell.agents.common.trading.models import (
     InstrumentRef,
     MarketSnapShotType,
 )
+from valuecell.adapters.assets.ashare_provider import AShareDataProvider, is_ashare_ticker
 from valuecell.agents.common.trading.utils import get_exchange_cls, normalize_symbol
 
 from .interfaces import BaseMarketDataSource
@@ -30,6 +32,12 @@ class SimpleMarketDataSource(BaseMarketDataSource):
             self._exchange_id = "okx"
         else:
             self._exchange_id = exchange_id
+        self._ashare_provider = AShareDataProvider()
+
+    def _uses_ashare_data(self, symbols: List[str]) -> bool:
+        return self._exchange_id == "ashare" or all(
+            is_ashare_ticker(symbol) for symbol in symbols
+        )
 
     def _normalize_symbol(self, symbol: str) -> str:
         """Normalize symbol format for specific exchanges.
@@ -58,6 +66,9 @@ class SimpleMarketDataSource(BaseMarketDataSource):
     async def get_recent_candles(
         self, symbols: List[str], interval: str, lookback: int
     ) -> List[Candle]:
+        if self._uses_ashare_data(symbols):
+            return await self._get_recent_ashare_candles(symbols, interval, lookback)
+
         async def _fetch_and_process(symbol: str) -> List[Candle]:
             # instantiate exchange class by name (e.g., ccxtpro.kraken)
             exchange_cls = get_exchange_cls(self._exchange_id)
@@ -122,6 +133,62 @@ class SimpleMarketDataSource(BaseMarketDataSource):
             f"Fetch {len(candles)} candles symbols: {symbols}, interval: {interval}, lookback: {lookback}"
         )
         return candles
+
+    async def _get_recent_ashare_candles(
+        self,
+        symbols: List[str],
+        interval: str,
+        lookback: int,
+    ) -> List[Candle]:
+        end_date = datetime.now()
+        start_date = end_date - self._resolve_lookback_window(interval, lookback)
+
+        async def _fetch_symbol(symbol: str) -> List[Candle]:
+            prices = await asyncio.to_thread(
+                self._ashare_provider.get_historical_prices,
+                symbol,
+                start_date,
+                end_date,
+                interval,
+            )
+            return [
+                Candle(
+                    ts=int(price.timestamp.timestamp() * 1000),
+                    instrument=InstrumentRef(
+                        symbol=symbol,
+                        exchange_id="ashare",
+                    ),
+                    open=float(price.open_price or price.price),
+                    high=float(price.high_price or price.price),
+                    low=float(price.low_price or price.price),
+                    close=float(price.close_price or price.price),
+                    volume=float(price.volume or 0.0),
+                    interval=interval,
+                )
+                for price in prices[-lookback:]
+            ]
+
+        results = await asyncio.gather(*[_fetch_symbol(symbol) for symbol in symbols])
+        candles = list(itertools.chain.from_iterable(results))
+        logger.info(
+            "Fetched {count} A-share candles for symbols={symbols}, interval={interval}",
+            count=len(candles),
+            symbols=symbols,
+            interval=interval,
+        )
+        return candles
+
+    @staticmethod
+    def _resolve_lookback_window(interval: str, lookback: int) -> timedelta:
+        if interval.endswith("m"):
+            minutes = int(interval[:-1] or "1")
+            return timedelta(minutes=max(minutes * lookback * 2, 60))
+        if interval.endswith("h"):
+            hours = int(interval[:-1] or "1")
+            return timedelta(hours=max(hours * lookback * 2, 24))
+        if interval == "1d":
+            return timedelta(days=max(lookback * 3, 30))
+        return timedelta(days=max(lookback * 3, 30))
 
     async def get_market_snapshot(self, symbols: List[str]) -> MarketSnapShotType:
         """Fetch latest prices for the given symbols using exchange endpoints.
@@ -204,6 +271,9 @@ class SimpleMarketDataSource(BaseMarketDataSource):
         }
         ```
         """
+        if self._uses_ashare_data(symbols):
+            return await self._get_ashare_market_snapshot(symbols)
+
         snapshot = defaultdict(dict)
 
         exchange_cls = get_exchange_cls(self._exchange_id)
@@ -251,4 +321,34 @@ class SimpleMarketDataSource(BaseMarketDataSource):
                     self._exchange_id,
                 )
 
+        return dict(snapshot)
+
+    async def _get_ashare_market_snapshot(
+        self,
+        symbols: List[str],
+    ) -> MarketSnapShotType:
+        snapshot = defaultdict(dict)
+        for symbol in symbols:
+            try:
+                price = await asyncio.to_thread(
+                    self._ashare_provider.get_real_time_price,
+                    symbol,
+                )
+                if price is None:
+                    continue
+                snapshot[symbol]["price"] = {
+                    "symbol": symbol,
+                    "timestamp": int(price.timestamp.timestamp() * 1000),
+                    "open": float(price.open_price or price.price),
+                    "high": float(price.high_price or price.price),
+                    "low": float(price.low_price or price.price),
+                    "close": float(price.close_price or price.price),
+                    "last": float(price.price),
+                    "percentage": (
+                        float(price.change_percent) if price.change_percent is not None else None
+                    ),
+                    "baseVolume": float(price.volume or 0.0),
+                }
+            except Exception:
+                logger.exception("Failed to fetch A-share market snapshot for {}", symbol)
         return dict(snapshot)

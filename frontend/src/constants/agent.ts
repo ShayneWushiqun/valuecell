@@ -115,11 +115,24 @@ export const VALUECELL_AGENT: AgentInfo = {
   },
 };
 
-// Trading symbols options
-export const TRADING_SYMBOLS: string[] = [
+export const CRYPTO_TRADING_SYMBOLS: string[] = [
   "BTC/USDT",
   "ETH/USDT",
   "SOL/USDT",
   "DOGE/USDT",
   "XRP/USDT",
 ];
+
+export const ASHARE_TRADING_SYMBOLS: string[] = [
+  "000001.SZ",
+  "000858.SZ",
+  "002594.SZ",
+  "300750.SZ",
+  "600036.SH",
+  "600519.SH",
+];
+
+export const TRADING_SYMBOLS = CRYPTO_TRADING_SYMBOLS;
+
+export const getTradingSymbolsByExchange = (exchangeId?: string): string[] =>
+  exchangeId === "ashare" ? ASHARE_TRADING_SYMBOLS : CRYPTO_TRADING_SYMBOLS;
