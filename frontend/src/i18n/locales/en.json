@@ -377,6 +377,167 @@
       }
     }
   },
+  "tradingagents": {
+    "title": "TradingAgents Stock Analysis Workspace",
+    "description": "{{agentName}} focuses on multi-dimensional stock analysis, including technical signals, fundamentals, sentiment, and trading plans.",
+    "empty": "Fill in the form on the left and start an analysis run.",
+    "form": {
+      "title": "Run Parameters",
+      "symbol": "A-share Symbol",
+      "tradeDate": "Analysis Date",
+      "provider": "Model Provider",
+      "deepModel": "Deep Thinking Model",
+      "quickModel": "Quick Thinking Model",
+      "outputLanguage": "Output Language",
+      "analysts": "Analysis Modules",
+      "debug": "Debug Mode",
+      "debugDescription": "Keep more intermediate details for troubleshooting.",
+      "open": "New Analysis",
+      "run": "Run TradingAgents",
+      "currentRun": "Current Run",
+      "progressPending": "The task was submitted and is waiting for backend progress updates."
+    },
+    "progress": {
+      "title": "Execution Progress",
+      "idle": "Analysis has not started yet.",
+      "creating": "Creating the analysis task.",
+      "queued": "The task is queued and waiting to start.",
+      "running": "The stock analysis is running."
+    },
+    "status": {
+      "idle": "No Run",
+      "queued": "Queued",
+      "running": "Running",
+      "succeeded": "Completed",
+      "failed": "Failed"
+    },
+    "meta": {
+      "lastUpdated": "Last Updated",
+      "currentStage": "Current Stage"
+    },
+    "history": {
+      "title": "Run History",
+      "empty": "No TradingAgents runs have been created yet.",
+      "detail": "View details"
+    },
+    "timeline": {
+      "title": "Process Timeline",
+      "empty": "No process timeline is available yet."
+    },
+    "logs": {
+      "title": "Latest Process Updates",
+      "empty": "No process updates are available yet."
+    },
+    "coreSummary": {
+      "technical": "Technical Signals",
+      "fundamentals": "Fundamentals",
+      "sentiment": "Sentiment",
+      "capitalFlow": "Trading Plan",
+      "finalDecision": "Final Decision",
+      "empty": "No result yet",
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
+    "summary": {
+      "marketOverview": "Market Diagnosis",
+      "hotSectors": "Hot Sector Diagnosis",
+      "marketSentiment": "Market Sentiment",
+      "positionAdvice": "Position Advice",
+      "finalDecision": "Final Decision",
+      "empty": "No result yet"
+    },
+    "reports": {
+      "title": "Raw Reports",
+      "empty": "No raw reports are available yet."
+    },
+    "reportViewer": {
+      "placeholderTitle": "Report Details",
+      "placeholder": "Select a report from the left to view details."
+    },
+    "toast": {
+      "symbolRequired": "Please enter an A-share symbol.",
+      "dateRequired": "Please choose an analysis date.",
+      "modelRequired": "Please select both deep and quick models.",
+      "modelUnavailable": "Model options are not ready yet, or the selected model is unavailable. Please try again shortly.",
+      "analystRequired": "Please select at least one analysis module.",
+      "runCreated": "TradingAgents run created.",
+      "runFailed": "Failed to create the TradingAgents run.",
+      "completed": "TradingAgents analysis completed."
+    }
+  },
+  "ashareAgent": {
+    "title": "A-share Agent Workspace",
+    "description": "{{agentName}} handles market diagnosis, health checks, stock data pulling, hot sector analysis, and position advice.",
+    "empty": "Fill in the form on the left and start an analysis run.",
+    "form": {
+      "title": "Run Parameters",
+      "symbol": "A-share Symbol",
+      "tradeDate": "Analysis Date",
+      "provider": "Model Provider",
+      "deepModel": "Deep Thinking Model",
+      "quickModel": "Quick Thinking Model",
+      "outputLanguage": "Output Language",
+      "analysts": "Analysis Modules",
+      "debug": "Debug Mode",
+      "debugDescription": "Keep more intermediate details for troubleshooting.",
+      "run": "Run A-share Agent",
+      "currentRun": "Current Run",
+      "progressPending": "The task was submitted and is waiting for backend progress updates."
+    },
+    "progress": {
+      "title": "Execution Progress",
+      "idle": "Analysis has not started yet.",
+      "creating": "Creating the analysis task.",
+      "queued": "The task is queued and waiting to start.",
+      "running": "The stock analysis is running."
+    },
+    "stage": {
+      "title": "Real Stage Status",
+      "empty": "No stage execution information is available yet.",
+      "waiting": "Waiting to enter this stage.",
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "health": {
+      "title": "Backend Health Check",
+      "empty": "Health check information is not available yet."
+    },
+    "logs": {
+      "title": "Execution Log Trace",
+      "empty": "No execution logs are available yet.",
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error"
+    },
+    "summary": {
+      "marketOverview": "Market Diagnosis",
+      "hotSectors": "Hot Sector Diagnosis",
+      "marketSentiment": "Market Sentiment",
+      "positionAdvice": "Position Advice",
+      "finalDecision": "Final Decision",
+      "empty": "No result yet"
+    },
+    "reports": {
+      "title": "Raw Reports",
+      "empty": "No raw reports are available yet."
+    },
+    "reportViewer": {
+      "placeholderTitle": "Report Details",
+      "placeholder": "Select a report from the left to view details."
+    },
+    "toast": {
+      "symbolRequired": "Please enter an A-share symbol.",
+      "dateRequired": "Please choose an analysis date.",
+      "modelRequired": "Please select both deep and quick models.",
+      "modelUnavailable": "Model options are not ready yet, or the selected model is unavailable. Please try again shortly.",
+      "analystRequired": "Please select at least one analysis module.",
+      "runCreated": "A-share Agent run created.",
+      "runFailed": "Failed to create the A-share Agent run.",
+      "completed": "A-share Agent analysis completed."
+    }
+  },
   "rank": {
     "title": "Profit Leaderboard",
     "table": {

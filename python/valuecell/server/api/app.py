@@ -27,6 +27,7 @@ from .routers.models import create_models_router
 from .routers.strategy_api import create_strategy_api_router
 from .routers.system import create_system_router
 from .routers.task import create_task_router
+from .routers.tradingagents import create_tradingagents_router
 from .routers.user_profile import create_user_profile_router
 from .routers.watchlist import create_watchlist_router
 from .schemas import AppInfoData, SuccessResponse
@@ -239,6 +240,9 @@ def _add_routes(app: FastAPI, settings) -> None:
 
     # Include aggregated strategy API router (strategies + strategy agent)
     app.include_router(create_strategy_api_router(), prefix=API_PREFIX)
+
+    # Include TradingAgents API router
+    app.include_router(create_tradingagents_router(), prefix=API_PREFIX)
 
     # Include agent router
     app.include_router(create_agent_router(), prefix=API_PREFIX)

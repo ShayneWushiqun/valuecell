@@ -13,9 +13,18 @@ dependencies = [
     "pytz>=2023.3",
     "python-dateutil>=2.8.2",
     "fastapi>=0.104.0",
+    "langchain-anthropic>=0.3.15",
+    "langchain-core>=0.3.81",
+    "langchain-google-genai>=4.0.0",
+    "langchain-openai>=0.3.23",
+    "langgraph>=0.4.8",
+    "pandas>=2.3.0",
     "pydantic>=2.0.0",
+    "rank-bm25>=0.2.2",
     "uvicorn>=0.24.0",
     "a2a-sdk[http-server]>=0.3.4",
+    "stockstats>=0.6.5",
+    "typing-extensions>=4.14.0",
     "yfinance>=0.2.65",
     "requests>=2.32.5",
     "akshare>=1.17.87",
@@ -72,7 +81,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.hatch.build.targets.wheel]
-include = ["valuecell"]
+include = ["valuecell", "tradingagents"]
 exclude = [
     "tests/**",
     "**/tests/**",

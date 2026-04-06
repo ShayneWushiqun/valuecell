@@ -1,4 +1,5 @@
 import {
+  AShareAgentPng,
   AswathDamodaranPng,
   BenGrahamPng,
   BillAckmanPng,
@@ -18,6 +19,7 @@ import {
   StanleyDruckenmillerPng,
   StrategyAgentPng,
   TechnicalAgencyPng,
+  TradingAgentsPng,
   ValuationAgencyPng,
   ValueCellAgentPng,
   WarrenBuffettPng,
@@ -92,7 +94,8 @@ export const AGENT_AVATAR_MAP: Record<string, string> = {
   SentimentAnalystAgent: EmotionalAgencyPng,
 
   // System Agents
-  TradingAgents: PortfolioManagerPng,
+  TradingAgents: TradingAgentsPng,
+  AShareAgent: AShareAgentPng,
   SECAgent: SecAgentPng,
   NewsAgent: NewPushAgentPng,
 };

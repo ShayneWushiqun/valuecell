@@ -377,6 +377,167 @@
       }
     }
   },
+  "tradingagents": {
+    "title": "TradingAgents 个股分析工作台",
+    "description": "{{agentName}} 聚焦多维度个股分析，包括技术面、基本面、情绪面与交易计划。",
+    "empty": "请先在左侧填写参数并发起一次分析任务。",
+    "form": {
+      "title": "运行参数",
+      "symbol": "A股代码",
+      "tradeDate": "分析日期",
+      "provider": "模型平台",
+      "deepModel": "深度思考模型",
+      "quickModel": "快速思考模型",
+      "outputLanguage": "输出语言",
+      "analysts": "分析模块",
+      "debug": "调试模式",
+      "debugDescription": "开启后将保留更多中间过程，适合排查问题。",
+      "open": "新建分析",
+      "run": "运行 TradingAgents",
+      "currentRun": "当前任务",
+      "progressPending": "已提交任务，正在等待后端返回执行进度。"
+    },
+    "progress": {
+      "title": "执行进度",
+      "idle": "尚未开始执行分析。",
+      "creating": "正在创建分析任务。",
+      "queued": "任务已进入队列，准备启动分析。",
+      "running": "正在执行股票分析，请稍候。"
+    },
+    "status": {
+      "idle": "暂无任务",
+      "queued": "排队中",
+      "running": "执行中",
+      "succeeded": "已完成",
+      "failed": "失败"
+    },
+    "meta": {
+      "lastUpdated": "最近更新时间",
+      "currentStage": "当前阶段"
+    },
+    "history": {
+      "title": "运行记录",
+      "empty": "当前还没有 TradingAgents 运行记录。",
+      "detail": "查看详情"
+    },
+    "timeline": {
+      "title": "过程时间线",
+      "empty": "当前还没有过程时间线。"
+    },
+    "logs": {
+      "title": "最新过程更新",
+      "empty": "当前还没有过程更新。"
+    },
+    "coreSummary": {
+      "technical": "技术面",
+      "fundamentals": "基本面",
+      "sentiment": "情绪面",
+      "capitalFlow": "交易计划",
+      "finalDecision": "最终结论",
+      "empty": "暂无结果",
+      "expand": "展开全文",
+      "collapse": "收起"
+    },
+    "summary": {
+      "marketOverview": "大盘诊断",
+      "hotSectors": "热点板块诊断",
+      "marketSentiment": "市场情绪诊断",
+      "positionAdvice": "仓位建议",
+      "finalDecision": "最终结论",
+      "empty": "暂无结果"
+    },
+    "reports": {
+      "title": "原始报告",
+      "empty": "当前还没有可查看的原始报告。"
+    },
+    "reportViewer": {
+      "placeholderTitle": "报告详情",
+      "placeholder": "请选择左侧报告查看详情。"
+    },
+    "toast": {
+      "symbolRequired": "请输入 A 股代码。",
+      "dateRequired": "请选择分析日期。",
+      "modelRequired": "请选择深度与快速模型。",
+      "modelUnavailable": "当前模型列表尚未准备完成，或所选模型不可用，请稍后重试。",
+      "analystRequired": "请至少选择一个分析模块。",
+      "runCreated": "TradingAgents 任务已创建。",
+      "runFailed": "TradingAgents 任务创建失败。",
+      "completed": "TradingAgents 分析已完成。"
+    }
+  },
+  "ashareAgent": {
+    "title": "A-share Agent 工作台",
+    "description": "{{agentName}} 负责大盘诊断、健康检查、股票数据拉取、热点板块分析与仓位建议。",
+    "empty": "请先在左侧填写参数并发起一次分析任务。",
+    "form": {
+      "title": "运行参数",
+      "symbol": "A股代码",
+      "tradeDate": "分析日期",
+      "provider": "模型平台",
+      "deepModel": "深度思考模型",
+      "quickModel": "快速思考模型",
+      "outputLanguage": "输出语言",
+      "analysts": "分析模块",
+      "debug": "调试模式",
+      "debugDescription": "开启后将保留更多中间过程，适合排查问题。",
+      "run": "运行 A-share Agent",
+      "currentRun": "当前任务",
+      "progressPending": "已提交任务，正在等待后端返回执行进度。"
+    },
+    "progress": {
+      "title": "执行进度",
+      "idle": "尚未开始执行分析。",
+      "creating": "正在创建分析任务。",
+      "queued": "任务已进入队列，准备启动分析。",
+      "running": "正在执行股票分析，请稍候。"
+    },
+    "stage": {
+      "title": "真实阶段状态",
+      "empty": "当前还没有阶段执行信息。",
+      "waiting": "等待进入该阶段。",
+      "pending": "待执行",
+      "running": "执行中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "health": {
+      "title": "后端健康检查",
+      "empty": "暂未获取到健康检查信息。"
+    },
+    "logs": {
+      "title": "执行日志追踪",
+      "empty": "当前还没有执行日志。",
+      "info": "信息",
+      "warning": "预警",
+      "error": "错误"
+    },
+    "summary": {
+      "marketOverview": "大盘诊断",
+      "hotSectors": "热点板块诊断",
+      "marketSentiment": "市场情绪诊断",
+      "positionAdvice": "仓位建议",
+      "finalDecision": "最终结论",
+      "empty": "暂无结果"
+    },
+    "reports": {
+      "title": "原始报告",
+      "empty": "当前还没有可查看的原始报告。"
+    },
+    "reportViewer": {
+      "placeholderTitle": "报告详情",
+      "placeholder": "请选择左侧报告查看详情。"
+    },
+    "toast": {
+      "symbolRequired": "请输入 A 股代码。",
+      "dateRequired": "请选择分析日期。",
+      "modelRequired": "请选择深度与快速模型。",
+      "modelUnavailable": "当前模型列表尚未准备完成，或所选模型不可用，请稍后重试。",
+      "analystRequired": "请至少选择一个分析模块。",
+      "runCreated": "A-share Agent 任务已创建。",
+      "runFailed": "A-share Agent 任务创建失败。",
+      "completed": "A-share Agent 分析已完成。"
+    }
+  },
   "rank": {
     "title": "收益排行榜",
     "table": {

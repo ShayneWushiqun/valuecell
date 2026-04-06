@@ -1,5 +1,5 @@
-# Conversation management
-from .agent.decorator import create_wrapped_agent
+from typing import TYPE_CHECKING
+
 from .agent.responses import notification, streaming
 from .conversation import (
     Conversation,
@@ -25,6 +25,9 @@ from .types import (
     UserInput,
     UserInputMetadata,
 )
+
+if TYPE_CHECKING:
+    from .agent.decorator import create_wrapped_agent
 
 __all__ = [
     # Conversation exports
@@ -52,3 +55,11 @@ __all__ = [
     "streaming",
     "notification",
 ]
+
+
+def __getattr__(name: str):
+    if name == "create_wrapped_agent":
+        from .agent.decorator import create_wrapped_agent
+
+        return create_wrapped_agent
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
