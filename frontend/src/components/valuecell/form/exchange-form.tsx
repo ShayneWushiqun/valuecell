@@ -208,7 +208,9 @@ export const ExchangeForm = withForm({
                 {tradingMode === "virtual" && (
                   <form.AppField name="exchange_id">
                     {(field) => (
-                      <field.SelectField label="Simulation Market">
+                      <field.SelectField
+                        label={t("strategy.form.exchanges.simulationMarket")}
+                      >
                         {VIRTUAL_EXCHANGE_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             <div className="flex items-center gap-2">
@@ -219,7 +221,9 @@ export const ExchangeForm = withForm({
                                   ]
                                 }
                               />
-                              {option.label}
+                              {option.value === "ashare"
+                                ? t("strategy.form.exchanges.ashareMarket")
+                                : t("strategy.form.exchanges.cryptoPaper")}
                             </div>
                           </SelectItem>
                         ))}

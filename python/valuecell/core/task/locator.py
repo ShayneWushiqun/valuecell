@@ -16,11 +16,12 @@ from __future__ import annotations
 import threading
 from typing import Optional
 
+from valuecell.server.config.settings import get_settings
 from valuecell.utils.db import resolve_db_path
 
 from .manager import TaskManager
 from .service import TaskService
-from .task_store import SQLiteTaskStore
+from .task_store import SQLTaskStore, SQLiteTaskStore
 
 _task_service: Optional[TaskService] = None
 _lock = threading.Lock()
@@ -32,8 +33,11 @@ def get_task_service() -> TaskService:
     if _task_service is None:
         with _lock:
             if _task_service is None:
-                db_path = resolve_db_path()
-                task_store = SQLiteTaskStore(db_path)
+                database_url = get_settings().DATABASE_URL
+                if database_url.startswith("sqlite:///"):
+                    task_store = SQLiteTaskStore(resolve_db_path())
+                else:
+                    task_store = SQLTaskStore(database_url)
                 manager = TaskManager(task_store)
 
                 _task_service = TaskService(manager=manager)

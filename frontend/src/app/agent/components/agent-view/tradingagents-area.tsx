@@ -89,7 +89,9 @@ function formatTimestamp(
   language: string,
 ): string {
   if (!value) return "--";
-  return new Date(value).toLocaleString(language);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(language.split("_").join("-"));
 }
 
 function getStatusLabel(

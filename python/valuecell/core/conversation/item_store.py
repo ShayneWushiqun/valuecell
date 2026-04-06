@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
 import aiosqlite
+from sqlalchemy import create_engine, text
 
 from valuecell.core.types import ConversationItem, ConversationItemEvent, Role
 
@@ -270,3 +272,206 @@ class SQLiteItemStore(ItemStore):
                 (conversation_id,),
             )
             await db.commit()
+
+
+class SQLItemStore(ItemStore):
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        self.engine = create_engine(database_url, future=True, pool_pre_ping=True)
+
+    @staticmethod
+    def _row_to_item(row) -> ConversationItem:
+        mapping = row._mapping if hasattr(row, "_mapping") else row
+        return ConversationItem(
+            item_id=str(mapping["item_id"]),
+            role=mapping["role"],
+            event=mapping["event"],
+            conversation_id=str(mapping["conversation_id"]),
+            thread_id=mapping["thread_id"],
+            task_id=mapping["task_id"],
+            payload=mapping["payload"],
+            agent_name=mapping["agent_name"],
+            metadata=mapping["metadata"] or "{}",
+        )
+
+    def _save_item_sync(self, item: ConversationItem) -> None:
+        params = {
+            "item_id": item.item_id,
+            "role": getattr(item.role, "value", str(item.role)),
+            "event": getattr(item.event, "value", str(item.event)),
+            "conversation_id": item.conversation_id,
+            "thread_id": item.thread_id,
+            "task_id": item.task_id,
+            "payload": item.payload,
+            "agent_name": item.agent_name,
+            "metadata": item.metadata,
+        }
+        if self.engine.dialect.name.startswith("mysql"):
+            sql = text(
+                """
+                INSERT INTO conversation_items (
+                    item_id, role, event, conversation_id, thread_id, task_id, payload, agent_name, metadata
+                ) VALUES (
+                    :item_id, :role, :event, :conversation_id, :thread_id, :task_id, :payload, :agent_name, :metadata
+                )
+                ON DUPLICATE KEY UPDATE
+                    role = VALUES(role),
+                    event = VALUES(event),
+                    conversation_id = VALUES(conversation_id),
+                    thread_id = VALUES(thread_id),
+                    task_id = VALUES(task_id),
+                    payload = VALUES(payload),
+                    agent_name = VALUES(agent_name),
+                    metadata = VALUES(metadata)
+                """
+            )
+        else:
+            sql = text(
+                """
+                INSERT OR REPLACE INTO conversation_items (
+                    item_id, role, event, conversation_id, thread_id, task_id, payload, agent_name, metadata
+                ) VALUES (
+                    :item_id, :role, :event, :conversation_id, :thread_id, :task_id, :payload, :agent_name, :metadata
+                )
+                """
+            )
+        with self.engine.begin() as conn:
+            conn.execute(sql, params)
+
+    async def save_item(self, item: ConversationItem) -> None:
+        await asyncio.to_thread(self._save_item_sync, item)
+
+    def _get_items_sync(
+        self,
+        conversation_id: Optional[str] = None,
+        role: Optional[Role] = None,
+        event: Optional[ConversationItemEvent] = None,
+        component_type: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[ConversationItem]:
+        params: dict[str, object] = {}
+        where_clauses: list[str] = []
+        if conversation_id is not None:
+            where_clauses.append("conversation_id = :conversation_id")
+            params["conversation_id"] = conversation_id
+        if role is not None:
+            where_clauses.append("role = :role")
+            params["role"] = getattr(role, "value", str(role))
+        if event is not None:
+            where_clauses.append("event = :event")
+            params["event"] = getattr(event, "value", str(event))
+
+        sql = """
+            SELECT item_id, role, event, conversation_id, thread_id, task_id, payload, agent_name, metadata, created_at
+            FROM conversation_items
+        """
+        if where_clauses:
+            sql += " WHERE " + " AND ".join(where_clauses)
+        sql += " ORDER BY created_at ASC"
+        if limit is not None:
+            sql += " LIMIT :limit"
+            params["limit"] = int(limit)
+        if offset:
+            if limit is None:
+                sql += " LIMIT 18446744073709551615" if self.engine.dialect.name.startswith("mysql") else " LIMIT -1"
+            sql += " OFFSET :offset"
+            params["offset"] = int(offset)
+
+        with self.engine.begin() as conn:
+            rows = conn.execute(text(sql), params).fetchall()
+
+        items = [self._row_to_item(row) for row in rows]
+        if component_type is None:
+            return items
+
+        filtered_items: List[ConversationItem] = []
+        for item in items:
+            try:
+                payload = json.loads(item.payload)
+            except Exception:
+                continue
+            if payload.get("component_type") == component_type:
+                filtered_items.append(item)
+        return filtered_items
+
+    async def get_items(
+        self,
+        conversation_id: Optional[str] = None,
+        role: Optional[Role] = None,
+        event: Optional[ConversationItemEvent] = None,
+        component_type: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        **kwargs,
+    ) -> List[ConversationItem]:
+        return await asyncio.to_thread(
+            self._get_items_sync,
+            conversation_id,
+            role,
+            event,
+            component_type,
+            limit,
+            offset,
+        )
+
+    def _get_latest_item_sync(self, conversation_id: str) -> Optional[ConversationItem]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT item_id, role, event, conversation_id, thread_id, task_id, payload, agent_name, metadata
+                    FROM conversation_items
+                    WHERE conversation_id = :conversation_id
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"conversation_id": conversation_id},
+            ).fetchone()
+        return self._row_to_item(row) if row else None
+
+    async def get_latest_item(self, conversation_id: str) -> Optional[ConversationItem]:
+        return await asyncio.to_thread(self._get_latest_item_sync, conversation_id)
+
+    def _get_item_sync(self, item_id: str) -> Optional[ConversationItem]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT item_id, role, event, conversation_id, thread_id, task_id, payload, agent_name, metadata
+                    FROM conversation_items
+                    WHERE item_id = :item_id
+                    """
+                ),
+                {"item_id": item_id},
+            ).fetchone()
+        return self._row_to_item(row) if row else None
+
+    async def get_item(self, item_id: str) -> Optional[ConversationItem]:
+        return await asyncio.to_thread(self._get_item_sync, item_id)
+
+    def _get_item_count_sync(self, conversation_id: str) -> int:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT COUNT(1) AS count FROM conversation_items WHERE conversation_id = :conversation_id"
+                ),
+                {"conversation_id": conversation_id},
+            ).fetchone()
+        return int((row._mapping if hasattr(row, "_mapping") else row)["count"] if row else 0)
+
+    async def get_item_count(self, conversation_id: str) -> int:
+        return await asyncio.to_thread(self._get_item_count_sync, conversation_id)
+
+    def _delete_conversation_items_sync(self, conversation_id: str) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM conversation_items WHERE conversation_id = :conversation_id"
+                ),
+                {"conversation_id": conversation_id},
+            )
+
+    async def delete_conversation_items(self, conversation_id: str) -> None:
+        await asyncio.to_thread(self._delete_conversation_items_sync, conversation_id)

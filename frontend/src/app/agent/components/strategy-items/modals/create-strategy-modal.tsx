@@ -27,7 +27,11 @@ import {
 } from "@/components/valuecell/form/exchange-form";
 import { TradingStrategyForm } from "@/components/valuecell/form/trading-strategy-form";
 import { StepIndicator } from "@/components/valuecell/step-indicator";
-import { getTradingSymbolsByExchange, TRADING_SYMBOLS } from "@/constants/agent";
+import {
+  getDefaultMaxLeverageByExchange,
+  getTradingSymbolsByExchange,
+  TRADING_SYMBOLS,
+} from "@/constants/agent";
 import { useAppForm } from "@/hooks/use-form";
 import {
   createAiModelSchema,
@@ -129,6 +133,10 @@ const CreateStrategyModal: FC<CreateStrategyModalProps> = ({
 
       form3.setFieldValue("strategy_name", newName);
       form3.setFieldValue("symbols", getTradingSymbolsByExchange(exchange_id));
+      form3.setFieldValue(
+        "max_leverage",
+        getDefaultMaxLeverageByExchange(exchange_id),
+      );
       setCurrentStep(3);
     },
   });
@@ -185,7 +193,12 @@ const CreateStrategyModal: FC<CreateStrategyModalProps> = ({
       if (data) {
         form1.reset(data.llm_model_config);
         form2.reset(data.exchange_config);
-        form3.reset(data.trading_config);
+        form3.reset({
+          ...data.trading_config,
+          max_leverage:
+            data.trading_config.max_leverage ||
+            getDefaultMaxLeverageByExchange(data.exchange_config.exchange_id),
+        });
       }
       setOpen(true);
     },

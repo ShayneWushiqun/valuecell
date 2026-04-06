@@ -21,6 +21,10 @@ import {
 import CopyStrategyModal, {
   type CopyStrategyModelRef,
 } from "@/components/valuecell/modal/copy-strategy-modal";
+import {
+  getDefaultMaxLeverageByExchange,
+  isAshareExchange,
+} from "@/constants/agent";
 import { getChangeType, numberFixed } from "@/lib/utils";
 import { useStockColors } from "@/store/settings-store";
 import { useIsLoggedIn, useSystemInfo } from "@/store/system-store";
@@ -45,6 +49,7 @@ const StrategyDetailModal: FC<StrategyDetailModalProps> = ({ ref }) => {
   } = useStrategyPerformance(strategyId);
   const { name, avatar } = useSystemInfo();
   const isLoggedin = useIsLoggedIn();
+  const isAshare = isAshareExchange(strategyDetail?.exchange_id);
 
   useEffect(() => {
     if (strategyId) {
@@ -99,7 +104,11 @@ const StrategyDetailModal: FC<StrategyDetailModalProps> = ({ ref }) => {
                     {numberFixed(strategyDetail.return_rate_pct, 2)}%
                   </div>
                   <div className="text-muted-foreground text-sm">
-                    {t("strategy.detail.returnRate")}
+                    {t(
+                      isAshare
+                        ? "strategy.detail.ashare.returnRate"
+                        : "strategy.detail.returnRate",
+                    )}
                   </div>
                 </div>
               </div>
@@ -123,9 +132,18 @@ const StrategyDetailModal: FC<StrategyDetailModalProps> = ({ ref }) => {
                 <span>{strategyDetail.initial_capital}</span>
 
                 <p>{t("strategy.detail.maxLeverage")}</p>
-                <span>{strategyDetail.max_leverage}x</span>
+                <span>
+                  {strategyDetail.max_leverage}
+                  {isAshare ? "x (A股模拟)" : "x"}
+                </span>
 
-                <p>{t("strategy.detail.tradingSymbols")}</p>
+                <p>
+                  {t(
+                    isAshare
+                      ? "strategy.detail.ashare.tradingSymbols"
+                      : "strategy.detail.tradingSymbols",
+                  )}
+                </p>
                 <span className="whitespace-normal">
                   {strategyDetail.symbols.join(", ")}
                 </span>
@@ -167,7 +185,11 @@ const StrategyDetailModal: FC<StrategyDetailModalProps> = ({ ref }) => {
                   strategy_type:
                     strategyDetail?.strategy_type || "PromptBasedStrategy",
                   initial_capital: strategyDetail?.initial_capital || 0,
-                  max_leverage: strategyDetail?.max_leverage || 0,
+                  max_leverage:
+                    strategyDetail?.max_leverage ||
+                    getDefaultMaxLeverageByExchange(
+                      strategyDetail?.exchange_id,
+                    ),
                   symbols: strategyDetail?.symbols || [],
                   decide_interval: strategyDetail?.decide_interval || 0,
                   prompt: strategyDetail?.prompt || "",

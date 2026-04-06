@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 import aiosqlite
+from sqlalchemy import create_engine, text
 
 from .models import Conversation
 
@@ -237,3 +238,150 @@ class SQLiteConversationStore(ConversationStore):
             )
             row = await cur.fetchone()
             return row is not None
+
+
+class SQLConversationStore(ConversationStore):
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        self.engine = create_engine(database_url, future=True, pool_pre_ping=True)
+
+    @staticmethod
+    def _coerce_datetime(value) -> datetime:
+        if isinstance(value, datetime):
+            return value
+        return datetime.fromisoformat(str(value))
+
+    @classmethod
+    def _row_to_conversation(cls, row) -> Conversation:
+        mapping = row._mapping if hasattr(row, "_mapping") else row
+        return Conversation(
+            conversation_id=str(mapping["conversation_id"]),
+            user_id=str(mapping["user_id"]),
+            title=mapping["title"],
+            agent_name=mapping["agent_name"],
+            created_at=cls._coerce_datetime(mapping["created_at"]),
+            updated_at=cls._coerce_datetime(mapping["updated_at"]),
+            status=mapping["status"],
+        )
+
+    def _save_conversation_sync(self, conversation: Conversation) -> None:
+        params = {
+            "conversation_id": conversation.conversation_id,
+            "user_id": conversation.user_id,
+            "title": conversation.title,
+            "agent_name": conversation.agent_name,
+            "created_at": conversation.created_at,
+            "updated_at": conversation.updated_at,
+            "status": (
+                conversation.status.value
+                if hasattr(conversation.status, "value")
+                else str(conversation.status)
+            ),
+        }
+        if self.engine.dialect.name.startswith("mysql"):
+            sql = text(
+                """
+                INSERT INTO conversations (
+                    conversation_id, user_id, title, agent_name, created_at, updated_at, status
+                ) VALUES (
+                    :conversation_id, :user_id, :title, :agent_name, :created_at, :updated_at, :status
+                )
+                ON DUPLICATE KEY UPDATE
+                    user_id = VALUES(user_id),
+                    title = VALUES(title),
+                    agent_name = VALUES(agent_name),
+                    created_at = VALUES(created_at),
+                    updated_at = VALUES(updated_at),
+                    status = VALUES(status)
+                """
+            )
+        else:
+            sql = text(
+                """
+                INSERT OR REPLACE INTO conversations (
+                    conversation_id, user_id, title, agent_name, created_at, updated_at, status
+                ) VALUES (
+                    :conversation_id, :user_id, :title, :agent_name, :created_at, :updated_at, :status
+                )
+                """
+            )
+        with self.engine.begin() as conn:
+            conn.execute(sql, params)
+
+    async def save_conversation(self, conversation: Conversation) -> None:
+        await asyncio.to_thread(self._save_conversation_sync, conversation)
+
+    def _load_conversation_sync(self, conversation_id: str) -> Optional[Conversation]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT conversation_id, user_id, title, agent_name, created_at, updated_at, status
+                    FROM conversations
+                    WHERE conversation_id = :conversation_id
+                    """
+                ),
+                {"conversation_id": conversation_id},
+            ).fetchone()
+        return self._row_to_conversation(row) if row else None
+
+    async def load_conversation(self, conversation_id: str) -> Optional[Conversation]:
+        return await asyncio.to_thread(self._load_conversation_sync, conversation_id)
+
+    def _delete_conversation_sync(self, conversation_id: str) -> bool:
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    "DELETE FROM conversations WHERE conversation_id = :conversation_id"
+                ),
+                {"conversation_id": conversation_id},
+            )
+        return bool(result.rowcount and result.rowcount > 0)
+
+    async def delete_conversation(self, conversation_id: str) -> bool:
+        return await asyncio.to_thread(self._delete_conversation_sync, conversation_id)
+
+    def _list_conversations_sync(
+        self,
+        user_id: Optional[str],
+        limit: int,
+        offset: int,
+    ) -> List[Conversation]:
+        sql = """
+            SELECT conversation_id, user_id, title, agent_name, created_at, updated_at, status
+            FROM conversations
+        """
+        params: dict[str, object] = {"limit": limit, "offset": offset}
+        if user_id is not None:
+            sql += " WHERE user_id = :user_id"
+            params["user_id"] = user_id
+        sql += " ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+        with self.engine.begin() as conn:
+            rows = conn.execute(text(sql), params).fetchall()
+        return [self._row_to_conversation(row) for row in rows]
+
+    async def list_conversations(
+        self, user_id: Optional[str] = None, limit: int = 100, offset: int = 0
+    ) -> List[Conversation]:
+        return await asyncio.to_thread(
+            self._list_conversations_sync,
+            user_id,
+            limit,
+            offset,
+        )
+
+    def _conversation_exists_sync(self, conversation_id: str) -> bool:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT 1 FROM conversations WHERE conversation_id = :conversation_id"
+                ),
+                {"conversation_id": conversation_id},
+            ).fetchone()
+        return row is not None
+
+    async def conversation_exists(self, conversation_id: str) -> bool:
+        return await asyncio.to_thread(
+            self._conversation_exists_sync,
+            conversation_id,
+        )

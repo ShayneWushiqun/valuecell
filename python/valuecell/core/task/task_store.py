@@ -1,10 +1,12 @@
 import asyncio
+import json
 import sqlite3
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, List, Optional
 
 import aiosqlite
+from sqlalchemy import create_engine, text
 
 from .models import Task, TaskStatus
 
@@ -319,3 +321,189 @@ class SQLiteTaskStore(TaskStore):
             )
             row = await cur.fetchone()
             return row is not None
+
+
+class SQLTaskStore(TaskStore):
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        self.engine = create_engine(database_url, future=True, pool_pre_ping=True)
+
+    @staticmethod
+    def _row_to_task(row) -> Task:
+        mapping = row._mapping if hasattr(row, "_mapping") else row
+        schedule_config = None
+        if mapping["schedule_config"]:
+            try:
+                schedule_config = json.loads(mapping["schedule_config"])
+            except Exception:
+                schedule_config = None
+        return Task(
+            task_id=str(mapping["task_id"]),
+            title=mapping["title"] or "",
+            query=mapping["query"],
+            conversation_id=str(mapping["conversation_id"]),
+            thread_id=str(mapping["thread_id"]),
+            user_id=str(mapping["user_id"]),
+            agent_name=str(mapping["agent_name"]),
+            status=mapping["status"],
+            pattern=mapping["pattern"],
+            schedule_config=schedule_config,
+            handoff_from_super_agent=bool(mapping["handoff_from_super_agent"]),
+            created_at=cls_datetime(mapping["created_at"]),
+            started_at=cls_datetime(mapping["started_at"]),
+            completed_at=cls_datetime(mapping["completed_at"]),
+            updated_at=cls_datetime(mapping["updated_at"]),
+            error_message=mapping["error_message"],
+        )
+
+    def _save_task_sync(self, task: Task) -> None:
+        schedule_config_json = None
+        if task.schedule_config:
+            schedule_config_json = json.dumps(task.schedule_config.model_dump())
+        params = {
+            "task_id": task.task_id,
+            "title": task.title,
+            "query": task.query,
+            "conversation_id": task.conversation_id,
+            "thread_id": task.thread_id,
+            "user_id": task.user_id,
+            "agent_name": task.agent_name,
+            "status": task.status.value if hasattr(task.status, "value") else str(task.status),
+            "pattern": task.pattern.value if hasattr(task.pattern, "value") else str(task.pattern),
+            "schedule_config": schedule_config_json,
+            "handoff_from_super_agent": int(task.handoff_from_super_agent),
+            "created_at": task.created_at,
+            "started_at": task.started_at,
+            "completed_at": task.completed_at,
+            "updated_at": task.updated_at,
+            "error_message": task.error_message,
+        }
+        if self.engine.dialect.name.startswith("mysql"):
+            sql = text(
+                """
+                INSERT INTO tasks (
+                    task_id, title, query, conversation_id, thread_id, user_id, agent_name,
+                    status, pattern, schedule_config, handoff_from_super_agent,
+                    created_at, started_at, completed_at, updated_at, error_message
+                ) VALUES (
+                    :task_id, :title, :query, :conversation_id, :thread_id, :user_id, :agent_name,
+                    :status, :pattern, :schedule_config, :handoff_from_super_agent,
+                    :created_at, :started_at, :completed_at, :updated_at, :error_message
+                )
+                ON DUPLICATE KEY UPDATE
+                    title = VALUES(title),
+                    query = VALUES(query),
+                    conversation_id = VALUES(conversation_id),
+                    thread_id = VALUES(thread_id),
+                    user_id = VALUES(user_id),
+                    agent_name = VALUES(agent_name),
+                    status = VALUES(status),
+                    pattern = VALUES(pattern),
+                    schedule_config = VALUES(schedule_config),
+                    handoff_from_super_agent = VALUES(handoff_from_super_agent),
+                    created_at = VALUES(created_at),
+                    started_at = VALUES(started_at),
+                    completed_at = VALUES(completed_at),
+                    updated_at = VALUES(updated_at),
+                    error_message = VALUES(error_message)
+                """
+            )
+        else:
+            sql = text(
+                """
+                INSERT OR REPLACE INTO tasks (
+                    task_id, title, query, conversation_id, thread_id, user_id, agent_name,
+                    status, pattern, schedule_config, handoff_from_super_agent,
+                    created_at, started_at, completed_at, updated_at, error_message
+                ) VALUES (
+                    :task_id, :title, :query, :conversation_id, :thread_id, :user_id, :agent_name,
+                    :status, :pattern, :schedule_config, :handoff_from_super_agent,
+                    :created_at, :started_at, :completed_at, :updated_at, :error_message
+                )
+                """
+            )
+        with self.engine.begin() as conn:
+            conn.execute(sql, params)
+
+    async def save_task(self, task: Task) -> None:
+        await asyncio.to_thread(self._save_task_sync, task)
+
+    def _load_task_sync(self, task_id: str) -> Optional[Task]:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text("SELECT * FROM tasks WHERE task_id = :task_id"),
+                {"task_id": task_id},
+            ).fetchone()
+        return self._row_to_task(row) if row else None
+
+    async def load_task(self, task_id: str) -> Optional[Task]:
+        return await asyncio.to_thread(self._load_task_sync, task_id)
+
+    def _delete_task_sync(self, task_id: str) -> bool:
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                text("DELETE FROM tasks WHERE task_id = :task_id"),
+                {"task_id": task_id},
+            )
+        return bool(result.rowcount and result.rowcount > 0)
+
+    async def delete_task(self, task_id: str) -> bool:
+        return await asyncio.to_thread(self._delete_task_sync, task_id)
+
+    def _list_tasks_sync(
+        self,
+        conversation_id: Optional[str],
+        user_id: Optional[str],
+        status: Optional[TaskStatus],
+        limit: int,
+        offset: int,
+    ) -> List[Task]:
+        sql = "SELECT * FROM tasks WHERE 1=1"
+        params: dict[str, object] = {"limit": limit, "offset": offset}
+        if conversation_id is not None:
+            sql += " AND conversation_id = :conversation_id"
+            params["conversation_id"] = conversation_id
+        if user_id is not None:
+            sql += " AND user_id = :user_id"
+            params["user_id"] = user_id
+        if status is not None:
+            sql += " AND status = :status"
+            params["status"] = status.value if hasattr(status, "value") else str(status)
+        sql += " ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+        with self.engine.begin() as conn:
+            rows = conn.execute(text(sql), params).fetchall()
+        return [self._row_to_task(row) for row in rows]
+
+    async def list_tasks(
+        self,
+        conversation_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        status: Optional[TaskStatus] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Task]:
+        return await asyncio.to_thread(
+            self._list_tasks_sync,
+            conversation_id,
+            user_id,
+            status,
+            limit,
+            offset,
+        )
+
+    def _task_exists_sync(self, task_id: str) -> bool:
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text("SELECT 1 FROM tasks WHERE task_id = :task_id"),
+                {"task_id": task_id},
+            ).fetchone()
+        return row is not None
+
+    async def task_exists(self, task_id: str) -> bool:
+        return await asyncio.to_thread(self._task_exists_sync, task_id)
+
+
+def cls_datetime(value):
+    if value is None or isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value))

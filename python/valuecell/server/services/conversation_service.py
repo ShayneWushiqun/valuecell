@@ -4,6 +4,8 @@ from typing import Optional
 
 from valuecell.core.conversation import (
     ConversationManager,
+    SQLConversationStore,
+    SQLItemStore,
     SQLiteConversationStore,
     SQLiteItemStore,
 )
@@ -22,6 +24,7 @@ from valuecell.server.api.schemas.conversation import (
     ConversationListItem,
     MessageData,
 )
+from valuecell.server.config.settings import get_settings
 from valuecell.utils import resolve_db_path
 
 # Agent names used by strategy creation flows; conversations from these agents
@@ -38,10 +41,14 @@ class ConversationService:
 
     def __init__(self):
         """Initialize the conversation service."""
-        # Use the existing database path resolver
-        db_path = resolve_db_path()
-        self.item_store = SQLiteItemStore(db_path=db_path)
-        conversation_store = SQLiteConversationStore(db_path=db_path)
+        database_url = get_settings().DATABASE_URL
+        if database_url.startswith("sqlite:///"):
+            db_path = resolve_db_path()
+            self.item_store = SQLiteItemStore(db_path=db_path)
+            conversation_store = SQLiteConversationStore(db_path=db_path)
+        else:
+            self.item_store = SQLItemStore(database_url=database_url)
+            conversation_store = SQLConversationStore(database_url=database_url)
         self.conversation_manager = ConversationManager(
             conversation_store=conversation_store, item_store=self.item_store
         )

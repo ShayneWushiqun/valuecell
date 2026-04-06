@@ -26,7 +26,11 @@ import {
   ExchangeForm,
 } from "@/components/valuecell/form/exchange-form";
 import { StepIndicator } from "@/components/valuecell/step-indicator";
-import { getTradingSymbolsByExchange, TRADING_SYMBOLS } from "@/constants/agent";
+import {
+  getDefaultMaxLeverageByExchange,
+  getTradingSymbolsByExchange,
+  TRADING_SYMBOLS,
+} from "@/constants/agent";
 import {
   createAiModelSchema,
   createCopyTradingStrategySchema,
@@ -135,6 +139,10 @@ const CopyStrategyModal: FC<CopyStrategyModalProps> = ({
 
       form3.setFieldValue("strategy_name", newName);
       form3.setFieldValue("symbols", getTradingSymbolsByExchange(exchange_id));
+      form3.setFieldValue(
+        "max_leverage",
+        getDefaultMaxLeverageByExchange(exchange_id),
+      );
       setCurrentStep(3);
     },
   });
@@ -199,7 +207,21 @@ const CopyStrategyModal: FC<CopyStrategyModalProps> = ({
   useImperativeHandle(ref, () => ({
     open: (data) => {
       setOpen(true);
-      setDefaultValues(data);
+      setDefaultValues(
+        data
+          ? {
+              ...data,
+              trading_config: {
+                ...data.trading_config,
+                max_leverage:
+                  data.trading_config.max_leverage ||
+                  getDefaultMaxLeverageByExchange(
+                    data.exchange_config.exchange_id,
+                  ),
+              },
+            }
+          : data,
+      );
     },
   }));
 

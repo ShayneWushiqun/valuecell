@@ -77,6 +77,7 @@ Welcome to join our Discord community to share feedback and issues you encounter
 ## Multi-Agent System
 - **DeepResearch Agent**: Automatically retrieve and analyze fundamental documents to generate accurate data insights and interpretable summaries
 - **Strategy Agent**: Supports multiple crypto assets and multi-strategy smart trading, automatically executing your strategies
+- **A-share Agent (China Market)**: Dedicated agent for China A-share market analysis, prioritizing Tushare data with fallback to AKShare/BaoStock, featuring localized semantic copy and default stock-friendly parameters (e.g., 1x leverage).
 - **News Retrieval Agent**: Supports personalized scheduled news delivery to track key information in real time
 - **Others**: More agents are in planning...
 
@@ -183,12 +184,70 @@ Once the application is running, you can explore the web interface to interact w
 
 More detailed configuration information can be found at [CONFIGURATION_GUIDE](./docs/CONFIGURATION_GUIDE.md)
 
+### Database Configuration & Schema Reference
+
+ValueCell manages its database primarily through SQLAlchemy and an initialization script (`python3 -m valuecell.server.db.init_db`). For developers who need to manually create or inspect the core runtime tables (especially for conversations and tasks), here are the core SQL creation statements:
+
+```sql
+-- Conversations Table
+CREATE TABLE IF NOT EXISTS conversations (
+    conversation_id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255),
+    title TEXT,
+    agent_name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(64) DEFAULT 'active'
+);
+
+-- Conversation Items Table
+CREATE TABLE IF NOT EXISTS conversation_items (
+    item_id VARCHAR(255) PRIMARY KEY,
+    role VARCHAR(64) NOT NULL,
+    event VARCHAR(64) NOT NULL,
+    conversation_id VARCHAR(255) NOT NULL,
+    thread_id VARCHAR(255),
+    task_id VARCHAR(255),
+    payload LONGTEXT,
+    agent_name VARCHAR(255),
+    metadata LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_item_conv_time ON conversation_items(conversation_id, created_at);
+
+-- Tasks Table
+CREATE TABLE IF NOT EXISTS tasks (
+    task_id VARCHAR(255) PRIMARY KEY,
+    title TEXT,
+    query TEXT NOT NULL,
+    conversation_id VARCHAR(255) NOT NULL,
+    thread_id VARCHAR(255) NOT NULL,
+    user_id VARCHAR(255) NOT NULL,
+    agent_name VARCHAR(255) NOT NULL,
+    status VARCHAR(64) NOT NULL DEFAULT 'pending',
+    pattern VARCHAR(64) NOT NULL DEFAULT 'once',
+    schedule_config TEXT,
+    handoff_from_super_agent INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    error_message TEXT
+);
+CREATE INDEX idx_tasks_conversation ON tasks(conversation_id);
+CREATE INDEX idx_tasks_user ON tasks(user_id);
+CREATE INDEX idx_tasks_status ON tasks(status);
+```
+
+*Note: Models such as `strategies`, `tradingagents_runs`, `agents`, and `assets` are automatically created via SQLAlchemy's `Base.metadata.create_all()`.*
+
 # Roadmap
 
 ## 🤖 Enhanced Agent Capabilities
 ### Trading Capabilities
-- **Crypto**: Supports OKX、Binance and Hyperliquid exchanges, with more exchanges planned for integration...
-- **Securities**: Gradually support AI securities trading
+- **Crypto**: Supports OKX, Binance and Hyperliquid exchanges, with more exchanges planned for integration...
+- **China A-share**: Advanced A-share simulation/research environment, featuring dedicated strategy configuration (default 1x leverage), semantic localization, and robust data fallback pipelines (Tushare -> AKShare/BaoStock/Sina).
+- **Securities**: Gradually support AI securities trading in other global markets.
 
 ### Market Expansion
 - **European Markets**: Add support for FTSE, DAX, CAC 40, and other European exchanges

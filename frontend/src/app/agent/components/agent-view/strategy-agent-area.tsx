@@ -138,6 +138,7 @@ const StrategyAgentArea: FC<AgentViewProps> = () => {
             <StrategyComposeList
               composes={composes}
               tradingMode={selectedStrategy.trading_mode}
+              exchangeId={selectedStrategy.exchange_id}
             />
             <PortfolioPositionsGroup
               summary={summary}

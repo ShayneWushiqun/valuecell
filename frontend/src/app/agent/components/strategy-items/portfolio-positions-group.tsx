@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import MultiLineChart from "@/components/valuecell/charts/model-multi-line";
 import { PngIcon } from "@/components/valuecell/icon/png-icon";
+import { isAshareExchange } from "@/constants/agent";
 // import { useTauriInfo } from "@/hooks/use-tauri-info";
 import {
   formatChange,
@@ -38,9 +39,10 @@ interface PortfolioPositionsGroupProps {
 
 interface PositionRowProps {
   position: Position;
+  isAshare: boolean;
 }
 
-const PositionRow: FC<PositionRowProps> = ({ position }) => {
+const PositionRow: FC<PositionRowProps> = ({ position, isAshare }) => {
   const stockColors = useStockColors();
   const changeType = getChangeType(position.unrealized_pnl);
 
@@ -64,7 +66,7 @@ const PositionRow: FC<PositionRowProps> = ({ position }) => {
             position.type === "LONG" ? "text-rose-600" : "text-emerald-600"
           }
         >
-          {position.type}
+          {isAshare ? "持有" : position.type}
         </Badge>
       </TableCell>
       <TableCell>
@@ -94,13 +96,14 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
   summary,
   priceCurve,
   positions,
-  // strategy,
+  strategy,
 }) => {
   const { t } = useTranslation();
   // const sharePortfolioModalRef = useRef<SharePortfolioCardRef>(null);
 
   const stockColors = useStockColors();
   const changeType = getChangeType(summary?.total_pnl);
+  const isAshare = isAshareExchange(strategy.exchange_id);
   // const { name, avatar } = useSystemInfo();
   // const isLogin = useIsLoggedIn();
   // const { isTauriApp } = useTauriInfo();
@@ -145,7 +148,11 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
       <div className="flex flex-1 flex-col gap-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-base text-foreground">
-            {t("strategy.portfolio.title")}
+            {t(
+              isAshare
+                ? "strategy.portfolio.ashare.title"
+                : "strategy.portfolio.title",
+            )}
           </h3>
           {/* Publish/Share features - commented out (requires login)
           {isTauriApp &&
@@ -189,7 +196,11 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
         <div className="grid grid-cols-3 gap-4 text-nowrap">
           <div className="rounded-lg bg-muted p-4">
             <p className="text-muted-foreground text-sm">
-              {t("strategy.portfolio.totalEquity")}
+              {t(
+                isAshare
+                  ? "strategy.portfolio.ashare.totalEquity"
+                  : "strategy.portfolio.totalEquity",
+              )}
             </p>
             <p className="mt-1 font-semibold text-foreground text-lg">
               {numberFixed(summary?.total_value, 4)}
@@ -197,7 +208,11 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
           </div>
           <div className="rounded-lg bg-muted p-4">
             <p className="text-muted-foreground text-sm">
-              {t("strategy.portfolio.availableBalance")}
+              {t(
+                isAshare
+                  ? "strategy.portfolio.ashare.availableBalance"
+                  : "strategy.portfolio.availableBalance",
+              )}
             </p>
             <p className="mt-1 font-semibold text-foreground text-lg">
               {numberFixed(summary?.cash, 4)}
@@ -205,7 +220,11 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
           </div>
           <div className="rounded-lg bg-muted p-4">
             <p className="text-muted-foreground text-sm">
-              {t("strategy.portfolio.totalPnl")}
+              {t(
+                isAshare
+                  ? "strategy.portfolio.ashare.totalPnl"
+                  : "strategy.portfolio.totalPnl",
+              )}
             </p>
             <p
               className="mt-1 font-semibold text-foreground text-lg"
@@ -227,10 +246,18 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
                 </div>
                 <div className="flex flex-col gap-2">
                   <p className="font-semibold text-base text-foreground">
-                    {t("strategy.portfolio.noData")}
+                    {t(
+                      isAshare
+                        ? "strategy.portfolio.ashare.noData"
+                        : "strategy.portfolio.noData",
+                    )}
                   </p>
                   <p className="max-w-xs text-muted-foreground text-sm leading-relaxed">
-                    {t("strategy.portfolio.noDataDesc")}
+                    {t(
+                      isAshare
+                        ? "strategy.portfolio.ashare.noDataDesc"
+                        : "strategy.portfolio.noDataDesc",
+                    )}
                   </p>
                 </div>
               </div>
@@ -242,7 +269,11 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
       {/* Positions Section */}
       <div className="flex flex-col gap-4">
         <h3 className="font-semibold text-base text-foreground">
-          {t("strategy.positions.title")}
+          {t(
+            isAshare
+              ? "strategy.positions.ashare.title"
+              : "strategy.positions.title",
+          )}
         </h3>
         {hasPositions ? (
           <Table className="scroll-container max-h-[260px]">
@@ -250,27 +281,45 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
               <TableRow>
                 <TableHead>
                   <p className="font-normal text-muted-foreground text-sm">
-                    {t("strategy.positions.symbol")}
+                    {isAshare
+                      ? t("strategy.positions.ashare.symbol")
+                      : t("strategy.positions.symbol")}
                   </p>
                 </TableHead>
                 <TableHead>
                   <p className="font-normal text-muted-foreground text-sm">
-                    {t("strategy.positions.type")}
+                    {t(
+                      isAshare
+                        ? "strategy.positions.ashare.type"
+                        : "strategy.positions.type",
+                    )}
                   </p>
                 </TableHead>
                 <TableHead>
                   <p className="font-normal text-muted-foreground text-sm">
-                    {t("strategy.positions.leverage")}
+                    {t(
+                      isAshare
+                        ? "strategy.positions.ashare.leverage"
+                        : "strategy.positions.leverage",
+                    )}
                   </p>
                 </TableHead>
                 <TableHead>
                   <p className="font-normal text-muted-foreground text-sm">
-                    {t("strategy.positions.quantity")}
+                    {t(
+                      isAshare
+                        ? "strategy.positions.ashare.quantity"
+                        : "strategy.positions.quantity",
+                    )}
                   </p>
                 </TableHead>
                 <TableHead>
                   <p className="font-normal text-muted-foreground text-sm">
-                    {t("strategy.positions.pnl")}
+                    {t(
+                      isAshare
+                        ? "strategy.positions.ashare.pnl"
+                        : "strategy.positions.pnl",
+                    )}
                   </p>
                 </TableHead>
               </TableRow>
@@ -280,6 +329,7 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
                 <PositionRow
                   key={`${position.symbol}-${index}`}
                   position={position}
+                  isAshare={isAshare}
                 />
               ))}
             </TableBody>
@@ -292,10 +342,18 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
               </div>
               <div className="flex flex-col gap-1.5">
                 <p className="font-semibold text-foreground text-sm">
-                  {t("strategy.positions.noOpen")}
+                  {t(
+                    isAshare
+                      ? "strategy.positions.ashare.noOpen"
+                      : "strategy.positions.noOpen",
+                  )}
                 </p>
                 <p className="max-w-xs text-muted-foreground text-xs leading-relaxed">
-                  {t("strategy.positions.noOpenDesc")}
+                  {t(
+                    isAshare
+                      ? "strategy.positions.ashare.noOpenDesc"
+                      : "strategy.positions.noOpenDesc",
+                  )}
                 </p>
               </div>
             </div>

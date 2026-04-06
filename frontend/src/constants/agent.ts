@@ -134,5 +134,11 @@ export const ASHARE_TRADING_SYMBOLS: string[] = [
 
 export const TRADING_SYMBOLS = CRYPTO_TRADING_SYMBOLS;
 
+export const isAshareExchange = (exchangeId?: string): boolean =>
+  exchangeId === "ashare";
+
 export const getTradingSymbolsByExchange = (exchangeId?: string): string[] =>
-  exchangeId === "ashare" ? ASHARE_TRADING_SYMBOLS : CRYPTO_TRADING_SYMBOLS;
+  isAshareExchange(exchangeId) ? ASHARE_TRADING_SYMBOLS : CRYPTO_TRADING_SYMBOLS;
+
+export const getDefaultMaxLeverageByExchange = (exchangeId?: string): number =>
+  isAshareExchange(exchangeId) ? 1 : 2;

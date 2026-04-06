@@ -1,4 +1,11 @@
 import { MultiSelect } from "@valuecell/multi-select";
+import { AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import {
   Field,
   FieldError,
@@ -26,10 +33,21 @@ export const CopyStrategyForm = withForm({
     exchangeId: "" as string,
   },
   render({ form, tradingMode, exchangeId }) {
+    const { t } = useTranslation();
     const symbolOptions = getTradingSymbolsByExchange(exchangeId);
 
     return (
       <FieldGroup className="gap-6">
+        {tradingMode === "virtual" && exchangeId === "ashare" && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{t("strategy.form.ashareNotice.title")}</AlertTitle>
+            <AlertDescription>
+              {t("strategy.form.ashareNotice.description")}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <form.AppField
           listeners={{
             onChange: ({ value }: { value: Strategy["strategy_type"] }) => {

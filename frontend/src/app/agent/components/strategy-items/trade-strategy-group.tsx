@@ -26,6 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getDefaultMaxLeverageByExchange } from "@/constants/agent";
 import SvgIcon from "@/components/valuecell/icon/svg-icon";
 import CopyStrategyModal, {
   type CopyStrategyModelRef,
@@ -217,7 +218,11 @@ const TradeStrategyCard: FC<TradeStrategyCardProps> = ({
                       strategy_type:
                         strategyDetail?.strategy_type || "PromptBasedStrategy",
                       initial_capital: strategyDetail?.initial_capital || 1000,
-                      max_leverage: strategyDetail?.max_leverage || 2,
+                      max_leverage:
+                        strategyDetail?.max_leverage ||
+                        getDefaultMaxLeverageByExchange(
+                          strategyDetail?.exchange_id,
+                        ),
                       symbols: strategyDetail?.symbols || [],
                       decide_interval: strategyDetail?.decide_interval || 60,
                       prompt: strategyDetail?.prompt || "",

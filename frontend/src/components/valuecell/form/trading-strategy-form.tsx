@@ -1,5 +1,5 @@
 import { MultiSelect } from "@valuecell/multi-select";
-import { Eye, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, Eye, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -91,6 +92,16 @@ export const TradingStrategyForm = withForm({
 
     return (
       <FieldGroup className="gap-6">
+        {tradingMode === "virtual" && exchangeId === "ashare" && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{t("strategy.form.ashareNotice.title")}</AlertTitle>
+            <AlertDescription>
+              {t("strategy.form.ashareNotice.description")}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <form.AppField
           listeners={{
             onChange: ({ value }: { value: Strategy["strategy_type"] }) => {

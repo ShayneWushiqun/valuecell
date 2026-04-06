@@ -20,6 +20,7 @@ import {
   numberFixed,
 } from "@/lib/utils";
 import { useStockColors } from "@/store/settings-store";
+import { isAshareExchange } from "@/constants/agent";
 import type {
   Strategy,
   StrategyAction,
@@ -28,9 +29,13 @@ import type {
 
 interface StrategyComposeItemProps {
   compose: StrategyCompose;
+  isAshare: boolean;
 }
 
-const StrategyComposeItem: FC<StrategyComposeItemProps> = ({ compose }) => {
+const StrategyComposeItem: FC<StrategyComposeItemProps> = ({
+  compose,
+  isAshare,
+}) => {
   const { t } = useTranslation();
   const [isReasoningOpen, setIsReasoningOpen] = useState(false);
 
@@ -73,10 +78,18 @@ const StrategyComposeItem: FC<StrategyComposeItemProps> = ({ compose }) => {
       {compose.actions.length > 0 && (
         <>
           <p className="text-muted-foreground text-xs">
-            {t("strategy.history.operation")}
+            {t(
+              isAshare
+                ? "strategy.history.ashare.operation"
+                : "strategy.history.operation",
+            )}
           </p>
           {compose.actions.map((action) => (
-            <ActionItem key={action.instruction_id} action={action} />
+            <ActionItem
+              key={action.instruction_id}
+              action={action}
+              isAshare={isAshare}
+            />
           ))}
         </>
       )}
@@ -84,7 +97,10 @@ const StrategyComposeItem: FC<StrategyComposeItemProps> = ({ compose }) => {
   );
 };
 
-const ActionItem: FC<{ action: StrategyAction }> = ({ action }) => {
+const ActionItem: FC<{ action: StrategyAction; isAshare: boolean }> = ({
+  action,
+  isAshare,
+}) => {
   const { t } = useTranslation();
   const stockColors = useStockColors();
 
@@ -181,18 +197,34 @@ const ActionItem: FC<{ action: StrategyAction }> = ({ action }) => {
             )}
           </span>
 
-          <span>{t("strategy.history.details.price")}</span>
+          <span>
+            {isAshare
+              ? t("strategy.history.ashare.details.price")
+              : t("strategy.history.details.price")}
+          </span>
           <span className="text-right">{priceRange}</span>
 
-          <span>{t("strategy.history.details.quantity")}</span>
+          <span>
+            {isAshare
+              ? t("strategy.history.ashare.details.quantity")
+              : t("strategy.history.details.quantity")}
+          </span>
           <span className="text-right">{action.quantity}</span>
 
-          <span>{t("strategy.history.details.holdingTime")}</span>
+          <span>
+            {isAshare
+              ? t("strategy.history.ashare.details.holdingTime")
+              : t("strategy.history.details.holdingTime")}
+          </span>
           <span className="text-right">
             {formatHoldingTime(action.holding_time_ms)}
           </span>
 
-          <span>{t("strategy.history.details.tradingFee")}</span>
+          <span>
+            {isAshare
+              ? t("strategy.history.ashare.details.tradingFee")
+              : t("strategy.history.details.tradingFee")}
+          </span>
           <span className="text-right">{-numberFixed(action.fee_cost, 4)}</span>
         </div>
 
@@ -213,18 +245,25 @@ const ActionItem: FC<{ action: StrategyAction }> = ({ action }) => {
 interface StrategyComposeListProps {
   composes: StrategyCompose[];
   tradingMode: Strategy["trading_mode"];
+  exchangeId?: string;
 }
 
 const StrategyComposeList: FC<StrategyComposeListProps> = ({
   composes,
   tradingMode,
+  exchangeId,
 }) => {
   const { t } = useTranslation();
+  const isAshare = isAshareExchange(exchangeId);
   return (
     <div className="flex w-[420px] flex-col overflow-hidden border-border border-r bg-card">
       <div className="flex items-center justify-between px-6 py-4">
         <h3 className="font-semibold text-base text-foreground">
-          {t("strategy.history.title")}
+          {t(
+            isAshare
+              ? "strategy.history.ashare.title"
+              : "strategy.history.title",
+          )}
         </h3>
 
         <p className="rounded-md bg-muted px-2.5 py-1 font-medium text-foreground text-sm">
@@ -238,7 +277,11 @@ const StrategyComposeList: FC<StrategyComposeListProps> = ({
         {composes.length > 0 ? (
           <div className="flex flex-col gap-4">
             {composes.map((compose) => (
-              <StrategyComposeItem key={compose.compose_id} compose={compose} />
+              <StrategyComposeItem
+                key={compose.compose_id}
+                compose={compose}
+                isAshare={isAshare}
+              />
             ))}
           </div>
         ) : (
@@ -249,10 +292,18 @@ const StrategyComposeList: FC<StrategyComposeListProps> = ({
               </div>
               <div className="flex flex-col gap-2">
                 <p className="font-semibold text-base text-foreground">
-                  {t("strategy.history.empty.title")}
+                  {t(
+                    isAshare
+                      ? "strategy.history.ashare.empty.title"
+                      : "strategy.history.empty.title",
+                  )}
                 </p>
                 <p className="max-w-[280px] text-muted-foreground text-sm leading-relaxed">
-                  {t("strategy.history.empty.desc")}
+                  {t(
+                    isAshare
+                      ? "strategy.history.ashare.empty.desc"
+                      : "strategy.history.empty.desc",
+                  )}
                 </p>
               </div>
             </div>

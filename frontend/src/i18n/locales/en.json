@@ -212,7 +212,15 @@
       "availableBalance": "Available Balance",
       "totalPnl": "Total P&L",
       "noData": "No portfolio value data",
-      "noDataDesc": "Portfolio value chart will appear once trading begins"
+      "noDataDesc": "Portfolio value chart will appear once trading begins",
+      "ashare": {
+        "title": "Account Equity Curve",
+        "totalEquity": "Total Assets",
+        "availableBalance": "Available Cash",
+        "totalPnl": "Cumulative P&L",
+        "noData": "No account equity data",
+        "noDataDesc": "The A-share account equity curve will appear after paper trading starts."
+      }
     },
     "positions": {
       "title": "Positions",
@@ -222,7 +230,17 @@
       "quantity": "Quantity",
       "pnl": "P&L",
       "noOpen": "No open positions",
-      "noOpenDesc": "Positions will appear here when trades are opened"
+      "noOpenDesc": "Positions will appear here when trades are opened",
+      "ashare": {
+        "title": "Stock Positions",
+        "symbol": "Ticker",
+        "type": "Status",
+        "leverage": "Leverage",
+        "quantity": "Shares",
+        "pnl": "Unrealized P&L",
+        "noOpen": "No stock positions",
+        "noOpenDesc": "Stock holdings and unrealized P&L will appear here after buy orders are filled."
+      }
     },
     "create": {
       "title": "Add trading strategy",
@@ -268,6 +286,10 @@
         "searchPlaceholder": "Search or add symbols...",
         "emptyText": "No symbols found."
       },
+      "ashareNotice": {
+        "title": "A-share paper trading rules",
+        "description": "This is an A-share paper strategy using Tushare as the primary market data source. Use leverage 1 when possible, orders follow 100-share board lots, short selling is disabled, and positions follow T+1 constraints."
+      },
       "promptTemplate": {
         "label": "System Prompt Template",
         "new": "New Prompt",
@@ -286,6 +308,9 @@
         "transactionType": "Transaction Type",
         "liveTrading": "Live Trading",
         "virtualTrading": "Virtual Trading",
+        "simulationMarket": "Simulation Market",
+        "ashareMarket": "A-Share",
+        "cryptoPaper": "Crypto Paper",
         "selectExchange": "Select Exchange",
         "walletAddress": "Wallet Address",
         "privateKey": "Private Key",
@@ -354,7 +379,11 @@
       "initialCapital": "Initial Capital",
       "maxLeverage": "Max Leverage",
       "tradingSymbols": "Trading Symbols",
-      "prompt": "Prompt"
+      "prompt": "Prompt",
+      "ashare": {
+        "returnRate": "Cumulative Return",
+        "tradingSymbols": "Stock Tickers"
+      }
     },
     "history": {
       "title": "Trading History",
@@ -374,6 +403,20 @@
         "holdingTime": "Holding time",
         "tradingFee": "Trading Fee",
         "reasoning": "Reasoning"
+      },
+      "ashare": {
+        "title": "Rebalance Records",
+        "operation": "Executed Orders",
+        "empty": {
+          "title": "No rebalance records",
+          "desc": "Buy, sell, and rebalance records will appear here once the strategy starts trading."
+        },
+        "details": {
+          "price": "Execution Price",
+          "quantity": "Shares",
+          "holdingTime": "Holding Period",
+          "tradingFee": "Trading Cost"
+        }
       }
     }
   },

@@ -8,6 +8,8 @@ from typing import Optional
 from valuecell.core.agent.connect import RemoteConnections
 from valuecell.core.conversation import (
     ConversationManager,
+    SQLConversationStore,
+    SQLItemStore,
     SQLiteConversationStore,
     SQLiteItemStore,
 )
@@ -18,6 +20,7 @@ from valuecell.core.super_agent import SuperAgentService
 from valuecell.core.task.executor import TaskExecutor
 from valuecell.core.task.locator import get_task_service
 from valuecell.core.task.service import TaskService
+from valuecell.server.config.settings import get_settings
 from valuecell.utils import resolve_db_path
 
 
@@ -59,9 +62,16 @@ class AgentServiceBundle:
         elif event_service is not None:
             conv_service = event_service.conversation_service
         else:
+            database_url = get_settings().DATABASE_URL
+            if database_url.startswith("sqlite:///"):
+                conversation_store = SQLiteConversationStore(resolve_db_path())
+                item_store = SQLiteItemStore(resolve_db_path())
+            else:
+                conversation_store = SQLConversationStore(database_url)
+                item_store = SQLItemStore(database_url)
             base_manager = ConversationManager(
-                conversation_store=SQLiteConversationStore(resolve_db_path()),
-                item_store=SQLiteItemStore(resolve_db_path()),
+                conversation_store=conversation_store,
+                item_store=item_store,
             )
             conv_service = ConversationService(manager=base_manager)
 
