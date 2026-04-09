@@ -8,6 +8,8 @@ All models are automatically imported to ensure they are registered with SQLAlch
 # Import all models to ensure they are registered with SQLAlchemy
 from .agent import Agent
 from .asset import Asset
+from .daily_briefing import DailyBriefing
+from .holding_diagnosis import HoldingDiagnosis
 
 # Import base model
 from .base import Base
@@ -18,6 +20,7 @@ from .strategy_holding import StrategyHolding
 from .strategy_instruction import StrategyInstruction
 from .strategy_portfolio import StrategyPortfolioView
 from .tradingagents_run import TradingAgentsRun
+from .user_holding import UserHolding
 from .user_profile import ProfileCategory, UserProfile
 from .watchlist import Watchlist, WatchlistItem
 
@@ -29,6 +32,9 @@ __all__ = [
     "Strategy",
     "Watchlist",
     "WatchlistItem",
+    "UserHolding",
+    "HoldingDiagnosis",
+    "DailyBriefing",
     "UserProfile",
     "ProfileCategory",
     "StrategyHolding",

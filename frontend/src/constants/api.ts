@@ -49,6 +49,11 @@ const TRADINGAGENTS_QUERY_KEYS = {
   runDetail: queryKeyFn(["tradingagents", "run", "detail"]),
 } as const;
 
+const PORTFOLIO_QUERY_KEYS = {
+  overview: ["portfolio", "overview"],
+  holdings: ["portfolio", "holdings"],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -61,6 +66,7 @@ export const API_QUERY_KEYS = {
   SETTING: SETTING_QUERY_KEYS,
   STRATEGY: STRATEGY_QUERY_KEYS,
   TRADINGAGENTS: TRADINGAGENTS_QUERY_KEYS,
+  PORTFOLIO: PORTFOLIO_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

@@ -15,7 +15,7 @@ import { AutoTrade, NewsPush, ResearchReport } from "@/assets/svg";
 import TradingViewTickerTape from "@/components/tradingview/tradingview-ticker-tape";
 import SvgIcon from "@/components/valuecell/icon/svg-icon";
 import ChatInputArea from "../agent/components/chat-conversation/chat-input-area";
-import { AgentSuggestionsList, AgentTaskCards } from "./components";
+import { AgentSuggestionsList, AgentTaskCards, PortfolioOverview } from "./components";
 
 const INDEX_SYMBOLS = [
   "FOREXCOM:SPXUSD",
@@ -85,63 +85,54 @@ function Home() {
 
   return (
     <div className="flex h-full min-w-[800px] flex-col gap-3">
-      {allPollTaskList && allPollTaskList.length > 0 ? (
-        <section className="flex w-full flex-1 flex-col items-center justify-between gap-4">
-          <TradingViewTickerTape
-            symbols={INDEX_SYMBOLS}
-            theme={resolvedTheme === "dark" ? "dark" : "light"}
-            locale={i18n.language}
-          />
+      <section className="flex w-full flex-1 flex-col gap-4 rounded-lg bg-card p-4">
+        <TradingViewTickerTape
+          symbols={INDEX_SYMBOLS}
+          theme={resolvedTheme === "dark" ? "dark" : "light"}
+          locale={i18n.language}
+        />
 
-          <div className="scroll-container flex-1">
-            <AgentTaskCards tasks={allPollTaskList} />
+        <div className="scroll-container flex-1">
+          <PortfolioOverview />
+
+          {allPollTaskList && allPollTaskList.length > 0 ? (
+            <div className="mt-4">
+              <AgentTaskCards tasks={allPollTaskList} />
+            </div>
+          ) : null}
+
+          <div className="mt-4 space-y-6 rounded-2xl border bg-background p-6">
+            <div>
+              <h2 className="font-medium text-2xl text-foreground">
+                {t("home.hello")}
+              </h2>
+              <p className="mt-2 text-muted-foreground text-sm">
+                阶段一首页已优先展示持仓诊断、每日摘要和自选入口，聊天与 Agent 入口继续保留。
+              </p>
+            </div>
+
+            <ChatInputArea
+              className="w-full"
+              value={inputValue}
+              onChange={(value) => setInputValue(value)}
+              onSend={() =>
+                navigate("/agent/ValueCellAgent", {
+                  state: {
+                    inputValue,
+                  },
+                })
+              }
+            />
+
+            <AgentSuggestionsList
+              suggestions={suggestions.map((suggestion) => ({
+                ...suggestion,
+                onClick: () => handleAgentClick(suggestion.id),
+              }))}
+            />
           </div>
-
-          <ChatInputArea
-            value={inputValue}
-            onChange={(value) => setInputValue(value)}
-            onSend={() =>
-              navigate("/agent/ValueCellAgent", {
-                state: {
-                  inputValue,
-                },
-              })
-            }
-          />
-        </section>
-      ) : (
-        <section className="flex w-full flex-1 flex-col items-center gap-8 rounded-lg bg-card px-6 pt-12">
-          <TradingViewTickerTape
-            symbols={INDEX_SYMBOLS}
-            theme={resolvedTheme === "dark" ? "dark" : "light"}
-            locale={i18n.language}
-          />
-
-          <h1 className="mt-16 font-medium text-3xl text-foreground">
-            {t("home.hello")}
-          </h1>
-
-          <ChatInputArea
-            className="w-4/5 max-w-[800px]"
-            value={inputValue}
-            onChange={(value) => setInputValue(value)}
-            onSend={() =>
-              navigate("/agent/ValueCellAgent", {
-                state: {
-                  inputValue,
-                },
-              })
-            }
-          />
-
-          <AgentSuggestionsList
-            suggestions={suggestions.map((suggestion) => ({
-              ...suggestion,
-              onClick: () => handleAgentClick(suggestion.id),
-            }))}
-          />
-        </section>
-      )}
+        </div>
+      </section>
     </div>
   );
 }
