@@ -30,6 +30,12 @@ Usage Example:
 """
 
 from .akshare_adapter import AKShareAdapter
+from .tushare_short_cycle_gateway import (
+    MarketPulseBundle,
+    StockObservationBundle,
+    ThemeFocusBundle,
+    TushareShortCycleGateway,
+)
 from .tushare_adapter import TushareAdapter
 
 # Base adapter classes
@@ -99,6 +105,10 @@ __all__ = [
     "YFinanceAdapter",
     "AKShareAdapter",
     "TushareAdapter",
+    "TushareShortCycleGateway",
+    "MarketPulseBundle",
+    "ThemeFocusBundle",
+    "StockObservationBundle",
     # Managers
     "AdapterManager",
     "WatchlistManager",

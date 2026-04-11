@@ -34,14 +34,46 @@ from .asset_service import (
     reset_asset_service,
     search_assets,
 )
+from .emotion_cycle_service import (
+    EmotionCycleService,
+    get_emotion_cycle_service,
+    reset_emotion_cycle_service,
+)
+from .market_pulse_service import (
+    MarketPulseService,
+    get_market_pulse_service,
+    reset_market_pulse_service,
+)
+from .theme_focus_service import (
+    ThemeFocusService,
+    get_theme_focus_service,
+    reset_theme_focus_service,
+)
+from .short_cycle_data_service import (
+    ShortCycleDataService,
+    get_short_cycle_data_service,
+    reset_short_cycle_data_service,
+)
 
 __version__ = "1.0.0"
 
 __all__ = [
     # Service class
     "AssetService",
+    "MarketPulseService",
+    "EmotionCycleService",
+    "ThemeFocusService",
+    "ShortCycleDataService",
     "get_asset_service",
+    "get_market_pulse_service",
+    "get_emotion_cycle_service",
+    "get_theme_focus_service",
+    "get_short_cycle_data_service",
     "reset_asset_service",
+    "reset_market_pulse_service",
+    "reset_emotion_cycle_service",
+    "reset_theme_focus_service",
+    "reset_short_cycle_data_service",
     # Convenience functions
     "search_assets",
     "get_asset_info",

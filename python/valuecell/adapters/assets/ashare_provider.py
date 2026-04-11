@@ -9,6 +9,8 @@ import requests
 from loguru import logger
 
 from .manager import get_adapter_manager
+from .tushare_adapter import TushareAdapter
+from .tushare_short_cycle_gateway import TushareShortCycleGateway
 from .types import AssetPrice, DataSource
 from valuecell.server.config.settings import get_settings
 
@@ -212,6 +214,12 @@ class AShareDataProvider:
                     err=str(exc),
                 )
         return []
+
+    def get_tushare_short_cycle_gateway(self) -> Optional[TushareShortCycleGateway]:
+        adapter = self.adapter_manager.adapters.get(DataSource.TUSHARE)
+        if not isinstance(adapter, TushareAdapter):
+            return None
+        return TushareShortCycleGateway(adapter)
 
     def _get_real_time_price_from_provider(
         self,

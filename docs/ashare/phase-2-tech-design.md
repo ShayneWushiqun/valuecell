@@ -2,62 +2,241 @@
 
 ## 1. 目标
 
-在阶段一的用户资产中心之上，建立“策略定义 -> 规则扫描 -> Agent 裁决 -> 主动提醒”的闭环。
+在阶段一的短周期工作台之上，建立：
+
+`题材监控 -> 机会池形成 -> 买点裁决 -> 主动提醒`
+
+的完整闭环。
+
+阶段二的重点不在于“模型一直盯全市场”，而在于：
+
+- 先用低成本规则发现方向和候选
+- 再用 Agent 对高价值候选做裁决
+- 最终把结论变成用户可执行的买点建议
+
+这里的“高价值候选”不只是最强股票，还包括：
+
+- 仍有预期差的股票
+- 有持续性但尚未完全一致化的股票
+- 当前仍有可交易性的股票
+- 主线中的中军龙头和强趋势核心票
 
 ## 2. 总体思路
 
-阶段二采用双层架构：
+阶段二采用双层结构：
 
 - `规则层`
-  低成本、可持续扫描、负责发现候选和唤醒条件
+  负责监控政策、题材、资金和自选池，发现候选
 - `裁决层`
-  使用 Agent 对候选标的进行综合分析并输出最终建议
+  负责判断题材地位、个股位置、预期差、可交易性和买点质量，输出最终建议
 
-这能避免“大模型全市场轮询”的高成本方案。
+这样可以避免“大模型全市场轮询”的高成本方案。
 
-阶段二的核心不在于“让模型一直盯市场”，而在于：
+## 3. 数据来源建议
 
-- 先用低成本规则筛出少量候选
-- 再把高价值候选交给 Agent 处理
-- 最终把结论变成用户可执行的提醒
+阶段二需要把数据优先级重新对齐到短周期语境。
 
-## 3. 领域模型
+当前阶段二仍默认建立在：
 
-### 3.1 新增实体
+- `Tushare 6000 积分`
+- `个人使用`
+- `非商业化`
+- `不购买独立权限`
 
-#### `strategy_profile`
+之上。
 
-字段建议：
+因此阶段二实现时，应优先使用
+[Tushare 6000 积分接口映射](./tushare-6000-interface-map.md)，不要默认依赖
+8000 积分接口、实时分钟或新闻政策库。
+
+### 3.1 优先数据
+
+- A 股价格和历史行情
+- 自选池和持仓池
+- 政策和新闻摘要
+- 资金流数据
+- 涨跌停与强弱数据
+- 业绩、减持、解禁等风险事件
+
+### 3.2 推荐接入的 Tushare 接口
+
+阶段二优先建议使用以下接口增强当前系统：
+
+#### 3.2.1 题材扫描和方向归纳
+
+- `ths_index`
+- `ths_daily`
+- `ths_member`
+- `moneyflow_ind_ths`
+- `moneyflow_ind_dc`
+- `kpl_list`
+- `ths_hot`
+- `tdx_index`
+
+用途：
+
+- 识别主线和次主线
+- 判断题材状态和强弱趋势
+- 识别题材代表股和核心承载标的
+
+#### 3.2.2 机会池和买点排序
+
+- `daily`
+- `daily_basic`
+- `moneyflow`
+- `stk_limit`
+- `limit_list_d`
+- `kpl_list`
+- `top_list`
+- `top_inst`
+
+用途：
+
+- 判断个股位置、趋势质量和可交易性
+- 给机会池排序
+- 增强中军龙头和强趋势核心票识别
+
+#### 3.2.3 风险事件与排雷
+
+- `forecast_vip`
+- `express_vip`
+- `disclosure_date`
+- `stk_holdertrade`
+- `share_float`
+
+用途：
+
+- 过滤短周期内高概率风险事件
+- 给持仓和机会池增加风险修正
+
+阶段二不要求一次性全部接入，但至少应按以上三组优先级规划落地。
+
+### 3.3 模块到接口的建议映射
+
+#### 3.3.1 `topic_scanner_service.py`
+
+建议主接口：
+
+- `ths_index`
+- `ths_daily`
+- `ths_member`
+- `moneyflow_ind_ths`
+- `moneyflow_ind_dc`
+- `kpl_list`
+- `ths_hot`
+- `tdx_index`
+
+#### 3.3.2 `opportunity_pool_service.py`
+
+建议主接口：
+
+- `daily`
+- `daily_basic`
+- `moneyflow`
+- `stk_limit`
+- `limit_list_d`
+- `kpl_list`
+- `top_list`
+- `top_inst`
+- `ths_member`
+
+#### 3.3.3 `entry_timing_service.py`
+
+建议主接口：
+
+- `daily`
+- `daily_basic`
+- `moneyflow`
+- `stk_limit`
+- `limit_list_d`
+- `kpl_list`
+
+#### 3.3.4 `risk_event_monitor_service.py`
+
+建议主接口：
+
+- `forecast_vip`
+- `express_vip`
+- `disclosure_date`
+- `stk_holdertrade`
+- `share_float`
+
+#### 3.3.5 `decision_alert_service.py`
+
+说明：
+
+- 本服务不需要直接请求 Tushare
+- 应依赖 `topic_scanner_service.py`、`opportunity_pool_service.py`、
+  `entry_timing_service.py` 和 `risk_event_monitor_service.py` 的结果
+
+## 4. 领域模型建议
+
+### 4.1 `topic_profile`
+
+用于表示当前被系统识别的方向或题材。
+
+建议字段：
+
+- `id`
+- `trading_date`
+- `topic_name`
+- `topic_state`
+- `summary`
+- `signal_score`
+- `source_events_json`
+- `representative_tickers_json`
+
+### 4.2 `opportunity_candidate`
+
+用于表示进入机会池的股票。
+
+建议字段：
 
 - `id`
 - `user_id`
-- `name`
-- `source_type`，值为 `template` 或 `custom`
-- `raw_prompt`
-- `structured_config_json`
-- `status`
+- `ticker`
+- `topic_name`
+- `candidate_state`
+- `priority_score`
+- `expectation_gap_score`
+- `continuity_score`
+- `tradeability_state`
+- `role_label`
+- `trend_quality`
+- `ranking_bucket`
+- `reasons_json`
+- `time_horizon`
 - `created_at`
 - `updated_at`
 
-#### `strategy_candidate`
+### 4.3 `entry_signal`
 
-字段建议：
+用于保存某次买点判断结果。
+
+建议字段：
 
 - `id`
-- `strategy_id`
-- `ticker`
-- `scan_time`
-- `signal_score`
-- `trigger_reasons_json`
-- `status`
+- `candidate_id`
+- `action`
+- `confidence`
+- `summary`
+- `reasons_json`
+- `tradeability_state`
+- `expectation_gap_view`
+- `missing_confirmations_json`
+- `invalid_conditions_json`
+- `created_at`
 
-#### `decision_alert`
+### 4.4 `decision_alert`
 
-字段建议：
+用于主动提醒。
+
+建议字段：
 
 - `id`
 - `user_id`
 - `ticker`
+- `topic_name`
 - `alert_type`
 - `priority`
 - `title`
@@ -66,231 +245,216 @@
 - `created_at`
 - `read_at`
 
-## 3.2 阶段二对象之间的关系
+## 5. 策略和偏好的表示方式
 
-可以按以下逻辑理解：
+阶段二不建议一开始做复杂 DSL，而是采用：
 
-- `strategy_profile` 代表用户定义的一套监控意图
-- `strategy_candidate` 代表某次扫描得到的候选标的
-- `decision_alert` 代表最终需要主动触达用户的结果
+`模板 + 自然语言补充 + 结构化配置`
 
-阶段二的重点是把这三层关系打通，而不是一次性定义所有未来对象。
+### 5.1 推荐模板
 
-## 4. 策略表示方式
+- 政策催化
+- 事件驱动
+- 趋势延续
+- 回调后二次走强
+- 低位启动
 
-阶段二不建议一开始做复杂 DSL，而是采用“自然语言 + 结构化配置”的双存储方式。
+### 5.2 可解析字段
 
-### 4.1 用户输入
+系统可将用户输入解析为：
 
-用户可以输入：
+- 偏好题材
+- 偏好持有周期
+- 偏好进攻或稳健
+- 不接受的风险类型
+- 买入风格偏好
+- 是否接受高位追强
+- 是否更偏好预期差型机会
+- 是否更偏好龙头 / 中军而非小票跟风
 
-- 偏好低估值高分红
-- 偏好业绩反转
-- 偏好趋势突破
-- 偏好回调后再起
+## 6. 扫描引擎
 
-### 4.2 系统解析结果
-
-系统将自然语言解析为结构化字段，例如：
-
-- 风格标签
-- 观察池范围
-- 买入触发条件
-- 风险排除条件
-- 卖出条件
-
-## 4.3 阶段二的策略抽象建议
-
-为降低实现难度，建议阶段二优先支持以下几类模板：
-
-- 低估值高分红
-- 业绩改善或反转
-- 趋势突破
-- 回调企稳后二次走强
-
-用户的自然语言输入主要用于微调这些模板，而不是完全自由解释所有市场逻辑。
-
-## 5. 扫描引擎
-
-### 5.1 规则扫描职责
+### 6.1 规则扫描职责
 
 规则层负责：
 
+- 监控题材和方向变化
 - 扫描自选池和候选池
-- 对价格、趋势、基础事件做初筛
-- 生成待裁决候选
+- 发现进入观察状态的股票
+- 控制唤醒成本
+- 过滤掉明显没有可交易性的伪机会
+- 优先把核心票放到前排，把弱票降权
 
-### 5.2 规则扫描输入
+### 6.2 规则扫描输入
 
-- 用户策略结构化配置
-- A 股价格数据
-- 历史行情
-- 基础新闻/公告摘要
-- 基础财务摘要
+- 用户偏好和模板
+- 价格、成交量、历史行情
+- 政策和新闻摘要
+- 资金流与涨跌停数据
+- 风险事件数据
 
-### 5.3 规则扫描输出
+### 6.3 规则扫描输出
 
-- 候选标的
-- 初步触发原因
+- 方向观察对象
+- 股票候选对象
 - 初步优先级
+- 初步触发原因
+- 预期差标签
+- 可交易性标签
+- 角色标签
+- 趋势质量标签
 
-## 5.4 候选生命周期建议
+## 7. Agent 裁决层
 
-为避免实现歧义，建议阶段二把候选对象理解为一个有生命周期的实体：
+### 7.1 建议新增 Agent
 
-- 新发现
-- 观察中
-- 待裁决
-- 已裁决
-- 已提醒
-- 已失效
+- `PolicyNewsAgent`
+- `ThemeHeatAgent`
+- `LeaderRankingAgent`
+- `ExpectationGapAgent`
+- `TradeabilityAgent`
+- `EntryTimingAgent`
+- `OpportunityJudgeAgent`
 
-这比只生成一次性候选更适合后续提醒和回看。
+### 7.2 职责拆分
 
-## 6. Agent 裁决层
+#### PolicyNewsAgent
 
-### 6.1 新增 Agent
+- 判断政策或事件是否具备持续性
+- 识别短周期方向催化
 
-建议新增：
+#### ThemeHeatAgent
 
-- `StrategyMatchAgent`
-- `BuyTimingAgent`
-- `SellTimingAgent`
+- 判断题材是加强、扩散、分歧还是退潮
 
-### 6.2 职责拆分
+#### LeaderRankingAgent
 
-#### StrategyMatchAgent
+- 判断题材内谁更像核心票、中军票或跟风票
+- 判断哪些票更像“能吃到主升”的核心承载标的
 
-- 判断候选是否真正符合用户策略本意
+#### ExpectationGapAgent
 
-#### BuyTimingAgent
+- 判断当前催化是否还有未充分定价的空间
+- 判断当前是一致性强化，还是仍存在预期差
 
-- 判断是否进入适合买入或试仓的窗口
+#### TradeabilityAgent
 
-#### SellTimingAgent
+- 判断当前是否还可以买
+- 判断涨跌停或流动性风险是否让机会只适合持有而不适合新增
 
-- 判断持仓是否进入减仓、止盈、止损或破逻辑区间
+#### EntryTimingAgent
 
-## 6.3 裁决层输出要求
+- 判断现在是继续观察、等待确认还是进入买点窗口
 
-阶段二的裁决层应优先输出结构化结果，而不是生成长篇自由文本。即使内部使用大模型，也应把结果收敛为：
+#### OpportunityJudgeAgent
 
-- 当前动作建议
-- 当前判断级别
-- 核心理由
-- 还缺什么确认
-- 失效条件
+- 汇总各类结论
+- 输出最终机会卡片和提醒内容
 
-## 7. 后端模块设计
+## 8. 输出协议
 
-建议新增：
+阶段二的输出必须优先结构化，而不是长篇自由文本。
 
-- `python/valuecell/server/services/strategy_monitor/strategy_profile_service.py`
-- `python/valuecell/server/services/strategy_monitor/scanner_service.py`
-- `python/valuecell/server/services/strategy_monitor/alert_service.py`
+### 8.1 机会卡
 
-建议新增路由：
+至少应包含：
 
-- `GET /strategy-monitor/profiles`
-- `POST /strategy-monitor/profiles`
-- `PATCH /strategy-monitor/profiles/{id}`
-- `GET /strategy-monitor/opportunities`
-- `GET /strategy-monitor/sell-signals`
-- `GET /strategy-monitor/alerts`
+- `action`
+- `topic_name`
+- `priority_score`
+- `expectation_gap_level`
+- `continuity_level`
+- `tradeability_state`
+- `role_label`
+- `trend_quality`
+- `summary`
+- `reasons`
+- `time_horizon`
+- `missing_confirmations`
+- `invalid_conditions`
 
-阶段二不要求在本文件里补齐所有接口字段，但要求另一个 AI 工具在实现时保证以下能力可被前端消费：
+### 8.2 提醒卡
 
-- 用户能管理策略
-- 用户能看到候选和提醒
-- 用户能看到卖点信号
+至少应包含：
 
-## 8. 调度设计
+- `alert_type`
+- `priority`
+- `title`
+- `body`
+- `next_action`
 
-### 8.1 扫描频率
+## 9. 调度设计
 
-初期建议按分钟级或更长周期扫描，不追求毫秒级。
+### 9.1 触发方式
 
-### 8.2 调度拆分
+阶段二建议支持：
 
-- 周期扫描任务
-- 事件触发任务
-- 用户主动刷新任务
+- 周期扫描
+- 关键事件触发
+- 用户主动刷新
 
-### 8.3 结果缓存
+### 9.2 扫描频率
 
-对候选标的做缓存，避免重复唤醒 Agent。
+初期建议分钟级以上，不追求毫秒级。
 
-## 8.4 调度建议
+### 9.3 去重机制
 
-阶段二可优先使用简单定时扫描和页面触发刷新，不要求一开始做复杂事件总线。重点是让结果稳定、成本可控。
+需要对以下对象去重：
 
-## 9. 前端设计
+- 同一方向重复升温提醒
+- 同一股票重复买点提醒
+- 已失效但未更新状态的旧候选
 
-### 9.1 新增策略页
+## 10. 前端设计建议
 
-- 策略列表
-- 策略详情
-- 最近命中记录
+### 10.1 新增页面
 
-### 9.2 新增机会页
+- 题材雷达页
+- 机会池页
+- 偏好与模板页
+- 提醒中心
 
-- 候选股票卡片
-- 买点建议卡
-- 观察中状态
+### 10.2 首页联动
 
-### 9.3 新增提醒中心
+阶段二需要把最重要的机会池内容回流到首页，例如：
 
-- 买点提醒
-- 风险提醒
-- 卖点提醒
+- 今日新进入重点观察的方向
+- 今日最高优先级机会
+- 今日仅适合持有、不宜追买的强票
+- 今日弱票降权提示
+- 重点提醒摘要
 
-## 9.4 前端优先级建议
+## 11. 成本与性能控制
 
-建议实现顺序：
+### 11.1 控制原则
 
-1. 策略列表和创建入口
-2. 机会页
-3. 卖点页
-4. 提醒中心
-
-如果资源有限，可以先把提醒能力通过页面内列表体现，不必一开始做独立复杂通知系统。
-
-## 10. 成本与性能控制
-
-### 10.1 控制原则
-
-- 规则层先做粗筛
+- 先规则层粗筛
 - Agent 只处理高价值候选
-- 同一股票短时间内避免重复裁决
+- 限制同一用户每日裁决次数
+- 避免把“已经买不进去”的结果全部当成有效机会频繁推送
+- 避免让半死不活的弱票占用过多候选位
 
-### 10.2 限流建议
+### 11.2 限流建议
 
-- 单用户策略数限制
-- 单策略候选上限
-- 同一股票同一天的重复分析上限
+- 单用户模板数量上限
+- 单日机会池上限
+- 同一只股票单日重复分析上限
 
-## 10.3 测试建议
+## 12. 测试建议
 
 阶段二至少应覆盖：
 
-- 策略解析结果的基本测试
-- 扫描引擎候选生成测试
-- 提醒去重逻辑测试
-- 买点和卖点裁决的基本冒烟测试
+- 题材监控结果基本测试
+- 机会池生成测试
+- 买点建议结构测试
+- 提醒去重测试
+- 预期差与可交易性标签测试
+- 核心票优先级排序测试
+- 关键 Agent 的冒烟测试
 
-## 11. 阶段完成标志
+## 13. 实施顺序建议
 
-阶段二完成的标志是：
-
-- 用户可定义策略
-- 系统可持续扫描
-- 系统可输出买点和卖点建议
-- 系统可以主动提醒，而不是等待用户来问
-
-## 12. 给 AI 开发工具的额外说明
-
-阶段二不要为了“看起来智能”而把全部逻辑交给模型自由发挥。更推荐的做法是：
-
-- 用规则层控制范围
-- 用 Agent 做综合判断
-- 用结构化对象保存结论
+1. 先实现题材和方向对象
+2. 再实现机会池和候选生命周期
+3. 再接买点裁决
+4. 最后接提醒中心
