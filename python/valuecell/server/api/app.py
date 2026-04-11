@@ -22,6 +22,7 @@ from .exceptions import (
 from .routers.agent import create_agent_router
 from .routers.agent_stream import create_agent_stream_router
 from .routers.conversation import create_conversation_router
+from .routers.homepage_context import create_homepage_context_router
 from .routers.i18n import create_i18n_router
 from .routers.models import create_models_router
 from .routers.portfolio import create_portfolio_router
@@ -238,6 +239,9 @@ def _add_routes(app: FastAPI, settings) -> None:
 
     # Include watchlist router
     app.include_router(create_watchlist_router(), prefix=API_PREFIX)
+
+    # Include homepage context router
+    app.include_router(create_homepage_context_router(), prefix=API_PREFIX)
 
     # Include portfolio router
     app.include_router(create_portfolio_router(), prefix=API_PREFIX)

@@ -39,6 +39,11 @@ from .emotion_cycle_service import (
     get_emotion_cycle_service,
     reset_emotion_cycle_service,
 )
+from .homepage_context_service import (
+    HomepageContextService,
+    get_homepage_context_service,
+    reset_homepage_context_service,
+)
 from .market_pulse_service import (
     MarketPulseService,
     get_market_pulse_service,
@@ -62,16 +67,19 @@ __all__ = [
     "AssetService",
     "MarketPulseService",
     "EmotionCycleService",
+    "HomepageContextService",
     "ThemeFocusService",
     "ShortCycleDataService",
     "get_asset_service",
     "get_market_pulse_service",
     "get_emotion_cycle_service",
+    "get_homepage_context_service",
     "get_theme_focus_service",
     "get_short_cycle_data_service",
     "reset_asset_service",
     "reset_market_pulse_service",
     "reset_emotion_cycle_service",
+    "reset_homepage_context_service",
     "reset_theme_focus_service",
     "reset_short_cycle_data_service",
     # Convenience functions

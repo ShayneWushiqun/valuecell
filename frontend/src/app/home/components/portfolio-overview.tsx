@@ -40,6 +40,13 @@ type HoldingFormState = {
   notes: string;
 };
 
+type PortfolioOverviewProps = {
+  showDailySummary?: boolean;
+  sectionTitle?: string;
+  sectionDescription?: string;
+  className?: string;
+};
+
 const emptyForm: HoldingFormState = {
   ticker: "",
   asset_name: "",
@@ -268,7 +275,12 @@ function HoldingFormDialog({
   );
 }
 
-export default function PortfolioOverview() {
+export default function PortfolioOverview({
+  showDailySummary = true,
+  sectionTitle = "持仓处理",
+  sectionDescription = "围绕已有持仓给出短周期动作建议，并支持手动维护和诊断刷新。",
+  className,
+}: PortfolioOverviewProps) {
   const { data, isLoading } = useGetPortfolioOverview();
   const refreshBriefing = useRefreshDailyBriefing();
   const createHolding = useCreateHolding();
@@ -359,15 +371,16 @@ export default function PortfolioOverview() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-5">
-      <section className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+    <div className={`flex flex-col gap-4 ${className || "p-5"}`}>
+      {showDailySummary ? (
+        <section className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="rounded-2xl border bg-background p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="space-y-2">
               <p className="font-semibold text-lg">今日摘要</p>
               <p className="text-muted-foreground text-sm">
                 {briefing?.summary.headline ||
-                  "当前还没有摘要，先录入持仓或刷新今日摘要。"}
+                  "暂无可用摘要，补充持仓后可刷新查看。"}
               </p>
             </div>
 
@@ -394,7 +407,7 @@ export default function PortfolioOverview() {
 
             {!briefing?.summary.focus_items?.length && (
               <div className="rounded-xl border border-dashed bg-card p-4 text-muted-foreground text-sm">
-                暂无重点项，系统会在有持仓或自选异动后生成结构化摘要。
+                当前暂无重点项，系统会在持仓或自选出现更明确线索后更新摘要。
               </div>
             )}
           </div>
@@ -436,14 +449,15 @@ export default function PortfolioOverview() {
             </div>
           </div>
         </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border bg-background p-5">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
-            <p className="font-semibold text-lg">我的持仓</p>
+            <p className="font-semibold text-lg">{sectionTitle}</p>
             <p className="text-muted-foreground text-sm">
-              最小闭环版本先支持手动录入聚合持仓，并提供结构化诊断卡。
+              {sectionDescription}
             </p>
           </div>
 
@@ -456,7 +470,7 @@ export default function PortfolioOverview() {
         <div className="space-y-3">
           {!holdings.length && (
             <div className="rounded-xl border border-dashed bg-card p-6 text-center text-muted-foreground text-sm">
-              还没有持仓，先录入一条 A 股持仓即可触发首份诊断和首页摘要。
+              暂无持仓，录入后即可查看诊断、刷新摘要并形成处理建议。
             </div>
           )}
 
