@@ -11,10 +11,22 @@ class HomepageSignalData(BaseModel):
     value: Any = Field(..., description="Signal value")
 
 
+class HomepageIndexQuoteData(BaseModel):
+    label: str = Field(..., description="A-share index label")
+    ticker: str = Field(..., description="A-share index ticker")
+    price: Optional[str] = Field(None, description="Formatted price")
+    change_percent: Optional[float] = Field(None, description="Change percent")
+
+
 class HomepageStagePointData(BaseModel):
     trading_date: str = Field(..., description="Trading date")
     cycle_stage: str = Field(..., description="Cycle stage")
     stage_score: int = Field(..., description="Stage score")
+    up_limit_count: Optional[int] = Field(None, description="Up limit count")
+    down_limit_count: Optional[int] = Field(None, description="Down limit count")
+    broken_limit_count: Optional[int] = Field(None, description="Broken limit count")
+    highest_board: Optional[int] = Field(None, description="Highest board count")
+    action_hint: Optional[str] = Field(None, description="Action hint")
 
 
 class HomepageTurningPointData(BaseModel):
@@ -30,6 +42,8 @@ class HomepageMarketOverviewData(BaseModel):
     confidence: Optional[str] = Field(None, description="Confidence level")
     action_hint: Optional[str] = Field(None, description="Action hint")
     signals: list[HomepageSignalData] = Field(default_factory=list)
+    breadth_items: list[HomepageSignalData] = Field(default_factory=list)
+    index_quotes: list[HomepageIndexQuoteData] = Field(default_factory=list)
     score: Optional[int] = Field(None, description="Market score")
     empty_message: Optional[str] = Field(None, description="Fallback message")
 
@@ -42,6 +56,7 @@ class HomepageEmotionCycleData(BaseModel):
     trend_direction: Optional[str] = Field(None, description="Recent direction")
     stage_points: list[HomepageStagePointData] = Field(default_factory=list)
     turning_points: list[HomepageTurningPointData] = Field(default_factory=list)
+    default_window_days: int = Field(20, description="Default displayed window days")
     empty_message: Optional[str] = Field(None, description="Fallback message")
 
 
@@ -69,9 +84,18 @@ class HomepageThemeItemData(BaseModel):
     rank: int = Field(..., description="Theme rank")
     expectation_gap_level: str = Field(..., description="Expectation gap level")
     core_leaders_json: list[str] = Field(default_factory=list)
+    primary_representative: Optional[str] = Field(None, description="Primary representative ticker")
+    trend_state: str = Field(..., description="Trend state")
+    hot_level: int = Field(..., description="Hot level")
+    is_suitable_for_direct_participation: bool = Field(
+        ..., description="Whether direct participation is suitable"
+    )
+    participation_hint: str = Field(..., description="Participation hint")
+    preferred_market: str = Field(..., description="Preferred market")
     core_institutions_json: list[HomepageThemeInstitutionData] = Field(
         default_factory=list
     )
+    etf_hint: Optional[dict[str, str]] = Field(None, description="ETF fallback hint")
     metrics: HomepageThemeMetricsData = Field(..., description="Theme metrics")
 
 
@@ -87,6 +111,8 @@ class HomepageActionFrameworkData(BaseModel):
     summary: Optional[str] = Field(None, description="Framework summary")
     focus_points: list[str] = Field(default_factory=list)
     avoid_points: list[str] = Field(default_factory=list)
+    participation_preferences: list[str] = Field(default_factory=list)
+    etf_strategy_hint: Optional[str] = Field(None, description="ETF strategy hint")
     empty_message: Optional[str] = Field(None, description="Fallback message")
 
 
@@ -99,6 +125,10 @@ class HomepageWatchlistObservationItemData(BaseModel):
     status: str = Field(..., description="Observation status")
     reason: str = Field(..., description="Observation reason")
     theme_name: Optional[str] = Field(None, description="Related theme name")
+    tradeability_state: str = Field(..., description="Tradeability state")
+    expectation_gap_level: str = Field(..., description="Expectation gap level")
+    role_label: str = Field(..., description="Role label")
+    trend_quality: str = Field(..., description="Trend quality")
 
 
 class HomepageWatchlistObservationData(BaseModel):
@@ -125,6 +155,10 @@ class HomepageRiskControlData(BaseModel):
     available: bool = Field(..., description="Whether risk control section is available")
     summary: str = Field(..., description="Risk control summary")
     position_suggestion: str = Field(..., description="Position suggestion")
+    total_position_range: str = Field(..., description="Total position range")
+    single_position_range: str = Field(..., description="Single position range")
+    build_strategy: str = Field(..., description="Build strategy")
+    theme_concentration_hint: str = Field(..., description="Theme concentration hint")
     signals: list[str] = Field(default_factory=list)
     empty_message: Optional[str] = Field(None, description="Fallback message")
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from valuecell.server.services.assets.emotion_cycle_service import (
     EmotionCycleService,
 )
@@ -84,9 +86,28 @@ class FakeShortCycleDataService:
         }
 
 
+def test_emotion_cycle_service_penalizes_extreme_weak_day() -> None:
+    snapshot = {
+        "metrics": {
+            "up_limit_count": 28,
+            "down_limit_count": 70,
+            "broken_limit_count": 0,
+            "active_board_count": 36,
+            "strongest_board_height": 0,
+        },
+        "market_state": "轮动",
+    }
+
+    stage_score = EmotionCycleService._calculate_stage_score(snapshot)
+    cycle_stage = EmotionCycleService._resolve_cycle_stage(snapshot, stage_score)
+
+    assert stage_score <= 20
+    assert cycle_stage == "冰点"
+
+
 def test_market_pulse_service_returns_structured_snapshot() -> None:
     service = MarketPulseService(
-        short_cycle_data_service=FakeShortCycleDataService()
+        short_cycle_data_service=cast(Any, FakeShortCycleDataService())
     )
 
     result = service.get_market_pulse_snapshot("20250410")
@@ -102,11 +123,11 @@ def test_market_pulse_service_returns_structured_snapshot() -> None:
 def test_emotion_cycle_service_returns_snapshot_stage() -> None:
     short_cycle_service = FakeShortCycleDataService()
     market_pulse_service = MarketPulseService(
-        short_cycle_data_service=short_cycle_service
+        short_cycle_data_service=cast(Any, short_cycle_service)
     )
     service = EmotionCycleService(
         market_pulse_service=market_pulse_service,
-        short_cycle_data_service=short_cycle_service,
+        short_cycle_data_service=cast(Any, short_cycle_service),
     )
 
     result = service.get_emotion_cycle_snapshot("20250410")
@@ -119,11 +140,11 @@ def test_emotion_cycle_service_returns_snapshot_stage() -> None:
 def test_emotion_cycle_service_returns_timeline_with_turning_points() -> None:
     short_cycle_service = FakeShortCycleDataService()
     market_pulse_service = MarketPulseService(
-        short_cycle_data_service=short_cycle_service
+        short_cycle_data_service=cast(Any, short_cycle_service)
     )
     service = EmotionCycleService(
         market_pulse_service=market_pulse_service,
-        short_cycle_data_service=short_cycle_service,
+        short_cycle_data_service=cast(Any, short_cycle_service),
     )
 
     result = service.get_emotion_cycle_timeline(end_date="2025-04-10", window_days=3)
@@ -134,3 +155,4 @@ def test_emotion_cycle_service_returns_timeline_with_turning_points() -> None:
     assert len(data["stage_points_json"]) == 3
     assert data["trend_direction"] in {"上行", "横向", "下行"}
     assert isinstance(data["turning_points_json"], list)
+    assert data["stage_points_json"][0]["stage_score"] < data["stage_points_json"][-1]["stage_score"]

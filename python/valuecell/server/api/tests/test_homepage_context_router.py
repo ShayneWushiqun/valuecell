@@ -17,6 +17,15 @@ class FakeHomepageContextService:
                 "confidence": "中",
                 "action_hint": "优先看修复后继续走强的方向。",
                 "signals": [{"label": "涨停家数", "value": 42}],
+                "breadth_items": [{"label": "涨停家数", "value": 42}],
+                "index_quotes": [
+                    {
+                        "label": "上证",
+                        "ticker": "SSE:000001",
+                        "price": "3200.00",
+                        "change_percent": 0.82,
+                    }
+                ],
                 "score": 61,
                 "empty_message": None,
             },
@@ -31,9 +40,15 @@ class FakeHomepageContextService:
                         "trading_date": "20250410",
                         "cycle_stage": "修复试错",
                         "stage_score": 48,
+                        "up_limit_count": 42,
+                        "down_limit_count": 5,
+                        "broken_limit_count": 3,
+                        "highest_board": 4,
+                        "action_hint": "低位试错优先。",
                     }
                 ],
                 "turning_points": [],
+                "default_window_days": 20,
                 "empty_message": None,
             },
             "theme_focus": {
@@ -49,7 +64,18 @@ class FakeHomepageContextService:
                         "rank": 1,
                         "expectation_gap_level": "高",
                         "core_leaders_json": ["SZSE:300308"],
+                        "primary_representative": "SZSE:300308",
+                        "trend_state": "加强",
+                        "hot_level": 2,
+                        "is_suitable_for_direct_participation": False,
+                        "participation_hint": "方向有热度，但不建议无差别追高。",
+                        "preferred_market": "创业板为主",
                         "core_institutions_json": [],
+                        "etf_hint": {
+                            "title": "AI算力可关注相关场内 ETF 作为替代观察方向",
+                            "summary": "可用 ETF 做替代观察。",
+                            "risk_hint": "注意流动性和跟踪误差风险。"
+                        },
                         "metrics": {
                             "score": 82,
                             "change_value": 3.2,
@@ -68,6 +94,8 @@ class FakeHomepageContextService:
                 "summary": "先看强势题材，再处理重点持仓。",
                 "focus_points": ["优先跟踪 AI算力。"],
                 "avoid_points": ["不要无差别追高。"],
+                "participation_preferences": ["默认优先主板 10cm 个股。"],
+                "etf_strategy_hint": "可用 ETF 观察替代。",
                 "empty_message": None,
             },
             "watchlist_observation": {
@@ -82,6 +110,10 @@ class FakeHomepageContextService:
                         "status": "重点观察",
                         "reason": "与主线共振。",
                         "theme_name": "AI算力",
+                        "tradeability_state": "可观察",
+                        "expectation_gap_level": "中",
+                        "role_label": "龙头",
+                        "trend_quality": "顺势",
                     }
                 ],
                 "empty_message": None,
@@ -98,6 +130,10 @@ class FakeHomepageContextService:
                 "available": True,
                 "summary": "先管仓位，再谈进攻。",
                 "position_suggestion": "建议 30% - 50% 仓位参与。",
+                "total_position_range": "3-5成",
+                "single_position_range": "单票以 10% - 20% 为主。",
+                "build_strategy": "分批建仓",
+                "theme_concentration_hint": "优先集中在 1 到 2 个主线方向。",
                 "signals": ["弱势环境先控仓。"],
                 "empty_message": None,
             },

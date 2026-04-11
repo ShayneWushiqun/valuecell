@@ -86,30 +86,63 @@ class EmotionCycleService:
     @staticmethod
     def _calculate_stage_score(snapshot: dict[str, Any]) -> int:
         metrics = snapshot.get("metrics", {})
-        score = snapshot.get("score", 50)
-        score += min(metrics.get("strongest_board_height", 0), 7) * 2
-        score -= min(metrics.get("broken_limit_count", 0), 30)
-        return max(0, min(100, int(score)))
+        up_limit_count = int(metrics.get("up_limit_count", 0) or 0)
+        down_limit_count = int(metrics.get("down_limit_count", 0) or 0)
+        broken_limit_count = int(metrics.get("broken_limit_count", 0) or 0)
+        active_board_count = int(metrics.get("active_board_count", 0) or 0)
+        strongest_board_height = int(metrics.get("strongest_board_height", 0) or 0)
+
+        score = 50.0
+        score += min(up_limit_count, 120) * 0.35
+        score -= min(down_limit_count, 100) * 0.7
+        score -= min(broken_limit_count, 50) * 0.8
+        score += min(active_board_count, 20) * 0.4
+        score += min(strongest_board_height, 7) * 5
+        score += min(max(up_limit_count - down_limit_count, 0), 80) * 0.15
+        score -= min(max(down_limit_count - up_limit_count, 0), 60) * 0.5
+
+        if strongest_board_height == 0:
+            score -= 12
+        if up_limit_count < 35:
+            score -= 8
+        if up_limit_count >= 60 and down_limit_count <= 5 and broken_limit_count <= 5:
+            score += 6
+
+        return max(0, min(100, int(round(score))))
 
     @staticmethod
     def _resolve_cycle_stage(snapshot: dict[str, Any], stage_score: int) -> str:
         metrics = snapshot.get("metrics", {})
         highest_board = metrics.get("strongest_board_height", 0)
         broken_limit = metrics.get("broken_limit_count", 0)
+        up_limit_count = metrics.get("up_limit_count", 0)
+        down_limit_count = metrics.get("down_limit_count", 0)
         market_state = snapshot.get("market_state")
 
-        if stage_score <= 20:
+        if stage_score <= 20 or (
+            highest_board == 0 and down_limit_count >= max(20, up_limit_count * 2)
+        ):
             return "冰点"
-        if market_state == "退潮":
+        if market_state == "退潮" or (
+            down_limit_count > up_limit_count and stage_score < 35
+        ):
             return "退潮"
-        if market_state == "修复" and highest_board <= 2:
-            return "修复试错"
-        if stage_score >= 85 and highest_board >= 4 and broken_limit <= 5:
-            return "高潮一致"
-        if stage_score >= 68 and highest_board >= 2:
+        if (
+            stage_score >= 85
+            and up_limit_count >= 60
+            and down_limit_count <= 5
+            and broken_limit <= 5
+        ):
+            return "高潮一致" if highest_board >= 3 else "主升发酵"
+        if stage_score >= 68 and (
+            highest_board >= 2
+            or (up_limit_count >= 45 and down_limit_count <= 10 and broken_limit <= 8)
+        ):
             return "主升发酵"
         if broken_limit >= 6 or market_state == "震荡":
             return "分歧"
+        if market_state == "修复" and highest_board <= 2:
+            return "修复试错"
         return "修复试错"
 
     @staticmethod

@@ -1,6 +1,5 @@
 import { Activity, Eye, ShieldAlert, TrendingUp } from "lucide-react";
 import { memo, useMemo } from "react";
-import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { useGetHomepageContext } from "@/api/homepage-context";
 import { useGetStockPrice, useGetWatchlist } from "@/api/stock";
@@ -27,7 +26,6 @@ const getStatusIcon = (status?: string) => {
 };
 
 function StockList() {
-  const { t } = useTranslation();
   const { pathname } = useLocation();
   const { data: stockList } = useGetWatchlist();
   const { data: homepageContext } = useGetHomepageContext();
@@ -38,7 +36,6 @@ function StockList() {
 
   const observedStocks = homepageContext?.watchlist_observation.items || [];
 
-  // Extract stock symbol (e.g., AAPL) from path like /stock/AAPL
   const stockTicker = pathname.split("/")[3];
 
   const WatchlistFallbackItem = ({ stock }: { stock: Stock }) => {
@@ -78,9 +75,9 @@ function StockList() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-5 py-4">
-        <p className="font-semibold text-lg">自选观察</p>
+        <p className="font-semibold text-base">自选观察</p>
         <p className="mt-1 text-muted-foreground text-sm">
-          把自选池做成观察池，优先看状态变化和一句话原因。
+          把自选池做成观察区，优先看状态变化和一句话原因。
         </p>
       </div>
 
@@ -126,13 +123,14 @@ function StockList() {
                 <p className="mt-3 text-sm">{stock.reason}</p>
 
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span>{stock.watchlist_name}</span>
-                  {stock.theme_name ? <span>· {stock.theme_name}</span> : null}
+                  <span>{stock.tradeability_state}</span>
+                  <span>· 预期差 {stock.expectation_gap_level}</span>
+                  <span>· {stock.watchlist_name}</span>
                 </div>
               </Link>
             ))
           : stockData.map((stock) => (
-              <WatchlistFallbackItem key={stock.symbol} stock={stock} />
+              <WatchlistFallbackItem key={stock.ticker} stock={stock} />
             ))}
 
         {!observedStocks.length && !stockData.length ? (

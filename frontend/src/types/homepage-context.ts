@@ -3,10 +3,22 @@ export type HomepageSignal = {
   value: string | number | null;
 };
 
+export type HomepageIndexQuote = {
+  label: string;
+  ticker: string;
+  price: string | null;
+  change_percent: number | null;
+};
+
 export type HomepageStagePoint = {
   trading_date: string;
   cycle_stage: string;
   stage_score: number;
+  up_limit_count: number | null;
+  down_limit_count: number | null;
+  broken_limit_count: number | null;
+  highest_board: number | null;
+  action_hint: string | null;
 };
 
 export type HomepageTurningPoint = {
@@ -22,6 +34,8 @@ export type HomepageMarketOverview = {
   confidence: string | null;
   action_hint: string | null;
   signals: HomepageSignal[];
+  breadth_items: HomepageSignal[];
+  index_quotes: HomepageIndexQuote[];
   score: number | null;
   empty_message: string | null;
 };
@@ -34,6 +48,7 @@ export type HomepageEmotionCycle = {
   trend_direction: string | null;
   stage_points: HomepageStagePoint[];
   turning_points: HomepageTurningPoint[];
+  default_window_days: number;
   empty_message: string | null;
 };
 
@@ -61,7 +76,18 @@ export type HomepageThemeItem = {
   rank: number;
   expectation_gap_level: string;
   core_leaders_json: string[];
+  primary_representative: string | null;
+  trend_state: string;
+  hot_level: number;
+  is_suitable_for_direct_participation: boolean;
+  participation_hint: string;
+  preferred_market: string;
   core_institutions_json: HomepageThemeInstitution[];
+  etf_hint: {
+    title: string;
+    summary: string;
+    risk_hint: string;
+  } | null;
   metrics: HomepageThemeMetrics;
 };
 
@@ -77,6 +103,8 @@ export type HomepageActionFramework = {
   summary: string | null;
   focus_points: string[];
   avoid_points: string[];
+  participation_preferences: string[];
+  etf_strategy_hint: string | null;
   empty_message: string | null;
 };
 
@@ -89,6 +117,10 @@ export type HomepageWatchlistObservationItem = {
   status: string;
   reason: string;
   theme_name: string | null;
+  tradeability_state: string;
+  expectation_gap_level: string;
+  role_label: string;
+  trend_quality: string;
 };
 
 export type HomepageWatchlistObservation = {
@@ -115,6 +147,10 @@ export type HomepageRiskControl = {
   available: boolean;
   summary: string;
   position_suggestion: string;
+  total_position_range: string;
+  single_position_range: string;
+  build_strategy: string;
+  theme_concentration_hint: string;
   signals: string[];
   empty_message: string | null;
 };

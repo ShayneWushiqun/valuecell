@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, cast
 
 from valuecell.server.services.assets.homepage_context_service import (
     HomepageContextService,
@@ -8,7 +9,7 @@ from valuecell.server.services.assets.homepage_context_service import (
 
 
 class FakeMarketPulseService:
-    def get_market_pulse_snapshot(self):
+    def get_market_pulse_snapshot(self, trade_date: str | None = None):
         return {
             "success": True,
             "data": {
@@ -18,6 +19,12 @@ class FakeMarketPulseService:
                 "action_hint": "优先关注修复后继续走强的方向。",
                 "signals_json": [{"label": "涨停家数", "value": 42}],
                 "score": 63,
+                "metrics": {
+                    "up_limit_count": 42,
+                    "down_limit_count": 5,
+                    "broken_limit_count": 3,
+                    "strongest_board_height": 4,
+                },
             },
         }
 
@@ -33,7 +40,7 @@ class FakeEmotionCycleService:
             },
         }
 
-    def get_emotion_cycle_timeline(self, window_days: int = 5):
+    def get_emotion_cycle_timeline(self, window_days: int = 30):
         return {
             "success": True,
             "data": {
@@ -157,7 +164,7 @@ class EmptyEmotionCycleService:
 
 
 class EmptyMarketPulseService:
-    def get_market_pulse_snapshot(self):
+    def get_market_pulse_snapshot(self, trade_date: str | None = None):
         return {"success": False}
 
 
@@ -186,36 +193,44 @@ class EmptyWatchlistRepository:
 
 def test_homepage_context_service_aggregates_sections() -> None:
     service = HomepageContextService(
-        market_pulse_service=FakeMarketPulseService(),
-        emotion_cycle_service=FakeEmotionCycleService(),
-        theme_focus_service=FakeThemeFocusService(),
-        holding_service=FakeHoldingService(),
-        daily_briefing_service=FakeDailyBriefingService(),
-        asset_service=FakeAssetService(),
-        watchlist_repository=FakeWatchlistRepository(),
+        market_pulse_service=cast(Any, FakeMarketPulseService()),
+        emotion_cycle_service=cast(Any, FakeEmotionCycleService()),
+        theme_focus_service=cast(Any, FakeThemeFocusService()),
+        holding_service=cast(Any, FakeHoldingService()),
+        daily_briefing_service=cast(Any, FakeDailyBriefingService()),
+        asset_service=cast(Any, FakeAssetService()),
+        watchlist_repository=cast(Any, FakeWatchlistRepository()),
     )
 
     result = service.get_homepage_context("default_user")
 
     datetime.fromisoformat(result["generated_at"])
     assert result["market_overview"]["available"] is True
+    assert len(result["market_overview"]["index_quotes"]) == 5
     assert result["emotion_cycle"]["cycle_stage"] == "修复试错"
+    assert result["emotion_cycle"]["default_window_days"] == 20
+    assert result["emotion_cycle"]["stage_points"][0]["up_limit_count"] == 42
     assert result["theme_focus"]["items"][0]["theme_name"] == "AI算力"
+    assert result["theme_focus"]["items"][0]["is_suitable_for_direct_participation"] is False
     assert result["watchlist_observation"]["items"][0]["status"] == "重点观察"
+    assert result["watchlist_observation"]["items"][0]["tradeability_state"] == "可观察"
     assert result["portfolio_handling"]["focus_count"] == 1
     assert result["action_framework"]["available"] is True
+    assert result["action_framework"]["participation_preferences"]
+    assert result["action_framework"]["etf_strategy_hint"]
     assert result["risk_control"]["available"] is True
+    assert result["risk_control"]["total_position_range"] == "3-5成"
 
 
 def test_homepage_context_service_handles_empty_degraded_sections() -> None:
     service = HomepageContextService(
-        market_pulse_service=EmptyMarketPulseService(),
-        emotion_cycle_service=EmptyEmotionCycleService(),
-        theme_focus_service=EmptyThemeFocusService(),
-        holding_service=EmptyHoldingService(),
-        daily_briefing_service=EmptyBriefingService(),
-        asset_service=EmptyAssetService(),
-        watchlist_repository=EmptyWatchlistRepository(),
+        market_pulse_service=cast(Any, EmptyMarketPulseService()),
+        emotion_cycle_service=cast(Any, EmptyEmotionCycleService()),
+        theme_focus_service=cast(Any, EmptyThemeFocusService()),
+        holding_service=cast(Any, EmptyHoldingService()),
+        daily_briefing_service=cast(Any, EmptyBriefingService()),
+        asset_service=cast(Any, EmptyAssetService()),
+        watchlist_repository=cast(Any, EmptyWatchlistRepository()),
     )
 
     result = service.get_homepage_context("default_user")
