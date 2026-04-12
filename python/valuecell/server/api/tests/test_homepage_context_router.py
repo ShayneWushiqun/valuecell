@@ -72,9 +72,9 @@ class FakeHomepageContextService:
                         "preferred_market": "创业板为主",
                         "core_institutions_json": [],
                         "etf_hint": {
-                            "title": "AI算力可关注相关场内 ETF 作为替代观察方向",
-                            "summary": "可用 ETF 做替代观察。",
-                            "risk_hint": "注意流动性和跟踪误差风险。"
+                            "title": "可考虑相关场内 ETF 作为替代观察",
+                            "summary": "可考虑相关场内 ETF 作为替代观察，暂无匹配具体 ETF。",
+                            "risk_hint": "注意流动性、跟踪误差和板块退潮风险。",
                         },
                         "metrics": {
                             "score": 82,
@@ -95,12 +95,28 @@ class FakeHomepageContextService:
                 "focus_points": ["优先跟踪 AI算力。"],
                 "avoid_points": ["不要无差别追高。"],
                 "participation_preferences": ["默认优先主板 10cm 个股。"],
-                "etf_strategy_hint": "可用 ETF 观察替代。",
+                "etf_strategy_hint": "可考虑相关场内 ETF 作为替代观察，暂无匹配具体 ETF。 注意流动性、跟踪误差和板块退潮风险。",
                 "empty_message": None,
             },
             "watchlist_observation": {
                 "available": True,
                 "items": [
+                    {
+                        "ticker": "SZSE:300308",
+                        "display_name": "中际旭创",
+                        "watchlist_name": "My Watchlist",
+                        "price": "23.51",
+                        "change_percent": 2.8,
+                        "status": "重点观察",
+                        "reason": "与主线共振。",
+                        "theme_name": "AI算力",
+                        "tradeability_state": "可观察",
+                        "expectation_gap_level": "中",
+                        "role_label": "龙头",
+                        "trend_quality": "顺势",
+                    }
+                ],
+                "all_items": [
                     {
                         "ticker": "SZSE:300308",
                         "display_name": "中际旭创",
@@ -156,3 +172,4 @@ def test_homepage_context_router_returns_structured_response(monkeypatch) -> Non
     assert payload["code"] == 0
     assert payload["data"]["market_overview"]["market_state"] == "修复"
     assert payload["data"]["watchlist_observation"]["items"][0]["status"] == "重点观察"
+    assert payload["data"]["watchlist_observation"]["all_items"][0]["ticker"] == "SZSE:300308"

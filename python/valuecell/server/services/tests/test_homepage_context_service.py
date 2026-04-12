@@ -9,7 +9,11 @@ from valuecell.server.services.assets.homepage_context_service import (
 
 
 class FakeMarketPulseService:
+    def __init__(self) -> None:
+        self.calls: list[str | None] = []
+
     def get_market_pulse_snapshot(self, trade_date: str | None = None):
+        self.calls.append(trade_date)
         return {
             "success": True,
             "data": {
@@ -50,11 +54,21 @@ class FakeEmotionCycleService:
                         "trading_date": "20250408",
                         "cycle_stage": "冰点",
                         "stage_score": 20,
+                        "up_limit_count": 18,
+                        "down_limit_count": 12,
+                        "broken_limit_count": 6,
+                        "highest_board": 1,
+                        "action_hint": "以观察和等待为主。",
                     },
                     {
                         "trading_date": "20250409",
                         "cycle_stage": "修复试错",
                         "stage_score": 48,
+                        "up_limit_count": 42,
+                        "down_limit_count": 5,
+                        "broken_limit_count": 3,
+                        "highest_board": 4,
+                        "action_hint": "低位试错优先。",
                     },
                 ],
                 "turning_points_json": [
@@ -93,6 +107,26 @@ class FakeThemeFocusService:
                             "kpl_count": 3,
                             "hot_count": 2,
                         },
+                    },
+                    {
+                        "trading_date": "20250410",
+                        "theme_name": "ST板块",
+                        "theme_code": "885999.TI",
+                        "theme_state": "加强",
+                        "summary": "ST方向异动。",
+                        "representative_tickers_json": ["ST龙头"],
+                        "rank": 0,
+                        "expectation_gap_level": "低",
+                        "core_leaders_json": ["ST龙头"],
+                        "core_institutions_json": [],
+                        "metrics": {
+                            "score": 90,
+                            "change_value": 4.5,
+                            "ths_flow_value": 6.0,
+                            "dc_flow_value": 5.0,
+                            "kpl_count": 2,
+                            "hot_count": 5,
+                        },
                     }
                 ]
             },
@@ -126,23 +160,42 @@ class FakeDailyBriefingService:
 
 
 class FakeAssetService:
+    def __init__(self) -> None:
+        self.price_by_ticker = {
+            "SZSE:300308": ("23.51", 2.8),
+            "SZSE:000001": ("11.02", -3.6),
+            "SZSE:000002": ("8.31", 1.3),
+            "SZSE:000004": ("15.22", 6.2),
+            "SZSE:000005": ("7.18", -0.4),
+            "SZSE:000006": ("9.80", 0.2),
+        }
+
     def get_asset_price(self, ticker: str, language: str | None = None):
+        price, change_percent = self.price_by_ticker.get(ticker, ("23.51", 2.8))
         return {
             "success": True,
-            "price_formatted": "23.51",
-            "change_percent": 2.8,
+            "price_formatted": price,
+            "change_percent": change_percent,
         }
 
 
 class FakeWatchlistItem:
-    ticker = "SZSE:300308"
-    display_name = "中际旭创"
-    symbol = "300308"
+    def __init__(self, ticker: str, display_name: str, symbol: str) -> None:
+        self.ticker = ticker
+        self.display_name = display_name
+        self.symbol = symbol
 
 
 class FakeWatchlist:
     name = "My Watchlist"
-    items = [FakeWatchlistItem()]
+    items = [
+        FakeWatchlistItem("SZSE:300308", "中际旭创", "300308"),
+        FakeWatchlistItem("SZSE:000001", "平安银行", "000001"),
+        FakeWatchlistItem("SZSE:000002", "万科A", "000002"),
+        FakeWatchlistItem("SZSE:000004", "国华网安", "000004"),
+        FakeWatchlistItem("SZSE:000005", "世纪星源", "000005"),
+        FakeWatchlistItem("SZSE:000006", "深振业A", "000006"),
+    ]
 
 
 class FakeWatchlistRepository:
@@ -192,8 +245,9 @@ class EmptyWatchlistRepository:
 
 
 def test_homepage_context_service_aggregates_sections() -> None:
+    market_pulse_service = FakeMarketPulseService()
     service = HomepageContextService(
-        market_pulse_service=cast(Any, FakeMarketPulseService()),
+        market_pulse_service=cast(Any, market_pulse_service),
         emotion_cycle_service=cast(Any, FakeEmotionCycleService()),
         theme_focus_service=cast(Any, FakeThemeFocusService()),
         holding_service=cast(Any, FakeHoldingService()),
@@ -209,10 +263,16 @@ def test_homepage_context_service_aggregates_sections() -> None:
     assert len(result["market_overview"]["index_quotes"]) == 5
     assert result["emotion_cycle"]["cycle_stage"] == "修复试错"
     assert result["emotion_cycle"]["default_window_days"] == 20
-    assert result["emotion_cycle"]["stage_points"][0]["up_limit_count"] == 42
+    assert result["emotion_cycle"]["stage_points"][0]["up_limit_count"] == 18
+    assert result["emotion_cycle"]["stage_points"][0]["action_hint"] == "以观察和等待为主。"
     assert result["theme_focus"]["items"][0]["theme_name"] == "AI算力"
+    assert result["theme_focus"]["items"][-1]["theme_name"] == "ST板块"
+    assert result["theme_focus"]["items"][-1]["participation_hint"] == "疑似 ST 或高风险方向，默认回避，不建议参与。"
     assert result["theme_focus"]["items"][0]["is_suitable_for_direct_participation"] is False
+    assert result["theme_focus"]["items"][0]["etf_hint"]["summary"].endswith("暂无匹配具体 ETF。")
     assert result["watchlist_observation"]["items"][0]["status"] == "重点观察"
+    assert len(result["watchlist_observation"]["items"]) == 5
+    assert len(result["watchlist_observation"]["all_items"]) == 6
     assert result["watchlist_observation"]["items"][0]["tradeability_state"] == "可观察"
     assert result["portfolio_handling"]["focus_count"] == 1
     assert result["action_framework"]["available"] is True
@@ -220,6 +280,7 @@ def test_homepage_context_service_aggregates_sections() -> None:
     assert result["action_framework"]["etf_strategy_hint"]
     assert result["risk_control"]["available"] is True
     assert result["risk_control"]["total_position_range"] == "3-5成"
+    assert market_pulse_service.calls == [None]
 
 
 def test_homepage_context_service_handles_empty_degraded_sections() -> None:
@@ -239,6 +300,7 @@ def test_homepage_context_service_handles_empty_degraded_sections() -> None:
     assert result["emotion_cycle"]["available"] is False
     assert result["theme_focus"]["available"] is False
     assert result["watchlist_observation"]["available"] is False
+    assert result["watchlist_observation"]["all_items"] == []
     assert result["portfolio_handling"]["available"] is False
     assert result["action_framework"]["available"] is False
     assert result["risk_control"]["available"] is True

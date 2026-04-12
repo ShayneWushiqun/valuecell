@@ -20,7 +20,7 @@ export default function HomeLayout() {
           <Outlet />
         </main>
 
-        <aside className="flex w-64 shrink-0 flex-col overflow-hidden rounded-lg bg-card">
+        <aside className="flex w-56 shrink-0 flex-col overflow-hidden rounded-lg bg-card">
           <StockList />
 
           <StockSearchModal>

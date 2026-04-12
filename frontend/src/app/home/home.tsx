@@ -1,3 +1,9 @@
+import { LineChart } from "echarts/charts";
+import { GridComponent, MarkAreaComponent, TooltipComponent } from "echarts/components";
+import type { ECharts } from "echarts/core";
+import * as echarts from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import type { EChartsOption } from "echarts/types/dist/shared";
 import {
   Activity,
   AlertTriangle,
@@ -8,7 +14,7 @@ import {
   Target,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useAllPollTaskList } from "@/api/conversation";
@@ -25,16 +31,18 @@ import { AutoTrade, NewsPush, ResearchReport } from "@/assets/svg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { useChartResize } from "@/hooks/use-chart-resize";
 import SvgIcon from "@/components/valuecell/icon/svg-icon";
 import type {
   HomepageEmotionCycle,
   HomepageMarketOverview,
-  HomepageSignal,
   HomepageStagePoint,
   HomepageThemeItem,
 } from "@/types/homepage-context";
 import ChatInputArea from "../agent/components/chat-conversation/chat-input-area";
 import { AgentSuggestionsList, AgentTaskCards, PortfolioOverview } from "./components";
+
+echarts.use([LineChart, GridComponent, TooltipComponent, MarkAreaComponent, CanvasRenderer]);
 
 const formatPercent = (value?: number | null) => {
   if (value === null || value === undefined || Number.isNaN(value)) return "--";
@@ -54,6 +62,11 @@ const getParticipationBadgeClassName = (enabled: boolean) =>
     ? "bg-emerald-500/10 text-emerald-500"
     : "bg-orange-500/10 text-orange-500";
 
+const getParticipationBadgeLabel = (item: HomepageThemeItem) => {
+  if (item.participation_hint.includes("不建议参与")) return "不建议参与";
+  return item.is_suitable_for_direct_participation ? "适合直接参与" : "更适合观察";
+};
+
 const formatEmotionTickLabel = (tradingDate: string) => {
   if (tradingDate.length !== 8) return tradingDate;
   return `${tradingDate.slice(4, 6)}/${tradingDate.slice(6, 8)}`;
@@ -65,6 +78,49 @@ const shouldRenderEmotionTickLabel = (index: number, total: number) => {
   if (total <= 20) return index % 2 === 0;
   return index % 4 === 0;
 };
+
+const EMOTION_STAGE_META: Record<
+  string,
+  { color: string; backgroundColor: string; scoreRange: [number, number] }
+> = {
+  冰点: {
+    color: "#ef4444",
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    scoreRange: [0, 20],
+  },
+  退潮: {
+    color: "#f97316",
+    backgroundColor: "rgba(249, 115, 22, 0.08)",
+    scoreRange: [20, 35],
+  },
+  分歧: {
+    color: "#f59e0b",
+    backgroundColor: "rgba(245, 158, 11, 0.08)",
+    scoreRange: [35, 50],
+  },
+  修复试错: {
+    color: "#3b82f6",
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    scoreRange: [50, 65],
+  },
+  主升发酵: {
+    color: "#10b981",
+    backgroundColor: "rgba(16, 185, 129, 0.08)",
+    scoreRange: [65, 85],
+  },
+  高潮一致: {
+    color: "#8b5cf6",
+    backgroundColor: "rgba(139, 92, 246, 0.08)",
+    scoreRange: [85, 100],
+  },
+};
+
+const getEmotionStageMeta = (cycleStage?: string | null) =>
+  EMOTION_STAGE_META[cycleStage || ""] || {
+    color: "#3b82f6",
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    scoreRange: [0, 100] as [number, number],
+  };
 
 function SectionCard({
   title,
@@ -108,9 +164,6 @@ function AShareMarketStrip({
             优先看 A 股核心指数和市场宽度，不再用泛市场 ticker 占据顶部。
           </p>
         </div>
-        {marketOverview?.market_state ? (
-          <Badge variant="secondary">当前环境 {marketOverview.market_state}</Badge>
-        ) : null}
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[2fr_1.2fr]">
@@ -147,26 +200,15 @@ function AShareMarketStrip({
   );
 }
 
-function SignalBadges({ signals }: { signals: HomepageSignal[] }) {
-  if (!signals.length) return null;
-  return (
-    <div className="mt-4 flex flex-wrap gap-2">
-      {signals.map((signal) => (
-        <Badge key={signal.label} variant="secondary">
-          {signal.label} {signal.value ?? "--"}
-        </Badge>
-      ))}
-    </div>
-  );
-}
-
 function EmotionCurve({
   emotionCycle,
 }: {
   emotionCycle?: HomepageEmotionCycle;
 }) {
   const [windowDays, setWindowDays] = useState(20);
-  const [hoveredPoint, setHoveredPoint] = useState<HomepageStagePoint | null>(null);
+  const [activePoint, setActivePoint] = useState<HomepageStagePoint | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<ECharts | null>(null);
   const defaultWindowDays =
     emotionCycle?.default_window_days &&
     [10, 20, 30].includes(emotionCycle.default_window_days)
@@ -182,19 +224,177 @@ function EmotionCurve({
     return points.slice(-windowDays);
   }, [emotionCycle?.stage_points, windowDays]);
 
-  const polylinePoints = useMemo(() => {
-    if (!visiblePoints.length) return "";
-    const width = 760;
-    const height = 180;
-    const step = visiblePoints.length > 1 ? width / (visiblePoints.length - 1) : width;
-    return visiblePoints
-      .map((point, index) => {
-        const x = index * step;
-        const y = height - (Math.max(0, Math.min(100, point.stage_score)) / 100) * height;
-        return `${x},${y}`;
-      })
-      .join(" ");
+  useEffect(() => {
+    setActivePoint(visiblePoints.length ? visiblePoints[visiblePoints.length - 1] : null);
   }, [visiblePoints]);
+
+  const chartOption = useMemo(() => {
+    const stageBands = Object.entries(EMOTION_STAGE_META).map(([stage, meta]) => [
+      {
+        name: stage,
+        yAxis: meta.scoreRange[0],
+        itemStyle: {
+          color: meta.backgroundColor,
+        },
+        label: {
+          color: "rgba(100, 116, 139, 0.75)",
+          fontSize: 11,
+        },
+      },
+      {
+        yAxis: meta.scoreRange[1],
+      },
+    ]);
+
+    return {
+      animationDuration: 300,
+      grid: {
+        left: 36,
+        right: 18,
+        top: 16,
+        bottom: 42,
+      },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: {
+          type: "line",
+          lineStyle: {
+            color: "rgba(148, 163, 184, 0.45)",
+          },
+        },
+        backgroundColor: "rgba(15, 23, 42, 0.92)",
+        borderWidth: 0,
+        textStyle: {
+          color: "#f8fafc",
+          fontSize: 12,
+        },
+        padding: [12, 14],
+        extraCssText: "border-radius: 12px;",
+        formatter: (params: unknown) => {
+          const param = Array.isArray(params) ? params[0] : params;
+          const point = (param as { data?: { rawPoint?: HomepageStagePoint } })?.data?.rawPoint;
+          if (!point) return "";
+          return `
+            <div style="display:grid;gap:4px;min-width:220px;">
+              <div style="font-weight:600;">${formatEmotionTickLabel(point.trading_date)} · ${point.cycle_stage}</div>
+              <div>情绪分数：${point.stage_score}</div>
+              <div>涨停数：${point.up_limit_count ?? "--"} / 跌停数：${point.down_limit_count ?? "--"}</div>
+              <div>炸板数：${point.broken_limit_count ?? "--"} / 最高连板：${point.highest_board ?? "--"}</div>
+              <div style="color:#cbd5e1;">${point.action_hint || "--"}</div>
+            </div>
+          `;
+        },
+      },
+      xAxis: {
+        type: "category",
+        boundaryGap: false,
+        data: visiblePoints.map((point) => point.trading_date),
+        axisTick: {
+          show: false,
+        },
+        axisLine: {
+          lineStyle: {
+            color: "rgba(148, 163, 184, 0.25)",
+          },
+        },
+        axisLabel: {
+          color: "rgba(100, 116, 139, 0.85)",
+          fontSize: 11,
+          formatter: (value: string, index: number) =>
+            shouldRenderEmotionTickLabel(index, visiblePoints.length)
+              ? formatEmotionTickLabel(value)
+              : "",
+        },
+      },
+      yAxis: {
+        type: "value",
+        min: 0,
+        max: 100,
+        interval: 25,
+        axisLabel: {
+          color: "rgba(100, 116, 139, 0.85)",
+          fontSize: 11,
+        },
+        splitLine: {
+          lineStyle: {
+            color: "rgba(148, 163, 184, 0.12)",
+          },
+        },
+      },
+      series: [
+        {
+          type: "line",
+          smooth: true,
+          symbol: "circle",
+          symbolSize: 10,
+          data: visiblePoints.map((point) => ({
+            value: point.stage_score,
+            rawPoint: point,
+            itemStyle: {
+              color: getEmotionStageMeta(point.cycle_stage).color,
+              borderColor: "#fff",
+              borderWidth: 2,
+            },
+          })),
+          lineStyle: {
+            color: "#2563eb",
+            width: 3,
+          },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              {
+                offset: 0,
+                color: "rgba(37, 99, 235, 0.18)",
+              },
+              {
+                offset: 1,
+                color: "rgba(37, 99, 235, 0.02)",
+              },
+            ]),
+          },
+          markArea: {
+            silent: true,
+            data: stageBands,
+          },
+        },
+      ],
+    } as EChartsOption;
+  }, [visiblePoints]);
+
+  useChartResize(chartInstance, [windowDays, visiblePoints.length]);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current);
+    }
+
+    const chart = chartInstance.current;
+    const handlePointFocus = (params: unknown) => {
+      const point = (
+        params as { data?: { rawPoint?: HomepageStagePoint | null } }
+      )?.data?.rawPoint;
+      if (point) setActivePoint(point);
+    };
+
+    chart.setOption(chartOption, true);
+    chart.off("mouseover");
+    chart.off("click");
+    chart.on("mouseover", handlePointFocus);
+    chart.on("click", handlePointFocus);
+
+    return () => {
+      chart.off("mouseover", handlePointFocus);
+      chart.off("click", handlePointFocus);
+    };
+  }, [chartOption]);
+
+  useEffect(() => {
+    return () => {
+      chartInstance.current?.dispose();
+      chartInstance.current = null;
+    };
+  }, []);
 
   if (!emotionCycle?.available) {
     return (
@@ -239,78 +439,37 @@ function EmotionCurve({
       <p className="text-sm">{emotionCycle.summary}</p>
 
       <div className="rounded-xl border bg-card p-4">
-        <svg viewBox="0 0 760 240" className="h-72 w-full">
-          <line x1="0" y1="180" x2="760" y2="180" stroke="currentColor" opacity="0.15" />
-          <line x1="0" y1="0" x2="0" y2="180" stroke="currentColor" opacity="0.15" />
-          <line x1="0" y1="180" x2="760" y2="180" stroke="currentColor" opacity="0.08" />
-          <line x1="0" y1="135" x2="760" y2="135" stroke="currentColor" opacity="0.05" />
-          <line x1="0" y1="90" x2="760" y2="90" stroke="currentColor" opacity="0.08" />
-          <line x1="0" y1="45" x2="760" y2="45" stroke="currentColor" opacity="0.05" />
-          <line x1="0" y1="0" x2="760" y2="0" stroke="currentColor" opacity="0.08" />
-          <text x="6" y="12" fontSize="11" fill="currentColor" opacity="0.55">
-            100
-          </text>
-          <text x="6" y="57" fontSize="11" fill="currentColor" opacity="0.55">
-            75
-          </text>
-          <text x="6" y="102" fontSize="11" fill="currentColor" opacity="0.55">
-            50
-          </text>
-          <text x="6" y="147" fontSize="11" fill="currentColor" opacity="0.55">
-            25
-          </text>
-          <text x="6" y="192" fontSize="11" fill="currentColor" opacity="0.55">
-            0
-          </text>
-          <polyline
-            fill="none"
-            stroke="rgb(59 130 246)"
-            strokeWidth="3"
-            points={polylinePoints}
-          />
-          {visiblePoints.map((point, index) => {
-            const step = visiblePoints.length > 1 ? 760 / (visiblePoints.length - 1) : 760;
-            const x = index * step;
-            const y = 180 - (Math.max(0, Math.min(100, point.stage_score)) / 100) * 180;
-            return (
-              <g
-                key={`${point.trading_date}-${point.stage_score}`}
-                onMouseEnter={() => setHoveredPoint(point)}
-                onMouseLeave={() => setHoveredPoint(null)}
-              >
-                <circle cx={x} cy={y} r="5" fill="rgb(59 130 246)" />
-                <text
-                  x={x}
-                  y="206"
-                  textAnchor="middle"
-                  fontSize="11"
-                  fill="currentColor"
-                  opacity="0.7"
-                >
-                  {shouldRenderEmotionTickLabel(index, visiblePoints.length)
-                    ? formatEmotionTickLabel(point.trading_date)
-                    : ""}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+        <div ref={chartRef} className="h-80 w-full" />
 
         <div className="mt-3 rounded-xl bg-muted/40 p-4 text-sm">
-          {hoveredPoint ? (
-            <div className="grid gap-2 md:grid-cols-2">
-              <p>日期：{hoveredPoint.trading_date}</p>
-              <p>情绪阶段：{hoveredPoint.cycle_stage}</p>
-              <p>情绪分数：{hoveredPoint.stage_score}</p>
-              <p>涨停数：{hoveredPoint.up_limit_count ?? "--"}</p>
-              <p>跌停数：{hoveredPoint.down_limit_count ?? "--"}</p>
-              <p>炸板数：{hoveredPoint.broken_limit_count ?? "--"}</p>
-              <p>最高连板：{hoveredPoint.highest_board ?? "--"}</p>
-              <p>当日操作提示：{hoveredPoint.action_hint || "--"}</p>
+          {activePoint ? (
+            <div className="grid gap-3 md:grid-cols-[auto_1fr]">
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-xs">
+                  {formatEmotionTickLabel(activePoint.trading_date)}
+                </p>
+                <Badge
+                  className="w-fit"
+                  style={{
+                    backgroundColor: getEmotionStageMeta(activePoint.cycle_stage).backgroundColor,
+                    color: getEmotionStageMeta(activePoint.cycle_stage).color,
+                  }}
+                >
+                  {activePoint.cycle_stage}
+                </Badge>
+                <p className="font-semibold text-xl">情绪分 {activePoint.stage_score}</p>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <p>涨停数：{activePoint.up_limit_count ?? "--"}</p>
+                <p>跌停数：{activePoint.down_limit_count ?? "--"}</p>
+                <p>炸板数：{activePoint.broken_limit_count ?? "--"}</p>
+                <p>最高连板：{activePoint.highest_board ?? "--"}</p>
+                <p className="md:col-span-2">当日操作提示：{activePoint.action_hint || "--"}</p>
+              </div>
             </div>
           ) : (
             <p className="text-muted-foreground">
-              鼠标移到曲线节点上，可查看日期、情绪分数、涨跌停、炸板、最高连板和当日操作提示。
+              鼠标 hover 或点击曲线节点，可查看日期、情绪分数、涨跌停、炸板、最高连板和当日操作提示。
             </p>
           )}
         </div>
@@ -333,7 +492,7 @@ function ThemeRow({ item }: { item: HomepageThemeItem }) {
             </Badge>
             <Badge variant="outline">{item.trend_state}</Badge>
             <Badge className={getParticipationBadgeClassName(item.is_suitable_for_direct_participation)}>
-              {item.is_suitable_for_direct_participation ? "适合直接参与" : "更适合观察"}
+              {getParticipationBadgeLabel(item)}
             </Badge>
           </div>
 
@@ -472,32 +631,31 @@ function Home() {
                 icon={<Radar className="size-5" />}
               >
                 {homepageContext?.market_overview.available ? (
-                  <>
-                    <div className="flex flex-wrap items-center gap-3">
+                  <div className="grid gap-4 lg:grid-cols-[auto_1fr] lg:items-center">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-2xl">
                         {homepageContext.market_overview.market_state}
                       </p>
-                      {homepageContext.market_overview.confidence ? (
-                        <Badge variant="secondary">
-                          置信度 {homepageContext.market_overview.confidence}
-                        </Badge>
-                      ) : null}
                       {homepageContext.market_overview.score !== null ? (
                         <Badge variant="outline">
                           温度分 {homepageContext.market_overview.score}
                         </Badge>
                       ) : null}
+                      {homepageContext.market_overview.confidence ? (
+                        <Badge variant="secondary">
+                          置信度 {homepageContext.market_overview.confidence}
+                        </Badge>
+                      ) : null}
                     </div>
-                    <p className="mt-3 text-sm">
-                      {homepageContext.market_overview.summary}
-                    </p>
-                    <p className="mt-2 text-muted-foreground text-sm">
-                      {homepageContext.market_overview.action_hint}
-                    </p>
-                    <SignalBadges
-                      signals={homepageContext.market_overview.signals}
-                    />
-                  </>
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        {homepageContext.market_overview.summary}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        {homepageContext.market_overview.action_hint}
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
                     {homepageContext?.market_overview.empty_message ||

@@ -70,6 +70,17 @@ class EmotionCycleService:
                     "trading_date": snapshot["trading_date"],
                     "cycle_stage": cycle_stage,
                     "stage_score": stage_score,
+                    "up_limit_count": snapshot.get("metrics", {}).get("up_limit_count"),
+                    "down_limit_count": snapshot.get("metrics", {}).get(
+                        "down_limit_count"
+                    ),
+                    "broken_limit_count": snapshot.get("metrics", {}).get(
+                        "broken_limit_count"
+                    ),
+                    "highest_board": snapshot.get("metrics", {}).get(
+                        "strongest_board_height"
+                    ),
+                    "action_hint": snapshot.get("action_hint"),
                 }
             )
 

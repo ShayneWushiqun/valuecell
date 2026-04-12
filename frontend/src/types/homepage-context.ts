@@ -126,6 +126,7 @@ export type HomepageWatchlistObservationItem = {
 export type HomepageWatchlistObservation = {
   available: boolean;
   items: HomepageWatchlistObservationItem[];
+  all_items: HomepageWatchlistObservationItem[];
   empty_message: string | null;
 };
 

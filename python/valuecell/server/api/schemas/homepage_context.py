@@ -134,6 +134,7 @@ class HomepageWatchlistObservationItemData(BaseModel):
 class HomepageWatchlistObservationData(BaseModel):
     available: bool = Field(..., description="Whether watchlist observation is available")
     items: list[HomepageWatchlistObservationItemData] = Field(default_factory=list)
+    all_items: list[HomepageWatchlistObservationItemData] = Field(default_factory=list)
     empty_message: Optional[str] = Field(None, description="Fallback message")
 
 

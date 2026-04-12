@@ -152,9 +152,7 @@ class HomepageContextService:
             }
         if not isinstance(timeline_data, dict):
             timeline_data = {}
-        stage_points = self._enrich_emotion_stage_points(
-            timeline_data.get("stage_points_json", [])
-        )
+        stage_points = list(timeline_data.get("stage_points_json", []))
         return {
             "available": True,
             "cycle_stage": snapshot_data.get("cycle_stage"),
@@ -274,11 +272,13 @@ class HomepageContextService:
             return {
                 "available": False,
                 "items": [],
+                "all_items": [],
                 "empty_message": "暂无自选观察数据",
             }
         return {
             "available": True,
-            "items": items,
+            "items": items[:5],
+            "all_items": items,
             "empty_message": None,
         }
 
@@ -557,36 +557,17 @@ class HomepageContextService:
             for signal in signals[:6]
         ]
 
-    def _enrich_emotion_stage_points(
-        self,
-        stage_points: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        enriched_points: list[dict[str, Any]] = []
-        for point in stage_points:
-            trading_date = point.get("trading_date")
-            pulse_snapshot = self.market_pulse_service.get_market_pulse_snapshot(trading_date)
-            pulse_data = pulse_snapshot.get("data", {}) if pulse_snapshot.get("success") else {}
-            metrics = pulse_data.get("metrics", {})
-            enriched_points.append(
-                {
-                    **point,
-                    "up_limit_count": metrics.get("up_limit_count"),
-                    "down_limit_count": metrics.get("down_limit_count"),
-                    "broken_limit_count": metrics.get("broken_limit_count"),
-                    "highest_board": metrics.get("strongest_board_height"),
-                    "action_hint": pulse_data.get("action_hint"),
-                }
-            )
-        return enriched_points
-
     def _build_theme_focus_items(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normalized_items: list[dict[str, Any]] = []
         for item in items:
             theme_name = str(item.get("theme_name") or "")
-            if "ST" in theme_name.upper():
-                continue
             leaders = list(item.get("core_leaders_json") or [])
             representatives = list(item.get("representative_tickers_json") or [])
+            is_st_related = self._is_st_related_theme(
+                theme_name=theme_name,
+                leaders=leaders,
+                representatives=representatives,
+            )
             preferred_market = self._resolve_preferred_market(leaders + representatives)
             normalized_items.append(
                 {
@@ -594,22 +575,34 @@ class HomepageContextService:
                     "theme_state": self._normalize_theme_state(item.get("theme_state")),
                     "trend_state": self._resolve_trend_state(item),
                     "hot_level": item.get("metrics", {}).get("hot_count", 0),
-                    "primary_representative": leaders[0] if leaders else (representatives[0] if representatives else None),
+                    "primary_representative": (
+                        leaders[0] if leaders else (representatives[0] if representatives else None)
+                    ),
                     "is_suitable_for_direct_participation": self._is_suitable_for_direct_participation(
                         item=item,
                         preferred_market=preferred_market,
+                        is_st_related=is_st_related,
                     ),
                     "participation_hint": self._build_theme_participation_hint(
                         item=item,
                         preferred_market=preferred_market,
+                        is_st_related=is_st_related,
                     ),
                     "preferred_market": preferred_market,
                     "etf_hint": self._build_theme_etf_hint(
                         theme_name=theme_name,
                         preferred_market=preferred_market,
+                        is_st_related=is_st_related,
                     ),
                 }
             )
+        normalized_items.sort(
+            key=lambda item: (
+                1 if self._is_st_related_theme_item(item) else 0,
+                0 if item.get("is_suitable_for_direct_participation") else 1,
+                int(item.get("rank", 999) or 999),
+            )
+        )
         return normalized_items
 
     @staticmethod
@@ -645,7 +638,10 @@ class HomepageContextService:
         *,
         item: dict[str, Any],
         preferred_market: str,
+        is_st_related: bool,
     ) -> bool:
+        if is_st_related:
+            return False
         if preferred_market == "科创板为主":
             return False
         if preferred_market == "创业板为主":
@@ -657,10 +653,10 @@ class HomepageContextService:
         *,
         item: dict[str, Any],
         preferred_market: str,
+        is_st_related: bool,
     ) -> str:
-        theme_name = str(item.get("theme_name") or "")
-        if "ST" in theme_name.upper():
-            return "ST 板块尽量不要碰，优先回避。"
+        if is_st_related:
+            return "疑似 ST 或高风险方向，默认回避，不建议参与。"
         if preferred_market == "科创板为主":
             return "方向可继续观察，但直接参与需更谨慎，优先考虑替代跟踪工具。"
         if preferred_market == "创业板为主":
@@ -674,12 +670,15 @@ class HomepageContextService:
         *,
         theme_name: str,
         preferred_market: str,
+        is_st_related: bool,
     ) -> dict[str, str] | None:
+        if is_st_related:
+            return None
         if preferred_market == "主板为主" and "证券" not in theme_name:
             return None
         return {
-            "title": f"{theme_name} 可关注相关场内 ETF 作为替代观察方向",
-            "summary": "当核心个股买不进去、追高性价比偏低，或主要集中在创业板/科创板时，可用 ETF 做更温和的替代跟踪。",
+            "title": "可考虑相关场内 ETF 作为替代观察",
+            "summary": "当核心个股买不进去、追高性价比偏低，或主要集中在创业板/科创板时，可考虑相关场内 ETF 作为替代观察，暂无匹配具体 ETF。",
             "risk_hint": "ETF 仍需关注流动性、跟踪误差和板块快速退潮带来的回撤风险。",
         }
 
@@ -729,8 +728,38 @@ class HomepageContextService:
         for item in items:
             etf_hint = item.get("etf_hint")
             if etf_hint:
-                return str(etf_hint.get("summary"))
+                return f"{etf_hint.get('summary')} {etf_hint.get('risk_hint')}"
         return None
+
+    @staticmethod
+    def _contains_st_marker(value: str | None) -> bool:
+        text = str(value or "").upper().replace(" ", "")
+        return "ST" in text
+
+    def _is_st_related_theme(
+        self,
+        *,
+        theme_name: str,
+        leaders: list[str],
+        representatives: list[str],
+    ) -> bool:
+        if self._contains_st_marker(theme_name):
+            return True
+        return any(
+            self._contains_st_marker(text)
+            for text in [*leaders, *representatives]
+        )
+
+    def _is_st_related_theme_item(self, item: dict[str, Any]) -> bool:
+        theme_name = str(item.get("theme_name") or "")
+        leaders = list(item.get("core_leaders_json") or [])
+        representatives = list(item.get("representative_tickers_json") or [])
+        primary_representative = item.get("primary_representative")
+        return self._is_st_related_theme(
+            theme_name=theme_name,
+            leaders=[*leaders, str(primary_representative or "")],
+            representatives=representatives,
+        )
 
     @staticmethod
     def _resolve_total_position_range(

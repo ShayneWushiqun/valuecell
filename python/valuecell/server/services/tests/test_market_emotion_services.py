@@ -156,3 +156,8 @@ def test_emotion_cycle_service_returns_timeline_with_turning_points() -> None:
     assert data["trend_direction"] in {"上行", "横向", "下行"}
     assert isinstance(data["turning_points_json"], list)
     assert data["stage_points_json"][0]["stage_score"] < data["stage_points_json"][-1]["stage_score"]
+    assert data["stage_points_json"][0]["up_limit_count"] == 28
+    assert data["stage_points_json"][0]["down_limit_count"] == 11
+    assert data["stage_points_json"][0]["broken_limit_count"] == 9
+    assert data["stage_points_json"][0]["highest_board"] == 2
+    assert data["stage_points_json"][0]["action_hint"]
