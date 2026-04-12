@@ -40,7 +40,12 @@ import type {
   HomepageThemeItem,
 } from "@/types/homepage-context";
 import ChatInputArea from "../agent/components/chat-conversation/chat-input-area";
-import { AgentSuggestionsList, AgentTaskCards, PortfolioOverview } from "./components";
+import {
+  AgentSuggestionsList,
+  AgentTaskCards,
+  OpportunityPoolPanel,
+  PortfolioOverview,
+} from "./components";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, MarkAreaComponent, CanvasRenderer]);
 
@@ -758,6 +763,8 @@ function Home() {
                   </div>
                 )}
               </SectionCard>
+
+              <OpportunityPoolPanel />
 
               <SectionCard
                 title="自选观察"
