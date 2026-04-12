@@ -19,13 +19,19 @@
 当前真实进度说明：
 
 - 本文档描述的是阶段二目标，不代表当前仓库已经完成阶段二
-- 当前已完成的是阶段二前置服务化：
+- 当前已完成的是阶段二 MVP 规则版闭环：
   - `WatchlistObservationService`
   - `ThemeCandidateService`
+  - `OpportunityPoolService`
+  - `EntryTimingService`
+  - `DecisionAlertService`
+  - `/home/opportunities` 机会池页面
 - 当前尚未完成：
-  - 机会池 MVP
-  - 买点裁决链路
-  - 主动提醒中心
+  - Agent 裁决
+  - 完整提醒中心
+  - 去重 / 已读 / 历史提醒持久化
+  - 用户策略偏好模板
+  - 自动交易
 
 ## 3. 核心用户问题
 

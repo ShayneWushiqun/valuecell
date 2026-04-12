@@ -6,7 +6,11 @@ import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { DecisionAlertSummaryPanel, OpportunityCandidateCard } from "./components";
+import {
+  DecisionAlertSummaryPanel,
+  EntryTimingSummaryPanel,
+  OpportunityCandidateCard,
+} from "./components";
 
 const FILTER_OPTIONS = [
   "全部",
@@ -29,8 +33,6 @@ export default function Opportunities() {
   } = useGetOpportunityCandidates();
   const {
     data: entryTimingSignals,
-    isLoading: entryTimingLoading,
-    isError: entryTimingError,
   } = useGetEntryTimingSignals();
   const {
     data: decisionAlertSummary,
@@ -58,11 +60,6 @@ export default function Opportunities() {
     [entryTimingSignals?.items],
   );
 
-  const topSignals = useMemo(
-    () => (entryTimingSignals?.items || []).slice(0, 4),
-    [entryTimingSignals?.items],
-  );
-
   return (
     <div className="flex h-full flex-col gap-6 bg-card px-8 py-6">
       <BackButton />
@@ -72,7 +69,7 @@ export default function Opportunities() {
           <div>
             <h1 className="font-semibold text-2xl">机会池</h1>
             <p className="mt-1 text-muted-foreground text-sm">
-              候选机会不等于买入建议，当前页面只用于集中查看候选、风险条件与等待确认项。
+              先看提醒，再看买点裁决，最后回到全部候选，不把任何摘要直接当成买入指令。
             </p>
           </div>
           {opportunityPool?.source_summary ? (
@@ -108,39 +105,7 @@ export default function Opportunities() {
       </div>
 
       <DecisionAlertSummaryPanel />
-
-      <div className="rounded-2xl border bg-background p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="font-medium text-base">买点裁决</h2>
-            <p className="mt-1 text-muted-foreground text-sm">
-              仅提供保守的规则版判断，不构成直接买入建议。
-            </p>
-          </div>
-          {entryTimingLoading ? <Spinner className="size-4" /> : null}
-        </div>
-
-        {!entryTimingLoading && (entryTimingError || !entryTimingSignals?.available || !topSignals.length) ? (
-          <div className="mt-3 rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
-            暂无买点裁决信号
-          </div>
-        ) : null}
-
-        {!entryTimingLoading && !entryTimingError && topSignals.length ? (
-          <div className="mt-3 grid gap-3 xl:grid-cols-2">
-            {topSignals.map((signal) => (
-              <div key={signal.ticker} className="rounded-xl border bg-card p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-sm">{signal.display_name}</p>
-                  <Badge variant="secondary">{signal.action}</Badge>
-                  <Badge variant="outline">置信度 {signal.confidence}</Badge>
-                </div>
-                <p className="mt-2 text-muted-foreground text-sm">{signal.summary}</p>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      <EntryTimingSummaryPanel />
 
       {isLoading ? (
         <div className="flex min-h-64 items-center justify-center">

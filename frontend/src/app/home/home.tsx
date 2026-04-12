@@ -801,7 +801,7 @@ function Home() {
                             </div>
                           </div>
                           <p className="mt-3 text-sm">{item.reason}</p>
-                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <div className="mt-3 flex flex-wrap gap-2 text-muted-foreground text-xs">
                             <span>{item.tradeability_state}</span>
                             <span>· 预期差 {item.expectation_gap_level}</span>
                             <span>· {item.role_label}</span>

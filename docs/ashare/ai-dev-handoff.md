@@ -183,6 +183,8 @@
   - 已提供规则版买点裁决信号，基于机会池候选输出保守 action 和确认项
 - `python/valuecell/server/services/assets/decision_alert_service.py`
   - 已提供轻量提醒摘要，基于买点裁决信号输出买点接近、等待确认、持有观察和风险回避
+- `frontend/src/app/home/opportunities.tsx`
+  - 已提供阶段二机会池页面，集中展示候选机会、买点裁决和今日提醒摘要
 
 但要注意：
 
@@ -192,7 +194,8 @@
 - 聊天和通用 Agent 已降级到页面次要区域
 - `HomepageContextService` 当前应只做聚合，不再承载自选观察和题材候选的具体规则
 - `EmotionCycleService` 已支持优先复用 window item data，减少时间线逐日重复请求
-- 已完成机会池 MVP 第一刀后端接口、规则版买点裁决和轻量提醒摘要，但还没有完成机会池生命周期、完整提醒中心、Agent 裁决和提醒链路持久化
+- 已完成阶段二 MVP 规则版闭环：机会池、买点裁决、轻量提醒摘要与机会池页面
+- 还没有完成完整提醒中心、Agent 裁决、提醒去重与持久化、用户策略偏好模板和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 
 ## 6.2 当前首页收敛进度

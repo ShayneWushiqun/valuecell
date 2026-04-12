@@ -66,7 +66,7 @@ export default function OpportunityCandidateCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap gap-2 text-muted-foreground text-xs">
         <span>优先分 {item.priority_score}</span>
         <span>· {item.role_label}</span>
         <span>· {item.trend_quality}</span>
@@ -81,7 +81,7 @@ export default function OpportunityCandidateCard({
       </div>
 
       <div className="mt-3 rounded-xl bg-muted/50 p-3 text-sm">
-        <p className="font-medium text-xs text-muted-foreground">行动提示</p>
+        <p className="font-medium text-muted-foreground text-xs">行动提示</p>
         <p className="mt-1">{item.action_hint}</p>
       </div>
 

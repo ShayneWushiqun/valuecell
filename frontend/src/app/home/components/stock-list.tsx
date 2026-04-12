@@ -133,7 +133,7 @@ function StockList() {
 
                 <p className="mt-3 text-sm">{stock.reason}</p>
 
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <div className="mt-3 flex flex-wrap gap-2 text-muted-foreground text-xs">
                   <span>{stock.tradeability_state}</span>
                   <span>· 预期差 {stock.expectation_gap_level}</span>
                   <span>· {stock.watchlist_name}</span>
@@ -201,7 +201,7 @@ function StockList() {
 
                     <p className="mt-3 text-sm">{stock.reason}</p>
 
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <div className="mt-3 flex flex-wrap gap-2 text-muted-foreground text-xs">
                       <span>{stock.tradeability_state}</span>
                       <span>· 预期差 {stock.expectation_gap_level}</span>
                       <span>· {stock.watchlist_name}</span>

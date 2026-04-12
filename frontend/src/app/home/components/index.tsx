@@ -1,6 +1,7 @@
 export * from "./agent-suggestions-list";
 export { default as AgentTaskCards } from "./agent-task-cards";
 export { default as DecisionAlertSummaryPanel } from "./decision-alert-summary-panel";
+export { default as EntryTimingSummaryPanel } from "./entry-timing-summary-panel";
 export { default as OpportunityCandidateCard } from "./opportunity-candidate-card";
 export { default as OpportunityPoolPanel } from "./opportunity-pool-panel";
 export { default as PortfolioOverview } from "./portfolio-overview";
