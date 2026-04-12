@@ -55,6 +55,8 @@
   - 已增加 `EmotionCycleService`
   - 已增加 `ThemeFocusService`
   - 已增加 `HomepageContextService`
+  - 已增加 `WatchlistObservationService`
+  - 已增加 `ThemeCandidateService`
 - API 层：
   - 已增加 `/api/v1/homepage/context`
 - 前端层：
@@ -68,7 +70,8 @@
 
 - 语义细化：
   - `EmotionCycleService` 已增强弱市惩罚逻辑，极弱日分数会明显下探，避免 30 天曲线失真
-  - `HomepageContextService` 已为情绪轨迹点补充 tooltip 所需字段，前端可直接展示涨跌停、炸板、最高连板和操作提示
+  - `EmotionCycleService` 已在时间线阶段点中直接补充 tooltip 所需字段，并优先复用 window item data，减少重复请求
+  - `HomepageContextService` 当前已回到聚合层定位，不再承载自选观察和题材候选的具体规则
 
 当前这些能力的定位是：
 
@@ -81,7 +84,6 @@
 当前缺的不是持仓模型本身，而是短周期语义层：
 
 - 首页字段口径仍需要继续校准
-- 自选观察还没有独立服务层
 - 持仓建议仍偏“研究和风险说明”
 - 缺少对预期差、持续性和可交易性的统一表达
 - 缺少对“核心票优先、弱票降权”的统一表达
