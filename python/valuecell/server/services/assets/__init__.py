@@ -54,6 +54,16 @@ from .theme_focus_service import (
     get_theme_focus_service,
     reset_theme_focus_service,
 )
+from .theme_candidate_service import (
+    ThemeCandidateService,
+    get_theme_candidate_service,
+    reset_theme_candidate_service,
+)
+from .watchlist_observation_service import (
+    WatchlistObservationService,
+    get_watchlist_observation_service,
+    reset_watchlist_observation_service,
+)
 from .short_cycle_data_service import (
     ShortCycleDataService,
     get_short_cycle_data_service,
@@ -69,18 +79,24 @@ __all__ = [
     "EmotionCycleService",
     "HomepageContextService",
     "ThemeFocusService",
+    "ThemeCandidateService",
+    "WatchlistObservationService",
     "ShortCycleDataService",
     "get_asset_service",
     "get_market_pulse_service",
     "get_emotion_cycle_service",
     "get_homepage_context_service",
     "get_theme_focus_service",
+    "get_theme_candidate_service",
+    "get_watchlist_observation_service",
     "get_short_cycle_data_service",
     "reset_asset_service",
     "reset_market_pulse_service",
     "reset_emotion_cycle_service",
     "reset_homepage_context_service",
     "reset_theme_focus_service",
+    "reset_theme_candidate_service",
+    "reset_watchlist_observation_service",
     "reset_short_cycle_data_service",
     # Convenience functions
     "search_assets",

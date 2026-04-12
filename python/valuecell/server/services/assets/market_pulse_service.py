@@ -21,7 +21,18 @@ class MarketPulseService:
         if not payload.get("success"):
             return payload
 
-        data = payload["data"]
+        return self.build_market_pulse_snapshot_from_payload(
+            payload.get("data"),
+            trade_date=payload.get("trade_date"),
+        )
+
+    def build_market_pulse_snapshot_from_payload(
+        self,
+        payload_data: dict[str, Any] | None,
+        *,
+        trade_date: str | None,
+    ) -> dict[str, Any]:
+        data = payload_data or {}
         daily_info_row = self._first_row(data.get("daily_info"))
         limit_rows = self._rows(data.get("limit_list_d"))
         kpl_rows = self._rows(data.get("kpl_list"))
@@ -71,7 +82,7 @@ class MarketPulseService:
         signals = self._build_signals(metrics)
 
         snapshot = {
-            "trading_date": payload.get("trade_date"),
+            "trading_date": trade_date,
             "market_state": market_state,
             "summary": self._build_summary(market_state, metrics),
             "confidence": confidence,

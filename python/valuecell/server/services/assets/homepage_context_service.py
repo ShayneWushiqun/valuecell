@@ -10,7 +10,9 @@ from ..portfolio import DailyBriefingService, HoldingService
 from .asset_service import AssetService
 from .emotion_cycle_service import EmotionCycleService
 from .market_pulse_service import MarketPulseService
+from .theme_candidate_service import ThemeCandidateService
 from .theme_focus_service import ThemeFocusService
+from .watchlist_observation_service import WatchlistObservationService
 
 
 class HomepageContextService:
@@ -19,18 +21,30 @@ class HomepageContextService:
         market_pulse_service: Optional[MarketPulseService] = None,
         emotion_cycle_service: Optional[EmotionCycleService] = None,
         theme_focus_service: Optional[ThemeFocusService] = None,
+        theme_candidate_service: Optional[ThemeCandidateService] = None,
         holding_service: Optional[HoldingService] = None,
         daily_briefing_service: Optional[DailyBriefingService] = None,
         asset_service: Optional[AssetService] = None,
         watchlist_repository: Optional[WatchlistRepository] = None,
+        watchlist_observation_service: Optional[WatchlistObservationService] = None,
     ) -> None:
         self.market_pulse_service = market_pulse_service or MarketPulseService()
         self.emotion_cycle_service = emotion_cycle_service or EmotionCycleService()
         self.theme_focus_service = theme_focus_service or ThemeFocusService()
+        self.theme_candidate_service = theme_candidate_service or ThemeCandidateService(
+            theme_focus_service=self.theme_focus_service
+        )
         self.holding_service = holding_service or HoldingService()
         self.daily_briefing_service = daily_briefing_service or DailyBriefingService()
         self.asset_service = asset_service or AssetService()
         self.watchlist_repository = watchlist_repository or WatchlistRepository()
+        self.watchlist_observation_service = (
+            watchlist_observation_service
+            or WatchlistObservationService(
+                asset_service=self.asset_service,
+                watchlist_repository=self.watchlist_repository,
+            )
+        )
 
     def get_homepage_context(self, user_id: str) -> dict[str, Any]:
         market = self._build_market_overview()
@@ -167,7 +181,7 @@ class HomepageContextService:
 
     def _build_theme_focus(self) -> dict[str, Any]:
         try:
-            result = self.theme_focus_service.get_theme_focus_snapshot(top_n=12)
+            result = self.theme_candidate_service.get_theme_candidates(top_n=12)
         except Exception as exc:
             logger.warning("Homepage theme focus unavailable: {}", str(exc))
             result = {"success": False}
@@ -187,7 +201,7 @@ class HomepageContextService:
                 "empty_message": "暂无可用题材聚焦数据",
             }
 
-        items = self._build_theme_focus_items(result_data.get("items", []))
+        items = list(result_data.get("items", []))
         if not items:
             return {
                 "available": False,
@@ -206,81 +220,18 @@ class HomepageContextService:
         theme_focus: dict[str, Any],
     ) -> dict[str, Any]:
         try:
-            watchlists = self.watchlist_repository.get_user_watchlists(user_id)
+            return self.watchlist_observation_service.get_watchlist_observation(
+                user_id,
+                theme_focus.get("items", []),
+            )
         except Exception as exc:
             logger.warning("Homepage watchlist unavailable: {}", str(exc))
-            watchlists = []
-
-        theme_by_ticker = self._build_theme_by_ticker(theme_focus.get("items", []))
-        items: list[dict[str, Any]] = []
-        for watchlist in watchlists:
-            for watchlist_item in watchlist.items:
-                price_result = self.asset_service.get_asset_price(
-                    watchlist_item.ticker,
-                    language="zh-CN",
-                )
-                price_value = (
-                    price_result.get("price_formatted")
-                    if price_result.get("success")
-                    else None
-                )
-                change_percent = (
-                    price_result.get("change_percent")
-                    if price_result.get("success")
-                    else None
-                )
-                theme_name = theme_by_ticker.get(watchlist_item.ticker)
-                status, reason = self._resolve_watchlist_status(
-                    ticker=watchlist_item.ticker,
-                    change_percent=change_percent,
-                    theme_name=theme_name,
-                )
-                items.append(
-                    {
-                        "ticker": watchlist_item.ticker,
-                        "display_name": watchlist_item.display_name or watchlist_item.symbol,
-                        "watchlist_name": watchlist.name,
-                        "price": price_value,
-                        "change_percent": change_percent,
-                        "status": status,
-                        "reason": reason,
-                        "theme_name": theme_name,
-                        "tradeability_state": self._resolve_tradeability_state(
-                            change_percent=change_percent
-                        ),
-                        "expectation_gap_level": self._resolve_expectation_gap(
-                            change_percent=change_percent,
-                            theme_name=theme_name,
-                        ),
-                        "role_label": self._resolve_role_label(
-                            ticker=watchlist_item.ticker,
-                            theme_name=theme_name,
-                        ),
-                        "trend_quality": self._resolve_trend_quality(
-                            change_percent=change_percent
-                        ),
-                    }
-                )
-
-        items.sort(
-            key=lambda item: (
-                self._watchlist_status_rank(item["status"]),
-                abs(item["change_percent"] or 0),
-            )
-        )
-        if not items:
             return {
                 "available": False,
                 "items": [],
                 "all_items": [],
                 "empty_message": "暂无自选观察数据",
             }
-        return {
-            "available": True,
-            "items": items[:5],
-            "all_items": items,
-            "empty_message": None,
-        }
 
     def _build_portfolio_handling(
         self,

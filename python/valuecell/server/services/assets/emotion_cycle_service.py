@@ -57,9 +57,7 @@ class EmotionCycleService:
         for item in pulse_window.get("items", []):
             if not item.get("success"):
                 continue
-            pulse_snapshot = self.market_pulse_service.get_market_pulse_snapshot(
-                trade_date=item.get("trade_date")
-            )
+            pulse_snapshot = self._resolve_pulse_snapshot_from_window_item(item)
             if not pulse_snapshot.get("success"):
                 continue
             snapshot = pulse_snapshot["data"]
@@ -93,6 +91,24 @@ class EmotionCycleService:
             "turning_points_json": turning_points,
         }
         return {"success": True, "data": timeline}
+
+    def _resolve_pulse_snapshot_from_window_item(
+        self,
+        item: dict[str, Any],
+    ) -> dict[str, Any]:
+        trade_date = item.get("trade_date")
+        data = item.get("data")
+        if isinstance(data, dict) and self._window_item_has_required_payload(data):
+            return self.market_pulse_service.build_market_pulse_snapshot_from_payload(
+                data,
+                trade_date=trade_date,
+            )
+        return self.market_pulse_service.get_market_pulse_snapshot(trade_date=trade_date)
+
+    @staticmethod
+    def _window_item_has_required_payload(data: dict[str, Any]) -> bool:
+        required_keys = {"daily_info", "limit_list_d", "kpl_list", "ths_hot"}
+        return required_keys.issubset(data.keys())
 
     @staticmethod
     def _calculate_stage_score(snapshot: dict[str, Any]) -> int:

@@ -86,6 +86,16 @@ class FakeShortCycleDataService:
         }
 
 
+class CountingMarketPulseService(MarketPulseService):
+    def __init__(self, short_cycle_data_service: FakeShortCycleDataService) -> None:
+        super().__init__(short_cycle_data_service=cast(Any, short_cycle_data_service))
+        self.snapshot_calls = 0
+
+    def get_market_pulse_snapshot(self, trade_date=None):
+        self.snapshot_calls += 1
+        return super().get_market_pulse_snapshot(trade_date)
+
+
 def test_emotion_cycle_service_penalizes_extreme_weak_day() -> None:
     snapshot = {
         "metrics": {
@@ -161,3 +171,17 @@ def test_emotion_cycle_service_returns_timeline_with_turning_points() -> None:
     assert data["stage_points_json"][0]["broken_limit_count"] == 9
     assert data["stage_points_json"][0]["highest_board"] == 2
     assert data["stage_points_json"][0]["action_hint"]
+
+
+def test_emotion_cycle_service_reuses_window_item_data_when_complete() -> None:
+    short_cycle_service = FakeShortCycleDataService()
+    market_pulse_service = CountingMarketPulseService(short_cycle_service)
+    service = EmotionCycleService(
+        market_pulse_service=market_pulse_service,
+        short_cycle_data_service=cast(Any, short_cycle_service),
+    )
+
+    result = service.get_emotion_cycle_timeline(end_date="2025-04-10", window_days=3)
+
+    assert result["success"] is True
+    assert market_pulse_service.snapshot_calls == 0
