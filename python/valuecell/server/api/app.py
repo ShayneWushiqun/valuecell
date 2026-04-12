@@ -22,6 +22,7 @@ from .exceptions import (
 from .routers.agent import create_agent_router
 from .routers.agent_stream import create_agent_stream_router
 from .routers.conversation import create_conversation_router
+from .routers.decision_alert import create_decision_alert_router
 from .routers.homepage_context import create_homepage_context_router
 from .routers.entry_timing import create_entry_timing_router
 from .routers.opportunity_pool import create_opportunity_pool_router
@@ -246,6 +247,7 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_homepage_context_router(), prefix=API_PREFIX)
     app.include_router(create_opportunity_pool_router(), prefix=API_PREFIX)
     app.include_router(create_entry_timing_router(), prefix=API_PREFIX)
+    app.include_router(create_decision_alert_router(), prefix=API_PREFIX)
 
     # Include portfolio router
     app.include_router(create_portfolio_router(), prefix=API_PREFIX)
