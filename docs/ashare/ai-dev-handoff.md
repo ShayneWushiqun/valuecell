@@ -179,6 +179,8 @@
   - 已把题材候选结构化规则抽成独立服务，供首页与后续机会池复用
 - `python/valuecell/server/services/assets/opportunity_pool_service.py`
   - 已提供机会池 MVP 后端候选聚合，基于自选观察与题材候选生成稳定排序列表
+- `python/valuecell/server/services/assets/entry_timing_service.py`
+  - 已提供规则版买点裁决信号，基于机会池候选输出保守 action 和确认项
 
 但要注意：
 
@@ -188,7 +190,7 @@
 - 聊天和通用 Agent 已降级到页面次要区域
 - `HomepageContextService` 当前应只做聚合，不再承载自选观察和题材候选的具体规则
 - `EmotionCycleService` 已支持优先复用 window item data，减少时间线逐日重复请求
-- 已完成机会池 MVP 第一刀后端接口，但还没有完成机会池生命周期、本体买点裁决和提醒链路
+- 已完成机会池 MVP 第一刀后端接口和规则版买点裁决，但还没有完成机会池生命周期、Agent 裁决和提醒链路
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 
 ## 6.2 当前首页收敛进度

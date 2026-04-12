@@ -69,6 +69,11 @@ from .opportunity_pool_service import (
     get_opportunity_pool_service,
     reset_opportunity_pool_service,
 )
+from .entry_timing_service import (
+    EntryTimingService,
+    get_entry_timing_service,
+    reset_entry_timing_service,
+)
 from .short_cycle_data_service import (
     ShortCycleDataService,
     get_short_cycle_data_service,
@@ -87,6 +92,7 @@ __all__ = [
     "ThemeCandidateService",
     "WatchlistObservationService",
     "OpportunityPoolService",
+    "EntryTimingService",
     "ShortCycleDataService",
     "get_asset_service",
     "get_market_pulse_service",
@@ -96,6 +102,7 @@ __all__ = [
     "get_theme_candidate_service",
     "get_watchlist_observation_service",
     "get_opportunity_pool_service",
+    "get_entry_timing_service",
     "get_short_cycle_data_service",
     "reset_asset_service",
     "reset_market_pulse_service",
@@ -105,6 +112,7 @@ __all__ = [
     "reset_theme_candidate_service",
     "reset_watchlist_observation_service",
     "reset_opportunity_pool_service",
+    "reset_entry_timing_service",
     "reset_short_cycle_data_service",
     # Convenience functions
     "search_assets",
