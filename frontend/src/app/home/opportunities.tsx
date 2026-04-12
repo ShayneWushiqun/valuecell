@@ -1,5 +1,6 @@
 import BackButton from "@valuecell/button/back-button";
 import { useMemo, useState } from "react";
+import { useGetEntryTimingSignals } from "@/api/entry-timing";
 import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,11 @@ export default function Opportunities() {
     isLoading,
     isError,
   } = useGetOpportunityCandidates();
+  const {
+    data: entryTimingSignals,
+    isLoading: entryTimingLoading,
+    isError: entryTimingError,
+  } = useGetEntryTimingSignals();
 
   const filteredItems = useMemo(() => {
     const items = opportunityPool?.items || [];
@@ -41,6 +47,17 @@ export default function Opportunities() {
       items: filteredItems.filter((item) => item.ranking_bucket === bucket),
     })).filter((group) => group.items.length > 0);
   }, [filteredItems]);
+
+  const signalByTicker = useMemo(
+    () =>
+      new Map((entryTimingSignals?.items || []).map((signal) => [signal.ticker, signal])),
+    [entryTimingSignals?.items],
+  );
+
+  const topSignals = useMemo(
+    () => (entryTimingSignals?.items || []).slice(0, 4),
+    [entryTimingSignals?.items],
+  );
 
   return (
     <div className="flex h-full flex-col gap-6 bg-card px-8 py-6">
@@ -83,6 +100,39 @@ export default function Opportunities() {
         </div>
       </div>
 
+      <div className="rounded-2xl border bg-background p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-medium text-base">买点裁决</h2>
+            <p className="mt-1 text-muted-foreground text-sm">
+              仅提供保守的规则版判断，不构成直接买入建议。
+            </p>
+          </div>
+          {entryTimingLoading ? <Spinner className="size-4" /> : null}
+        </div>
+
+        {!entryTimingLoading && (entryTimingError || !entryTimingSignals?.available || !topSignals.length) ? (
+          <div className="mt-3 rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
+            暂无买点裁决信号
+          </div>
+        ) : null}
+
+        {!entryTimingLoading && !entryTimingError && topSignals.length ? (
+          <div className="mt-3 grid gap-3 xl:grid-cols-2">
+            {topSignals.map((signal) => (
+              <div key={signal.ticker} className="rounded-xl border bg-card p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-sm">{signal.display_name}</p>
+                  <Badge variant="secondary">{signal.action}</Badge>
+                  <Badge variant="outline">置信度 {signal.confidence}</Badge>
+                </div>
+                <p className="mt-2 text-muted-foreground text-sm">{signal.summary}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
       {isLoading ? (
         <div className="flex min-h-64 items-center justify-center">
           <Spinner className="size-5" />
@@ -111,7 +161,11 @@ export default function Opportunities() {
               </div>
               <div className="grid gap-4 xl:grid-cols-2">
                 {group.items.map((item) => (
-                  <OpportunityCandidateCard key={item.ticker} item={item} />
+                  <OpportunityCandidateCard
+                    key={item.ticker}
+                    item={item}
+                    signal={signalByTicker.get(item.ticker) ?? null}
+                  />
                 ))}
               </div>
             </section>

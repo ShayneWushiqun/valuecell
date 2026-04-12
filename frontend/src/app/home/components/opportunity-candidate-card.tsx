@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import type { EntryTimingSignalItem } from "@/types/entry-timing";
 import type { OpportunityCandidateItem } from "@/types/opportunity-pool";
 
 export const formatOpportunityPercent = (value?: number | null) => {
@@ -20,10 +21,20 @@ export const getRankingBucketClassName = (bucket: string) => {
   return "bg-muted text-muted-foreground";
 };
 
+export const getEntryActionClassName = (action: string) => {
+  if (action.includes("接近可参与")) return "bg-emerald-500/10 text-emerald-500";
+  if (action.includes("等待回踩")) return "bg-blue-500/10 text-blue-500";
+  if (action.includes("仅适合持有")) return "bg-orange-500/10 text-orange-500";
+  if (action.includes("暂不参与")) return "bg-red-500/10 text-red-500";
+  return "bg-muted text-muted-foreground";
+};
+
 export default function OpportunityCandidateCard({
   item,
+  signal,
 }: {
   item: OpportunityCandidateItem;
+  signal?: EntryTimingSignalItem | null;
 }) {
   return (
     <div className="rounded-2xl border bg-background p-4">
@@ -74,6 +85,23 @@ export default function OpportunityCandidateCard({
         <p className="mt-1">{item.action_hint}</p>
       </div>
 
+      {signal ? (
+        <div className="mt-3 rounded-xl border bg-card p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className={getEntryActionClassName(signal.action)}>{signal.action}</Badge>
+            <Badge variant="outline">置信度 {signal.confidence}</Badge>
+          </div>
+          <p className="mt-2">{signal.summary}</p>
+          {signal.reasons.length ? (
+            <div className="mt-2 space-y-1 text-muted-foreground">
+              {signal.reasons.slice(0, 2).map((reason) => (
+                <p key={reason}>- {reason}</p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {item.invalid_conditions.length ? (
         <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm">
           <p className="font-medium text-red-500 text-xs">风险条件 / 暂不参与</p>
@@ -89,9 +117,13 @@ export default function OpportunityCandidateCard({
         <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 text-sm">
           <p className="font-medium text-orange-500 text-xs">还需确认</p>
           <div className="mt-1 space-y-1">
-            {item.missing_confirmations.map((confirmation) => (
+            {signal?.missing_confirmations?.length
+              ? signal.missing_confirmations.slice(0, 2).map((confirmation) => (
+                  <p key={confirmation}>- {confirmation}</p>
+                ))
+              : item.missing_confirmations.map((confirmation) => (
               <p key={confirmation}>- {confirmation}</p>
-            ))}
+                ))}
           </div>
         </div>
       ) : null}

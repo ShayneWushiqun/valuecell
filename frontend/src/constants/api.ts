@@ -62,6 +62,10 @@ const OPPORTUNITY_POOL_QUERY_KEYS = {
   candidates: ["opportunity-pool", "candidates"],
 } as const;
 
+const ENTRY_TIMING_QUERY_KEYS = {
+  signals: ["entry-timing", "signals"],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -77,6 +81,7 @@ export const API_QUERY_KEYS = {
   PORTFOLIO: PORTFOLIO_QUERY_KEYS,
   HOMEPAGE: HOMEPAGE_QUERY_KEYS,
   OPPORTUNITY_POOL: OPPORTUNITY_POOL_QUERY_KEYS,
+  ENTRY_TIMING: ENTRY_TIMING_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 
