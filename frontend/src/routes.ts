@@ -12,6 +12,7 @@ export default [
   ...prefix("/home", [
     layout("app/home/_layout.tsx", [
       index("app/home/home.tsx"),
+      route("/opportunities", "app/home/opportunities.tsx"),
       route("/stock/:stockId", "app/home/stock.tsx"),
     ]),
   ]),
