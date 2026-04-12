@@ -1,3 +1,4 @@
+import { useGetDecisionAlertSummary } from "@/api/decision-alert";
 import BackButton from "@valuecell/button/back-button";
 import { useMemo, useState } from "react";
 import { useGetEntryTimingSignals } from "@/api/entry-timing";
@@ -5,7 +6,7 @@ import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { OpportunityCandidateCard } from "./components";
+import { DecisionAlertSummaryPanel, OpportunityCandidateCard } from "./components";
 
 const FILTER_OPTIONS = [
   "全部",
@@ -31,6 +32,9 @@ export default function Opportunities() {
     isLoading: entryTimingLoading,
     isError: entryTimingError,
   } = useGetEntryTimingSignals();
+  const {
+    data: decisionAlertSummary,
+  } = useGetDecisionAlertSummary();
 
   const filteredItems = useMemo(() => {
     const items = opportunityPool?.items || [];
@@ -82,6 +86,9 @@ export default function Opportunities() {
               <Badge variant="outline">
                 题材来源 {opportunityPool.source_summary.theme_candidate_count}
               </Badge>
+              {decisionAlertSummary?.count ? (
+                <Badge variant="outline">提醒 {decisionAlertSummary.count}</Badge>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -99,6 +106,8 @@ export default function Opportunities() {
           ))}
         </div>
       </div>
+
+      <DecisionAlertSummaryPanel />
 
       <div className="rounded-2xl border bg-background p-4">
         <div className="flex items-center justify-between gap-3">
