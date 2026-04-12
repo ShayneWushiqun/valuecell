@@ -15,6 +15,8 @@ class FakeOpportunityPoolService:
                 {
                     "ticker": "SZSE:300308",
                     "display_name": "中际旭创",
+                    "latest_price": "23.51",
+                    "change_percent": 2.8,
                     "topic_name": "AI算力",
                     "candidate_state": "候选买点",
                     "priority_score": 86,
@@ -59,4 +61,6 @@ def test_opportunity_pool_router_returns_structured_response(monkeypatch) -> Non
     assert payload["code"] == 0
     assert payload["data"]["available"] is True
     assert payload["data"]["items"][0]["ticker"] == "SZSE:300308"
+    assert payload["data"]["items"][0]["latest_price"] == "23.51"
+    assert payload["data"]["items"][0]["change_percent"] == 2.8
     assert payload["data"]["source_summary"]["candidate_count"] == 1

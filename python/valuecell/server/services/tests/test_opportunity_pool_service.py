@@ -103,7 +103,7 @@ class FakeWatchlistObservationService:
                     "change_percent": -0.8,
                     "status": "常规跟踪",
                     "reason": "当前没有形成更强主线共振，先保持常规跟踪。",
-                    "theme_name": None,
+                    "theme_name": "证券",
                     "tradeability_state": "可低吸",
                     "expectation_gap_level": "高",
                     "role_label": "跟风",
@@ -147,6 +147,8 @@ def test_opportunity_pool_service_prioritizes_watchlist_theme_resonance() -> Non
     assert result["items"][0]["ticker"] == "SZSE:300308"
     assert "theme_resonance" in result["items"][0]["source_tags"]
     assert result["items"][0]["candidate_state"] in {"候选买点", "高优先级买点"}
+    assert result["items"][0]["latest_price"] == "23.51"
+    assert result["items"][0]["change_percent"] == 2.8
     assert result["items"][0]["reasons"]
     assert result["items"][0]["missing_confirmations"]
 
@@ -177,6 +179,14 @@ def test_opportunity_pool_service_marks_tradeability_risk_conservatively() -> No
 
     st_item = next(item for item in result["items"] if item["ticker"] == "SZSE:000007")
     ai_item = next(item for item in result["items"] if item["ticker"] == "SZSE:300308")
+    security_watchlist_item = next(
+        item for item in result["items"] if item["ticker"] == "SZSE:000001"
+    )
     assert "不宜追高" in " ".join(st_item["invalid_conditions"])
+    assert st_item["tradeability_state"] == "谨慎追高"
+    assert st_item["candidate_state"] == "暂不参与"
+    assert st_item["latest_price"] == "3.21"
+    assert st_item["change_percent"] == 9.8
+    assert security_watchlist_item["source_tags"] == ["watchlist", "theme_resonance"]
     assert ai_item["action_hint"]
     assert result["source_summary"]["watchlist_count"] == 2

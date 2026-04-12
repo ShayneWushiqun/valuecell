@@ -48,7 +48,7 @@ class OpportunityPoolService:
             )
             source_tags = ["watchlist"]
             if theme_ref:
-                source_tags.extend(theme_ref["source_tags"])
+                source_tags.extend(theme_ref["matched_source_tags"])
                 source_tags.append("theme_resonance")
             candidate = self._build_watchlist_candidate(
                 item=item,
@@ -150,12 +150,18 @@ class OpportunityPoolService:
     ) -> dict[str, Any] | None:
         direct_ref = theme_refs.get(ticker)
         if direct_ref is not None:
-            return direct_ref
+            return {
+                "theme_item": direct_ref["theme_item"],
+                "matched_source_tags": list(direct_ref["source_tags"]),
+            }
         if not watchlist_theme_name:
             return None
         for ref in theme_refs.values():
             if str(ref["theme_item"].get("theme_name") or "") == str(watchlist_theme_name or ""):
-                return ref
+                return {
+                    "theme_item": ref["theme_item"],
+                    "matched_source_tags": [],
+                }
         return None
 
     def _build_watchlist_candidate(
@@ -212,6 +218,8 @@ class OpportunityPoolService:
         return {
             "ticker": item.get("ticker"),
             "display_name": item.get("display_name"),
+            "latest_price": item.get("price"),
+            "change_percent": item.get("change_percent"),
             "topic_name": theme_item.get("theme_name") or item.get("theme_name"),
             "candidate_state": candidate_state,
             "priority_score": priority_score,
@@ -244,7 +252,15 @@ class OpportunityPoolService:
             if info_result.get("success")
             else ticker
         )
-        tradeability_state = self._resolve_theme_tradeability_state(theme_item)
+        price_change_percent = (
+            float(price_result.get("change_percent"))
+            if price_result.get("success") and price_result.get("change_percent") is not None
+            else None
+        )
+        tradeability_state = self._resolve_theme_tradeability_state(
+            theme_item,
+            change_percent=price_change_percent,
+        )
         role_label = self._resolve_theme_role_label(
             ticker=ticker,
             theme_item=theme_item,
@@ -293,6 +309,10 @@ class OpportunityPoolService:
         return {
             "ticker": ticker,
             "display_name": display_name,
+            "latest_price": price_result.get("price_formatted")
+            if price_result.get("success")
+            else None,
+            "change_percent": price_change_percent,
             "topic_name": theme_item.get("theme_name"),
             "candidate_state": candidate_state,
             "priority_score": priority_score,
@@ -485,7 +505,19 @@ class OpportunityPoolService:
         return "先观察，不急于参与，等待更明确的确认信号。"
 
     @staticmethod
-    def _resolve_theme_tradeability_state(theme_item: dict[str, Any]) -> str:
+    def _resolve_theme_tradeability_state(
+        theme_item: dict[str, Any],
+        *,
+        change_percent: float | None,
+    ) -> str:
+        if change_percent is not None:
+            if change_percent >= 8:
+                return "谨慎追高"
+            if change_percent <= -8:
+                return "流动性风险"
+            if -2 <= change_percent <= 2:
+                return "可低吸"
+            return "可观察"
         change_value = float(theme_item.get("metrics", {}).get("change_value", 0) or 0)
         if change_value >= 6:
             return "谨慎追高"

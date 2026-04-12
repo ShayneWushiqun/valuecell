@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 class OpportunityCandidateItem(BaseModel):
     ticker: str = Field(..., description="Candidate ticker")
     display_name: str = Field(..., description="Display name")
+    latest_price: str | None = Field(None, description="Latest price string")
+    change_percent: float | None = Field(None, description="Latest change percent")
     topic_name: str | None = Field(None, description="Related topic or theme name")
     candidate_state: str = Field(..., description="Candidate state")
     priority_score: int = Field(..., description="Priority score from 0 to 100")
