@@ -185,6 +185,10 @@
   - 已提供轻量提醒摘要，基于买点裁决信号输出买点接近、等待确认、持有观察和风险回避
 - `frontend/src/app/home/opportunities.tsx`
   - 已提供阶段二机会池页面，集中展示候选机会、买点裁决和今日提醒摘要
+- `python/valuecell/server/services/assets/strategy_preference_service.py`
+  - 已提供 A 股策略偏好模板 MVP，复用 user_profiles 存储并影响机会池排序、买点裁决和提醒优先级
+- `frontend/src/app/home/strategy-preferences.tsx`
+  - 已提供策略偏好配置页，可选择模板并保存风格参数
 
 但要注意：
 
@@ -195,7 +199,8 @@
 - `HomepageContextService` 当前应只做聚合，不再承载自选观察和题材候选的具体规则
 - `EmotionCycleService` 已支持优先复用 window item data，减少时间线逐日重复请求
 - 已完成阶段二 MVP 规则版闭环：机会池、买点裁决、轻量提醒摘要与机会池页面
-- 还没有完成完整提醒中心、Agent 裁决、提醒去重与持久化、用户策略偏好模板和自动交易
+- 已完成策略偏好模板 MVP，能轻量影响排序与提醒优先级
+- 还没有完成完整提醒中心、Agent 裁决、提醒去重与持久化和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 
 ## 6.2 当前首页收敛进度

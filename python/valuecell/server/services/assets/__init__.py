@@ -79,6 +79,11 @@ from .decision_alert_service import (
     get_decision_alert_service,
     reset_decision_alert_service,
 )
+from .strategy_preference_service import (
+    StrategyPreferenceService,
+    get_strategy_preference_service,
+    reset_strategy_preference_service,
+)
 from .short_cycle_data_service import (
     ShortCycleDataService,
     get_short_cycle_data_service,
@@ -99,6 +104,7 @@ __all__ = [
     "OpportunityPoolService",
     "EntryTimingService",
     "DecisionAlertService",
+    "StrategyPreferenceService",
     "ShortCycleDataService",
     "get_asset_service",
     "get_market_pulse_service",
@@ -110,6 +116,7 @@ __all__ = [
     "get_opportunity_pool_service",
     "get_entry_timing_service",
     "get_decision_alert_service",
+    "get_strategy_preference_service",
     "get_short_cycle_data_service",
     "reset_asset_service",
     "reset_market_pulse_service",
@@ -121,6 +128,7 @@ __all__ = [
     "reset_opportunity_pool_service",
     "reset_entry_timing_service",
     "reset_decision_alert_service",
+    "reset_strategy_preference_service",
     "reset_short_cycle_data_service",
     # Convenience functions
     "search_assets",

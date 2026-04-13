@@ -133,7 +133,7 @@ function SummaryMarkdown({
       <div className="scroll-container min-h-0 overflow-y-auto pr-2">
         <MarkdownRenderer
           content={content}
-          className="max-w-none break-words text-muted-foreground prose-p:my-2 prose-li:my-1"
+          className="prose-li:my-1 prose-p:my-2 max-w-none break-words text-muted-foreground"
         />
       </div>
     </div>
@@ -464,7 +464,7 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
                     </span>
                     <div className="grid grid-cols-2 gap-3">
                       {ANALYST_OPTIONS.map((option) => (
-                        <label
+                        <div
                           key={option.value}
                           className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
                         >
@@ -473,13 +473,13 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
                             onCheckedChange={() => handleToggleAnalyst(option.value)}
                           />
                           <span>{option.label}</span>
-                        </label>
+                        </div>
                       ))}
                     </div>
                   </div>
 
                   <div className="col-span-2">
-                    <label className="flex items-start gap-3 rounded-lg border px-3 py-3">
+                    <div className="flex items-start gap-3 rounded-lg border px-3 py-3">
                       <Checkbox
                         checked={form.debug}
                         onCheckedChange={(checked) =>
@@ -494,7 +494,7 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
                           {t("tradingagents.form.debugDescription")}
                         </span>
                       </div>
-                    </label>
+                    </div>
                   </div>
                 </div>
 
@@ -605,7 +605,7 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
               <div className="text-muted-foreground">
                 {getProgressText(createRun.isPending, selectedRun, t)}
               </div>
-              <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+              <div className="grid grid-cols-2 gap-3 text-muted-foreground text-xs">
                 <div className="rounded-lg border bg-muted/30 px-3 py-2">
                   <div className="font-medium text-foreground">
                     {t("tradingagents.meta.lastUpdated")}

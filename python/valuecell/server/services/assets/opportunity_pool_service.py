@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 
 from .asset_service import AssetService
+from .strategy_preference_service import StrategyPreferenceService
 from .theme_candidate_service import ThemeCandidateService
 from .watchlist_observation_service import WatchlistObservationService
 
@@ -14,12 +15,16 @@ class OpportunityPoolService:
         theme_candidate_service: Optional[ThemeCandidateService] = None,
         watchlist_observation_service: Optional[WatchlistObservationService] = None,
         asset_service: Optional[AssetService] = None,
+        strategy_preference_service: Optional[StrategyPreferenceService] = None,
     ) -> None:
         self.theme_candidate_service = theme_candidate_service or ThemeCandidateService()
         self.watchlist_observation_service = (
             watchlist_observation_service or WatchlistObservationService()
         )
         self.asset_service = asset_service or AssetService()
+        self.strategy_preference_service = (
+            strategy_preference_service or StrategyPreferenceService()
+        )
 
     def get_opportunity_candidates(self, user_id: str = "default_user") -> dict[str, Any]:
         theme_result = self.theme_candidate_service.get_theme_candidates(top_n=12)
@@ -33,6 +38,7 @@ class OpportunityPoolService:
             theme_items,
         )
         watchlist_items = list(watchlist_result.get("all_items") or [])
+        strategy_profile = self.strategy_preference_service.get_effective_profile(user_id)
 
         candidates_by_ticker: dict[str, dict[str, Any]] = {}
         theme_refs = self._build_theme_refs(theme_items)
@@ -65,10 +71,16 @@ class OpportunityPoolService:
                 theme_ref=theme_ref,
             )
 
+        items = [
+            self._apply_strategy_preferences(item, strategy_profile)
+            for item in candidates_by_ticker.values()
+        ]
+
         items = sorted(
-            candidates_by_ticker.values(),
+            items,
             key=lambda item: (
                 -int(item.get("priority_score") or 0),
+                self._source_priority_rank(list(item.get("source_tags") or [])),
                 self._candidate_state_rank(str(item.get("candidate_state") or "")),
                 str(item.get("ticker") or ""),
             ),
@@ -83,6 +95,7 @@ class OpportunityPoolService:
                 "watchlist_count": len(watchlist_items),
                 "theme_candidate_count": len(theme_items),
                 "candidate_count": len(items),
+                "preference_profile_applied": strategy_profile.get("template_id"),
             },
         }
 
@@ -252,9 +265,10 @@ class OpportunityPoolService:
             if info_result.get("success")
             else ticker
         )
+        raw_change_percent = price_result.get("change_percent") if price_result.get("success") else None
         price_change_percent = (
-            float(price_result.get("change_percent"))
-            if price_result.get("success") and price_result.get("change_percent") is not None
+            float(raw_change_percent)
+            if raw_change_percent is not None
             else None
         )
         tradeability_state = self._resolve_theme_tradeability_state(
@@ -422,6 +436,138 @@ class OpportunityPoolService:
 
         return max(0, min(100, int(round(score))))
 
+    def _apply_strategy_preferences(
+        self,
+        item: dict[str, Any],
+        profile: dict[str, Any],
+    ) -> dict[str, Any]:
+        adjustments: list[dict[str, Any]] = []
+        matched_preferences: list[str] = []
+        topic_name = str(item.get("topic_name") or "")
+        tradeability_state = str(item.get("tradeability_state") or "")
+        role_label = str(item.get("role_label") or "")
+        trend_quality = str(item.get("trend_quality") or "")
+        expectation_gap_level = str(item.get("expectation_gap_level") or "")
+        source_tags = list(item.get("source_tags") or [])
+        invalid_conditions = " ".join(item.get("invalid_conditions") or [])
+        change_percent = item.get("change_percent")
+        delta = 0
+
+        preferred_themes = [str(theme or "").strip() for theme in profile.get("preferred_themes") or []]
+        if topic_name and any(theme and theme in topic_name for theme in preferred_themes):
+            adjustments.append({"label": "偏好题材命中", "delta": 8})
+            matched_preferences.append(f"偏好题材命中：{topic_name}")
+            delta += 8
+
+        if "watchlist" in source_tags and "theme_resonance" in source_tags:
+            adjustments.append({"label": "自选与主线共振", "delta": 6})
+            matched_preferences.append("自选与主线共振")
+            delta += 6
+
+        if profile.get("prefer_leader_or_core"):
+            if role_label == "龙头":
+                adjustments.append({"label": "偏好龙头", "delta": 8})
+                matched_preferences.append("偏好龙头/核心")
+                delta += 8
+            elif role_label == "中军":
+                adjustments.append({"label": "偏好中军", "delta": 6})
+                matched_preferences.append("偏好龙头/核心")
+                delta += 6
+            elif role_label == "跟风":
+                adjustments.append({"label": "跟风降权", "delta": -8})
+                delta -= 8
+            if "theme_core" in source_tags:
+                adjustments.append({"label": "核心票加权", "delta": 4})
+                delta += 4
+            elif "theme_representative" in source_tags:
+                adjustments.append({"label": "代表票加权", "delta": 2})
+                delta += 2
+
+        if profile.get("prefer_expectation_gap"):
+            if expectation_gap_level == "高":
+                adjustments.append({"label": "偏好高预期差", "delta": 6})
+                matched_preferences.append("偏好预期差")
+                delta += 6
+            elif expectation_gap_level == "中":
+                adjustments.append({"label": "偏好中预期差", "delta": 3})
+                matched_preferences.append("偏好预期差")
+                delta += 3
+            elif expectation_gap_level == "低":
+                adjustments.append({"label": "低预期差降权", "delta": -8})
+                delta -= 8
+
+        risk_style = str(profile.get("risk_style") or "balanced")
+        if risk_style == "steady":
+            if tradeability_state == "谨慎追高":
+                adjustments.append({"label": "稳健风格回避追高", "delta": -12})
+                matched_preferences.append("稳健风格")
+                delta -= 12
+            if tradeability_state == "流动性风险":
+                adjustments.append({"label": "稳健风格回避流动性风险", "delta": -18})
+                matched_preferences.append("稳健风格")
+                delta -= 18
+            if trend_quality == "走弱" or "回避" in invalid_conditions:
+                adjustments.append({"label": "稳健风格回避走弱/高风险", "delta": -10})
+                delta -= 10
+
+        if not profile.get("accept_high_position", False):
+            if tradeability_state == "谨慎追高":
+                adjustments.append({"label": "不接受高位追强", "delta": -10})
+                matched_preferences.append("不接受高位追强")
+                delta -= 10
+            if change_percent is not None and float(change_percent) >= 6:
+                adjustments.append({"label": "高位涨幅降权", "delta": -6})
+                delta -= 6
+
+        buy_style = str(profile.get("buy_style") or "right_side")
+        if buy_style in {"low_absorb", "pullback"}:
+            if tradeability_state == "可低吸":
+                adjustments.append({"label": "偏好低吸/回踩", "delta": 8})
+                matched_preferences.append("偏好低吸/回踩")
+                delta += 8
+            if tradeability_state == "谨慎追高":
+                adjustments.append({"label": "低吸风格回避追高", "delta": -8})
+                delta -= 8
+        elif buy_style in {"breakout", "right_side"} and trend_quality == "顺势":
+            adjustments.append({"label": "偏好右侧/突破", "delta": 4})
+            matched_preferences.append("偏好右侧/突破")
+            delta += 4
+
+        avoid_risks = [str(risk or "").strip() for risk in profile.get("avoid_risks") or []]
+        combined_risk_text = " ".join(
+            [
+                topic_name,
+                tradeability_state,
+                invalid_conditions,
+                " ".join(item.get("reasons") or []),
+            ]
+        )
+        for risk in avoid_risks:
+            if risk and risk in combined_risk_text:
+                adjustments.append({"label": f"规避风险：{risk}", "delta": -6})
+                matched_preferences.append(f"规避风险：{risk}")
+                delta -= 6
+
+        updated_score = max(0, min(100, int(item.get("priority_score") or 0) + delta))
+        updated_item = {
+            **item,
+            "priority_score": updated_score,
+            "ranking_bucket": self._resolve_ranking_bucket(updated_score),
+            "candidate_state": self._resolve_candidate_state(
+                priority_score=updated_score,
+                status=str(item.get("candidate_state") or "普通观察"),
+                tradeability_state=tradeability_state,
+                invalid_conditions=list(item.get("invalid_conditions") or []),
+            ),
+            "preference_adjustments": adjustments,
+            "matched_preferences": self._unique_list(matched_preferences),
+        }
+        if matched_preferences:
+            updated_item["reasons"] = self._unique_list(
+                [*list(item.get("reasons") or []), "更符合当前偏好，但仍需确认。"]
+            )
+        return updated_item
+
     @staticmethod
     def _resolve_candidate_state(
         *,
@@ -556,6 +702,16 @@ class OpportunityPoolService:
             "暂不参与": 5,
         }
         return ranking.get(candidate_state, 9)
+
+    @staticmethod
+    def _source_priority_rank(source_tags: list[str]) -> int:
+        if "theme_resonance" in source_tags:
+            return 0
+        if "theme_core" in source_tags or "theme_representative" in source_tags:
+            return 1
+        if "watchlist" in source_tags:
+            return 2
+        return 3
 
     @staticmethod
     def _unique_list(values: list[str]) -> list[str]:

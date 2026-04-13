@@ -26,6 +26,7 @@
   - `EntryTimingService`
   - `DecisionAlertService`
   - `/home/opportunities` 机会池页面
+  - 策略偏好模板 MVP
 - 当前尚未完成：
   - Agent 裁决
   - 完整提醒中心

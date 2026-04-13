@@ -29,6 +29,7 @@ from .routers.opportunity_pool import create_opportunity_pool_router
 from .routers.i18n import create_i18n_router
 from .routers.models import create_models_router
 from .routers.portfolio import create_portfolio_router
+from .routers.strategy_preference import create_strategy_preference_router
 from .routers.strategy_api import create_strategy_api_router
 from .routers.system import create_system_router
 from .routers.task import create_task_router
@@ -257,6 +258,7 @@ def _add_routes(app: FastAPI, settings) -> None:
 
     # Include user profile router
     app.include_router(create_user_profile_router(), prefix=API_PREFIX)
+    app.include_router(create_strategy_preference_router(), prefix=API_PREFIX)
 
     # Include agent stream router
     app.include_router(create_agent_stream_router(), prefix=API_PREFIX)

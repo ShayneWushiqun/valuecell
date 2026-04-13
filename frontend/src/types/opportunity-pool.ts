@@ -16,6 +16,8 @@ export type OpportunityCandidateItem = {
   reasons: string[];
   time_horizon: string;
   source_tags: string[];
+  matched_preferences: string[];
+  preference_adjustments: Array<{ label: string; delta: number }>;
   action_hint: string;
   missing_confirmations: string[];
   invalid_conditions: string[];
@@ -25,6 +27,7 @@ export type OpportunitySourceSummary = {
   watchlist_count: number;
   theme_candidate_count: number;
   candidate_count: number;
+  preference_profile_applied: string | null;
 };
 
 export type OpportunityPool = {

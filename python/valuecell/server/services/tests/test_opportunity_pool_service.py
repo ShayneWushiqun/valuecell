@@ -133,11 +133,36 @@ class FakeAssetService:
         return mapping.get(ticker, {"success": False, "ticker": ticker})
 
 
+class FakeStrategyPreferenceService:
+    def __init__(self, *, template_id: str = "trend_continuation", risk_style: str = "balanced") -> None:
+        self.template_id = template_id
+        self.risk_style = risk_style
+
+    def get_effective_profile(self, user_id: str = "default_user") -> dict[str, Any]:
+        return {
+            "profile_id": 1,
+            "kind": "ashare_strategy_preference",
+            "schema_version": 1,
+            "template_id": self.template_id,
+            "template_title": "趋势延续",
+            "preferred_themes": ["AI算力"],
+            "holding_period_days": 10,
+            "risk_style": self.risk_style,
+            "buy_style": "low_absorb",
+            "avoid_risks": ["ST", "流动性风险", "高位追强"],
+            "accept_high_position": False,
+            "prefer_expectation_gap": True,
+            "prefer_leader_or_core": True,
+            "note": "",
+        }
+
+
 def test_opportunity_pool_service_prioritizes_watchlist_theme_resonance() -> None:
     service = OpportunityPoolService(
         theme_candidate_service=cast(Any, FakeThemeCandidateService()),
         watchlist_observation_service=cast(Any, FakeWatchlistObservationService()),
         asset_service=cast(Any, FakeAssetService()),
+        strategy_preference_service=cast(Any, FakeStrategyPreferenceService()),
     )
 
     result = service.get_opportunity_candidates("default_user")
@@ -149,8 +174,10 @@ def test_opportunity_pool_service_prioritizes_watchlist_theme_resonance() -> Non
     assert result["items"][0]["candidate_state"] in {"候选买点", "高优先级买点"}
     assert result["items"][0]["latest_price"] == "23.51"
     assert result["items"][0]["change_percent"] == 2.8
+    assert result["items"][0]["matched_preferences"]
     assert result["items"][0]["reasons"]
     assert result["items"][0]["missing_confirmations"]
+    assert result["source_summary"]["preference_profile_applied"] == "trend_continuation"
 
 
 def test_opportunity_pool_service_keeps_st_out_of_top_recommendations() -> None:
@@ -158,6 +185,7 @@ def test_opportunity_pool_service_keeps_st_out_of_top_recommendations() -> None:
         theme_candidate_service=cast(Any, FakeThemeCandidateService()),
         watchlist_observation_service=cast(Any, FakeWatchlistObservationService()),
         asset_service=cast(Any, FakeAssetService()),
+        strategy_preference_service=cast(Any, FakeStrategyPreferenceService()),
     )
 
     result = service.get_opportunity_candidates("default_user")
@@ -173,6 +201,7 @@ def test_opportunity_pool_service_marks_tradeability_risk_conservatively() -> No
         theme_candidate_service=cast(Any, FakeThemeCandidateService()),
         watchlist_observation_service=cast(Any, FakeWatchlistObservationService()),
         asset_service=cast(Any, FakeAssetService()),
+        strategy_preference_service=cast(Any, FakeStrategyPreferenceService(risk_style="steady")),
     )
 
     result = service.get_opportunity_candidates("default_user")
@@ -190,3 +219,39 @@ def test_opportunity_pool_service_marks_tradeability_risk_conservatively() -> No
     assert security_watchlist_item["source_tags"] == ["watchlist", "theme_resonance"]
     assert ai_item["action_hint"]
     assert result["source_summary"]["watchlist_count"] == 2
+
+
+def test_opportunity_pool_service_prefers_leader_and_theme_match() -> None:
+    service = OpportunityPoolService(
+        theme_candidate_service=cast(Any, FakeThemeCandidateService()),
+        watchlist_observation_service=cast(Any, FakeWatchlistObservationService()),
+        asset_service=cast(Any, FakeAssetService()),
+        strategy_preference_service=cast(Any, FakeStrategyPreferenceService()),
+    )
+
+    result = service.get_opportunity_candidates("default_user")
+
+    leader_item = next(item for item in result["items"] if item["ticker"] == "SZSE:300308")
+    follower_item = next(item for item in result["items"] if item["ticker"] == "SZSE:000001")
+
+    assert leader_item["priority_score"] > follower_item["priority_score"]
+    assert any(
+        adjustment["label"] == "偏好龙头" for adjustment in leader_item["preference_adjustments"]
+    )
+
+
+def test_opportunity_pool_service_steady_style_penalizes_chasing_and_risk() -> None:
+    service = OpportunityPoolService(
+        theme_candidate_service=cast(Any, FakeThemeCandidateService()),
+        watchlist_observation_service=cast(Any, FakeWatchlistObservationService()),
+        asset_service=cast(Any, FakeAssetService()),
+        strategy_preference_service=cast(Any, FakeStrategyPreferenceService(risk_style="steady")),
+    )
+
+    result = service.get_opportunity_candidates("default_user")
+
+    st_item = next(item for item in result["items"] if item["ticker"] == "SZSE:000007")
+    assert any(
+        adjustment["label"] == "稳健风格回避追高"
+        for adjustment in st_item["preference_adjustments"]
+    )

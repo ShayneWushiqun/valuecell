@@ -1,6 +1,7 @@
 import { useGetDecisionAlertSummary } from "@/api/decision-alert";
 import BackButton from "@valuecell/button/back-button";
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import { useGetEntryTimingSignals } from "@/api/entry-timing";
 import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
 import { Badge } from "@/components/ui/badge";
@@ -72,22 +73,32 @@ export default function Opportunities() {
               先看提醒，再看买点裁决，最后回到全部候选，不把任何摘要直接当成买入指令。
             </p>
           </div>
-          {opportunityPool?.source_summary ? (
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">
-                候选 {opportunityPool.source_summary.candidate_count}
-              </Badge>
-              <Badge variant="outline">
-                自选来源 {opportunityPool.source_summary.watchlist_count}
-              </Badge>
-              <Badge variant="outline">
-                题材来源 {opportunityPool.source_summary.theme_candidate_count}
-              </Badge>
-              {decisionAlertSummary?.count ? (
-                <Badge variant="outline">提醒 {decisionAlertSummary.count}</Badge>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="flex flex-col items-start gap-3 lg:items-end">
+            <Button asChild variant="outline">
+              <Link to="/home/strategy-preferences">策略偏好</Link>
+            </Button>
+            {opportunityPool?.source_summary ? (
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">
+                  候选 {opportunityPool.source_summary.candidate_count}
+                </Badge>
+                <Badge variant="outline">
+                  自选来源 {opportunityPool.source_summary.watchlist_count}
+                </Badge>
+                <Badge variant="outline">
+                  题材来源 {opportunityPool.source_summary.theme_candidate_count}
+                </Badge>
+                {decisionAlertSummary?.count ? (
+                  <Badge variant="outline">提醒 {decisionAlertSummary.count}</Badge>
+                ) : null}
+                {opportunityPool.source_summary.preference_profile_applied ? (
+                  <Badge variant="outline">
+                    偏好 {opportunityPool.source_summary.preference_profile_applied}
+                  </Badge>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">

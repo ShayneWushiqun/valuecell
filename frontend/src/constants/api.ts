@@ -70,6 +70,11 @@ const DECISION_ALERT_QUERY_KEYS = {
   summary: ["decision-alert", "summary"],
 } as const;
 
+const STRATEGY_PREFERENCE_QUERY_KEYS = {
+  templates: ["strategy-preference", "templates"],
+  profile: ["strategy-preference", "profile"],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -87,6 +92,7 @@ export const API_QUERY_KEYS = {
   OPPORTUNITY_POOL: OPPORTUNITY_POOL_QUERY_KEYS,
   ENTRY_TIMING: ENTRY_TIMING_QUERY_KEYS,
   DECISION_ALERT: DECISION_ALERT_QUERY_KEYS,
+  STRATEGY_PREFERENCE: STRATEGY_PREFERENCE_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

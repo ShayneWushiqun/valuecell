@@ -23,6 +23,11 @@ class OpportunityCandidateItem(BaseModel):
     reasons: list[str] = Field(default_factory=list, description="Candidate reasons")
     time_horizon: str = Field(..., description="Expected time horizon")
     source_tags: list[str] = Field(default_factory=list, description="Source tags")
+    matched_preferences: list[str] = Field(default_factory=list, description="Matched user preferences")
+    preference_adjustments: list[dict[str, str | int]] = Field(
+        default_factory=list,
+        description="Preference adjustment details",
+    )
     action_hint: str = Field(..., description="Action hint")
     missing_confirmations: list[str] = Field(
         default_factory=list,
@@ -38,6 +43,10 @@ class OpportunitySourceSummary(BaseModel):
     watchlist_count: int = Field(..., description="Watchlist observation count")
     theme_candidate_count: int = Field(..., description="Theme candidate count")
     candidate_count: int = Field(..., description="Final opportunity candidate count")
+    preference_profile_applied: str | None = Field(
+        None,
+        description="Applied strategy preference template id",
+    )
 
 
 class OpportunityPoolData(BaseModel):
