@@ -14,6 +14,10 @@ class DecisionAlertService:
         self.entry_timing_service = entry_timing_service or EntryTimingService()
 
     def get_decision_alert_summary(self, user_id: str = "default_user") -> dict[str, Any]:
+        items = self.build_decision_alerts(user_id=user_id)
+        return self.build_summary_payload(items)
+
+    def build_decision_alerts(self, user_id: str = "default_user") -> list[dict[str, Any]]:
         signal_data = self.entry_timing_service.get_entry_timing_signals(user_id=user_id)
         signals = list(signal_data.get("items") or [])
         items = [self._build_alert(signal) for signal in signals]
@@ -25,6 +29,10 @@ class DecisionAlertService:
                 str(item.get("ticker") or ""),
             )
         )
+        return items
+
+    @staticmethod
+    def build_summary_payload(items: list[dict[str, Any]]) -> dict[str, Any]:
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "available": bool(items),

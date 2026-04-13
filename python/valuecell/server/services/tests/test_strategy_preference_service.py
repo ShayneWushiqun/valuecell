@@ -114,3 +114,57 @@ def test_strategy_preference_service_updates_existing_profile() -> None:
     assert result["profile_id"] == 7
     assert result["template_id"] == "low_level_start"
     assert fake_user_profile_service.updated_payloads
+
+
+def test_strategy_preference_service_normalizes_bad_holding_period_and_text_inputs() -> None:
+    service = StrategyPreferenceService(user_profile_service=FakeUserProfileService())
+
+    result = service.save_profile(
+        "default_user",
+        {
+            "template_id": "trend_continuation",
+            "preferred_themes": "AI算力, 机器人，证券",
+            "holding_period_days": "bad-value",
+            "risk_style": "balanced",
+            "buy_style": "right_side",
+            "avoid_risks": "ST, 流动性风险",
+            "accept_high_position": "false",
+            "prefer_expectation_gap": "true",
+            "prefer_leader_or_core": "false",
+            "note": "",
+        },
+    )
+
+    assert result["holding_period_days"] == 10
+    assert result["preferred_themes"] == ["AI算力", "机器人", "证券"]
+    assert result["avoid_risks"] == ["ST", "流动性风险"]
+    assert result["accept_high_position"] is False
+    assert result["prefer_expectation_gap"] is True
+    assert result["prefer_leader_or_core"] is False
+
+
+def test_strategy_preference_service_handles_empty_or_invalid_values_defensively() -> None:
+    service = StrategyPreferenceService(user_profile_service=FakeUserProfileService())
+
+    result = service.save_profile(
+        "default_user",
+        {
+            "template_id": "event_driven",
+            "preferred_themes": 123,
+            "holding_period_days": None,
+            "risk_style": "balanced",
+            "buy_style": "breakout",
+            "avoid_risks": {"ST", "流动性风险"},
+            "accept_high_position": "",
+            "prefer_expectation_gap": "false",
+            "prefer_leader_or_core": None,
+            "note": "",
+        },
+    )
+
+    assert result["holding_period_days"] == 5
+    assert result["preferred_themes"] == ["业绩预告", "并购重组", "产品发布"]
+    assert sorted(result["avoid_risks"]) == ["ST", "流动性风险"]
+    assert result["accept_high_position"] is False
+    assert result["prefer_expectation_gap"] is False
+    assert result["prefer_leader_or_core"] is True

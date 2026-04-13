@@ -9,6 +9,7 @@ All models are automatically imported to ensure they are registered with SQLAlch
 from .agent import Agent
 from .asset import Asset
 from .daily_briefing import DailyBriefing
+from .decision_alert import DecisionAlert
 from .holding_diagnosis import HoldingDiagnosis
 
 # Import base model
@@ -35,6 +36,7 @@ __all__ = [
     "UserHolding",
     "HoldingDiagnosis",
     "DailyBriefing",
+    "DecisionAlert",
     "UserProfile",
     "ProfileCategory",
     "StrategyHolding",

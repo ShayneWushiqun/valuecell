@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any, Optional
+
+from loguru import logger
 
 from ...db.models.user_profile import ProfileCategory
 from ..user_profile_service import UserProfileService
-
-logger = logging.getLogger(__name__)
 
 STRATEGY_PREFERENCE_KIND = "ashare_strategy_preference"
 STRATEGY_PREFERENCE_SCHEMA_VERSION = 1
@@ -100,8 +99,8 @@ class StrategyPreferenceService:
             payload = json.loads(content)
         except json.JSONDecodeError:
             logger.warning(
-                "Invalid strategy preference JSON profile_id=%s, fallback to default",
-                profile.get("id"),
+                "Invalid strategy preference JSON profile_id={profile_id}, fallback to default",
+                profile_id=profile.get("id"),
             )
             return None
         if payload.get("kind") != STRATEGY_PREFERENCE_KIND:
@@ -109,8 +108,8 @@ class StrategyPreferenceService:
         profile_payload = payload.get("profile")
         if not isinstance(profile_payload, dict):
             logger.warning(
-                "Malformed strategy preference payload profile_id=%s, fallback to default",
-                profile.get("id"),
+                "Malformed strategy preference payload profile_id={profile_id}, fallback to default",
+                profile_id=profile.get("id"),
             )
             return None
         return self._normalize_profile(profile_payload)
@@ -133,31 +132,21 @@ class StrategyPreferenceService:
 
     def _normalize_profile(self, payload: dict[str, Any]) -> dict[str, Any]:
         template_id = str(payload.get("template_id") or self._default_template_id())
-        if template_id not in self._template_map():
+        template_map = self._template_map()
+        if template_id not in template_map:
             template_id = self._default_template_id()
-        base_profile = self._template_map()[template_id]["profile"]
-        preferred_themes_source = (
-            payload.get("preferred_themes")
-            if "preferred_themes" in payload
-            else base_profile["preferred_themes"]
+        base_profile = template_map[template_id]["profile"]
+        preferred_themes = self._normalize_text_list(
+            payload.get("preferred_themes"),
+            default=list(base_profile["preferred_themes"]),
         )
-        preferred_themes = [
-            str(item).strip()
-            for item in list(preferred_themes_source or [])
-            if str(item).strip()
-        ]
-        avoid_risks_source = (
-            payload.get("avoid_risks")
-            if "avoid_risks" in payload
-            else base_profile["avoid_risks"]
+        avoid_risks = self._normalize_text_list(
+            payload.get("avoid_risks"),
+            default=list(base_profile["avoid_risks"]),
         )
-        avoid_risks = [
-            str(item).strip()
-            for item in list(avoid_risks_source or [])
-            if str(item).strip()
-        ]
-        holding_period_days = int(
-            payload.get("holding_period_days") or base_profile["holding_period_days"]
+        holding_period_days = self._normalize_holding_period_days(
+            payload.get("holding_period_days"),
+            default=int(base_profile["holding_period_days"]),
         )
         risk_style = str(payload.get("risk_style") or base_profile["risk_style"])
         buy_style = str(payload.get("buy_style") or base_profile["buy_style"])
@@ -173,17 +162,65 @@ class StrategyPreferenceService:
             if buy_style in {"pullback", "breakout", "low_absorb", "right_side"}
             else base_profile["buy_style"],
             "avoid_risks": avoid_risks,
-            "accept_high_position": bool(
-                payload.get("accept_high_position", base_profile["accept_high_position"])
+            "accept_high_position": self._normalize_bool(
+                payload.get("accept_high_position"),
+                default=bool(base_profile["accept_high_position"]),
             ),
-            "prefer_expectation_gap": bool(
-                payload.get("prefer_expectation_gap", base_profile["prefer_expectation_gap"])
+            "prefer_expectation_gap": self._normalize_bool(
+                payload.get("prefer_expectation_gap"),
+                default=bool(base_profile["prefer_expectation_gap"]),
             ),
-            "prefer_leader_or_core": bool(
-                payload.get("prefer_leader_or_core", base_profile["prefer_leader_or_core"])
+            "prefer_leader_or_core": self._normalize_bool(
+                payload.get("prefer_leader_or_core"),
+                default=bool(base_profile["prefer_leader_or_core"]),
             ),
             "note": note,
         }
+
+    @staticmethod
+    def _normalize_holding_period_days(value: Any, *, default: int) -> int:
+        if value in (None, ""):
+            return default
+        try:
+            parsed_value = int(value)
+        except (TypeError, ValueError):
+            return default
+        return max(1, min(60, parsed_value))
+
+    @staticmethod
+    def _normalize_text_list(value: Any, *, default: list[str]) -> list[str]:
+        if value is None:
+            source_values: list[Any] = list(default)
+        elif isinstance(value, str):
+            normalized = value.replace("，", ",")
+            source_values = [part.strip() for part in normalized.split(",")]
+        elif isinstance(value, (list, tuple, set)):
+            source_values = list(value)
+        else:
+            source_values = list(default)
+
+        return [
+            str(item).strip()
+            for item in source_values
+            if str(item).strip()
+        ]
+
+    @staticmethod
+    def _normalize_bool(value: Any, *, default: bool) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "n", "off", ""}:
+                return False
+            return default
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return default
 
     def _default_profile(self) -> dict[str, Any]:
         return self._template_map()[self._default_template_id()]["profile"].copy()

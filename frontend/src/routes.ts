@@ -12,6 +12,7 @@ export default [
   ...prefix("/home", [
     layout("app/home/_layout.tsx", [
       index("app/home/home.tsx"),
+      route("/alerts", "app/home/alerts.tsx"),
       route("/opportunities", "app/home/opportunities.tsx"),
       route("/strategy-preferences", "app/home/strategy-preferences.tsx"),
       route("/stock/:stockId", "app/home/stock.tsx"),

@@ -74,9 +74,14 @@ export default function Opportunities() {
             </p>
           </div>
           <div className="flex flex-col items-start gap-3 lg:items-end">
-            <Button asChild variant="outline">
-              <Link to="/home/strategy-preferences">策略偏好</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link to="/home/alerts">提醒中心</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/home/strategy-preferences">策略偏好</Link>
+              </Button>
+            </div>
             {opportunityPool?.source_summary ? (
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">

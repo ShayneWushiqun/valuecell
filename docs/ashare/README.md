@@ -65,9 +65,11 @@ ValueCell 当前已经具备以下基础能力：
   - `opportunity_pool_service`
   - `entry_timing_service`
   - `decision_alert_service`
+  - `decision_alert_persistence_service`
   - `/home/opportunities` 机会池页面
   - `strategy_preference_service`
   - `/home/strategy-preferences` 策略偏好页面
+  - `/home/alerts` 提醒中心页面
 - 首页已按工作台语义重排为：
   - 市场总览
   - 情绪周期与最近轨迹
@@ -89,14 +91,14 @@ ValueCell 当前已经具备以下基础能力：
 - 独立的风控与分仓建议服务
 - 首页上下文字段口径与阈值进一步校准
 - 部分市场和题材指标的数据清洗优化
-- 完整提醒中心
-- 提醒去重 / 已读 / 历史提醒持久化
+- 完整复杂提醒系统
+- 更细粒度的提醒去重 / 已读 / 历史提醒持久化能力
 - Agent 裁决
 - 自动交易
 
 因此目前的真实状态应理解为：
 
-`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环与策略偏好模板已完成，但完整提醒中心、Agent 裁决和持久化链路仍未开始。`
+`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板与提醒中心持久化 MVP 已完成，但完整复杂提醒系统、Agent 裁决和自动交易仍未开始。`
 
 首页不应一上来就推荐个股，而应先建立用户对今天市场环境的全局认知。
 

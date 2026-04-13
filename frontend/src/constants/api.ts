@@ -68,6 +68,13 @@ const ENTRY_TIMING_QUERY_KEYS = {
 
 const DECISION_ALERT_QUERY_KEYS = {
   summary: ["decision-alert", "summary"],
+  list: (status: string, alertType: string, limit: number) => [
+    "decision-alert",
+    "list",
+    status,
+    alertType,
+    limit,
+  ],
 } as const;
 
 const STRATEGY_PREFERENCE_QUERY_KEYS = {

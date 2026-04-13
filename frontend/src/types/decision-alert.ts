@@ -1,4 +1,5 @@
 export type DecisionAlertItem = {
+  id: number | null;
   ticker: string;
   display_name: string;
   topic_name: string | null;
@@ -11,6 +12,11 @@ export type DecisionAlertItem = {
   confidence: number;
   source: string;
   reasons: string[];
+  dedupe_key?: string | null;
+  read_at?: string | null;
+  dismissed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type DecisionAlertSummary = {
@@ -19,4 +25,16 @@ export type DecisionAlertSummary = {
   items: DecisionAlertItem[];
   count: number;
   empty_message: string | null;
+};
+
+export type DecisionAlertList = {
+  generated_at: string;
+  unread_count: number;
+  items: DecisionAlertItem[];
+  count: number;
+};
+
+export type DecisionAlertReadAllResult = {
+  generated_at: string;
+  updated_count: number;
 };
