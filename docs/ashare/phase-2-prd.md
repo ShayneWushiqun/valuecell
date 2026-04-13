@@ -29,6 +29,7 @@
   - 策略偏好模板 MVP
   - 提醒中心持久化 MVP
   - Agent 裁决上下文 MVP
+  - Agent 裁决接口 MVP（默认规则 fallback）
 - 当前尚未完成：
   - 真实 LLM / Agent 裁决
   - 完整复杂提醒系统
@@ -38,6 +39,7 @@
 补充说明：
 
 - 当前“Agent 裁决上下文 MVP”只负责生成结构化上下文和 prompt preview。
+- 当前“Agent 裁决接口 MVP”默认只走规则 fallback，不要求新增 API Key，也不强制接外部 LLM。
 - 当前不会自动交易，也不会直接给出绝对化参与指令。
 
 ## 3. 核心用户问题

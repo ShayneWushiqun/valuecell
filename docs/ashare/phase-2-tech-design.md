@@ -67,13 +67,17 @@
   - 负责为单个机会候选生成结构化裁决上下文
   - 统一组合市场、题材、候选、买点信号、提醒、偏好与持仓摘要
   - 当前只生成规则版 judgement 和 agent prompt preview，不接真实 LLM
+- `AShareDecisionJudgeService`
+  - 负责基于裁决上下文产出结构化 judgement
+  - 默认只走 rule fallback，保留后续接 Agent / LLM 的接口位置
+  - 当前不会调用真实 LLM，也不会输出激进参与指令
 
 同时：
 
 - `HomepageContextService` 应保持聚合层定位，不再承载观察规则和题材候选规则
 - `EmotionCycleService` 已支持优先复用 window item data 构造时间线，减少逐日重复请求
 
-这意味着当前状态是“阶段二 MVP 规则版闭环 + 阶段三前置上下文准备”已完成，具体包括机会池、买点裁决、轻量提醒摘要、提醒中心持久化 MVP、机会池页面、策略偏好模板和 Agent 裁决上下文 MVP；但这仍不等于“阶段三真实 Agent 裁决已经完成”。
+这意味着当前状态是“阶段二 MVP 规则版闭环 + 阶段三前置上下文准备”已完成，具体包括机会池、买点裁决、轻量提醒摘要、提醒中心持久化 MVP、机会池页面、策略偏好模板、Agent 裁决上下文 MVP 和 Agent 裁决接口 MVP；但这仍不等于“阶段三真实 Agent 裁决已经完成”。
 
 当前仍未完成：
 

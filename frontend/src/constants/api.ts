@@ -86,6 +86,10 @@ const ASHARE_DECISION_CONTEXT_QUERY_KEYS = {
   context: (ticker: string) => ["ashare-decision-context", ticker],
 } as const;
 
+const ASHARE_DECISION_JUDGE_QUERY_KEYS = {
+  result: (ticker: string) => ["ashare-decision-judge", ticker],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -105,6 +109,7 @@ export const API_QUERY_KEYS = {
   DECISION_ALERT: DECISION_ALERT_QUERY_KEYS,
   STRATEGY_PREFERENCE: STRATEGY_PREFERENCE_QUERY_KEYS,
   ASHARE_DECISION_CONTEXT: ASHARE_DECISION_CONTEXT_QUERY_KEYS,
+  ASHARE_DECISION_JUDGE: ASHARE_DECISION_JUDGE_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 
