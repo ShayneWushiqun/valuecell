@@ -1,5 +1,6 @@
 export * from "./agent-suggestions-list";
 export { default as AgentTaskCards } from "./agent-task-cards";
+export { default as AShareDecisionContextDialog } from "./ashare-decision-context-dialog";
 export { default as DecisionAlertSummaryPanel } from "./decision-alert-summary-panel";
 export { default as EntryTimingSummaryPanel } from "./entry-timing-summary-panel";
 export { default as OpportunityCandidateCard } from "./opportunity-candidate-card";

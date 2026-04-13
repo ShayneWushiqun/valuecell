@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import type { EntryTimingSignalItem } from "@/types/entry-timing";
 import type { OpportunityCandidateItem } from "@/types/opportunity-pool";
+import AShareDecisionContextDialog from "./ashare-decision-context-dialog";
 
 export const formatOpportunityPercent = (value?: number | null) => {
   if (value === null || value === undefined || Number.isNaN(value)) return "--";
@@ -101,6 +102,13 @@ export default function OpportunityCandidateCard({
           ) : null}
         </div>
       ) : null}
+
+      <div className="mt-3">
+        <AShareDecisionContextDialog
+          ticker={item.ticker}
+          displayName={item.display_name}
+        />
+      </div>
 
       {item.invalid_conditions.length ? (
         <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm">

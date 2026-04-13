@@ -7,7 +7,12 @@ from valuecell.server.api.routers.decision_alert import create_decision_alert_ro
 
 
 class FakeDecisionAlertPersistenceService:
+    def __init__(self) -> None:
+        self.summary_calls = 0
+        self.refresh_calls = 0
+
     def get_decision_alert_summary(self, user_id: str = "default_user"):
+        self.summary_calls += 1
         return {
             "generated_at": "2025-04-10T10:10:00Z",
             "available": True,
@@ -68,6 +73,7 @@ class FakeDecisionAlertPersistenceService:
         }
 
     def refresh_alerts(self, user_id: str = "default_user"):
+        self.refresh_calls += 1
         return self.list_alerts(user_id=user_id)
 
     def mark_alert_read(self, *, user_id: str, alert_id: int):
@@ -92,9 +98,10 @@ class FakeDecisionAlertPersistenceService:
 
 
 def test_decision_alert_router_returns_structured_response(monkeypatch) -> None:
+    fake_service = FakeDecisionAlertPersistenceService()
     monkeypatch.setattr(
         "valuecell.server.api.routers.decision_alert.get_decision_alert_persistence_service",
-        lambda: FakeDecisionAlertPersistenceService(),
+        lambda: fake_service,
     )
     app = FastAPI()
     app.include_router(create_decision_alert_router(), prefix="/api/v1")
@@ -108,6 +115,8 @@ def test_decision_alert_router_returns_structured_response(monkeypatch) -> None:
     assert payload["data"]["available"] is True
     assert payload["data"]["items"][0]["alert_type"] == "买点接近"
     assert payload["data"]["items"][0]["source"] == "entry_timing_signals"
+    assert fake_service.summary_calls == 1
+    assert fake_service.refresh_calls == 0
 
 
 def test_decision_alert_router_supports_list_refresh_and_state_updates(monkeypatch) -> None:

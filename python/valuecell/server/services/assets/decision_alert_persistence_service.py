@@ -17,7 +17,6 @@ class DecisionAlertPersistenceService:
         self.decision_alert_repository = decision_alert_repository or DecisionAlertRepository()
 
     def get_decision_alert_summary(self, user_id: str = "default_user") -> dict[str, Any]:
-        self.refresh_alerts(user_id=user_id)
         items = self._serialize_alerts(
             self.decision_alert_repository.list_alerts(
                 user_id=user_id,

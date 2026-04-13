@@ -17,7 +17,11 @@ class FakeAlertRecord:
 
 
 class FakeDecisionAlertService:
+    def __init__(self) -> None:
+        self.build_calls = 0
+
     def build_decision_alerts(self, user_id: str = "default_user") -> list[dict[str, Any]]:
+        self.build_calls += 1
         return [
             {
                 "ticker": "SZSE:300308",
@@ -144,8 +148,9 @@ class FakeDecisionAlertRepository:
 
 def test_decision_alert_persistence_service_refreshes_and_dedupes_alerts() -> None:
     repository = FakeDecisionAlertRepository()
+    alert_service = FakeDecisionAlertService()
     service = DecisionAlertPersistenceService(
-        decision_alert_service=cast(Any, FakeDecisionAlertService()),
+        decision_alert_service=cast(Any, alert_service),
         decision_alert_repository=cast(Any, repository),
     )
 
@@ -155,6 +160,7 @@ def test_decision_alert_persistence_service_refreshes_and_dedupes_alerts() -> No
     assert first_refresh["count"] == 2
     assert second_refresh["count"] == 2
     assert len(repository.items) == 2
+    assert alert_service.build_calls == 2
 
 
 def test_decision_alert_persistence_service_supports_read_and_dismiss() -> None:
@@ -180,3 +186,25 @@ def test_decision_alert_persistence_service_supports_read_and_dismiss() -> None:
     assert dismiss_result["dismissed_at"] is not None
     assert list_result["count"] == 1
     assert dismissed_result["count"] == 1
+
+
+def test_decision_alert_summary_is_read_only_and_uses_existing_active_alerts() -> None:
+    repository = FakeDecisionAlertRepository()
+    alert_service = FakeDecisionAlertService()
+    service = DecisionAlertPersistenceService(
+        decision_alert_service=cast(Any, alert_service),
+        decision_alert_repository=cast(Any, repository),
+    )
+
+    summary_before_refresh = service.get_decision_alert_summary(user_id="default_user")
+
+    assert summary_before_refresh["available"] is False
+    assert summary_before_refresh["count"] == 0
+    assert alert_service.build_calls == 0
+
+    service.refresh_alerts(user_id="default_user")
+    summary_after_refresh = service.get_decision_alert_summary(user_id="default_user")
+
+    assert summary_after_refresh["available"] is True
+    assert summary_after_refresh["count"] == 2
+    assert alert_service.build_calls == 1

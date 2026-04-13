@@ -189,10 +189,14 @@
   - 已提供 A 股策略偏好模板 MVP，复用 user_profiles 存储并影响机会池排序、买点裁决和提醒优先级
 - `python/valuecell/server/services/assets/decision_alert_persistence_service.py`
   - 已提供提醒中心持久化 MVP，支持刷新、列表、已读、全部已读和忽略
+- `python/valuecell/server/services/assets/ashare_decision_context_service.py`
+  - 已提供单 ticker 的 Agent 裁决上下文 MVP，统一组合市场、题材、候选、买点信号、提醒、偏好与持仓摘要
 - `frontend/src/app/home/alerts.tsx`
   - 已提供提醒中心页面，可回看提醒并执行已读 / 忽略
 - `frontend/src/app/home/strategy-preferences.tsx`
   - 已提供策略偏好配置页，可选择模板并保存风格参数
+- `frontend/src/app/home/components/ashare-decision-context-dialog.tsx`
+  - 已提供机会池候选卡上的裁决上下文轻量弹窗入口
 
 但要注意：
 
@@ -205,7 +209,8 @@
 - 已完成阶段二 MVP 规则版闭环：机会池、买点裁决、轻量提醒摘要与机会池页面
 - 已完成策略偏好模板 MVP，能轻量影响排序与提醒优先级
 - 已完成提醒中心持久化 MVP，但还没有完成完整复杂提醒系统
-- 还没有完成 Agent 裁决、更细粒度提醒去重与历史运营能力和自动交易
+- 已完成 Agent 裁决上下文 MVP，但还没有接真实 LLM 裁决
+- 还没有完成更细粒度提醒去重与历史运营能力和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 
 ## 6.2 当前首页收敛进度
