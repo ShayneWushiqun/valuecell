@@ -81,6 +81,9 @@ export default function Alerts() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
+            <Link to="/home/daily-workbench">返回总控台</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/home/opportunities">返回机会池</Link>
           </Button>
           <Button

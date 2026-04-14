@@ -6,6 +6,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import {
   useGetHoldingExitSignal,
@@ -604,10 +605,15 @@ export default function PortfolioOverview({
             </p>
           </div>
 
-          <Button onClick={openCreateDialog}>
-            <Plus size={16} />
-            新增持仓
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link to="/home/daily-workbench">回到总控台</Link>
+            </Button>
+            <Button onClick={openCreateDialog}>
+              <Plus size={16} />
+              新增持仓
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-3">

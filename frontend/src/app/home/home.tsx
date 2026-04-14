@@ -16,7 +16,7 @@ import {
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useAllPollTaskList } from "@/api/conversation";
 import { useGetHomepageContext } from "@/api/homepage-context";
 import {
@@ -628,6 +628,20 @@ function Home() {
             </div>
           ) : (
             <div className="space-y-4">
+              <section className="rounded-2xl border bg-card p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="font-semibold text-lg">A 股每日决策总控台</p>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                      先看风险，再看持仓，再看机会，把市场、提醒和持仓处理收敛到一个页面。
+                    </p>
+                  </div>
+                  <Button asChild variant="outline">
+                    <Link to="/home/daily-workbench">进入每日决策总控台</Link>
+                  </Button>
+                </div>
+              </section>
+
               <AShareMarketStrip marketOverview={homepageContext?.market_overview} />
 
               <SectionCard

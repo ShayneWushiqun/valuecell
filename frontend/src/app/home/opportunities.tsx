@@ -76,6 +76,9 @@ export default function Opportunities() {
           <div className="flex flex-col items-start gap-3 lg:items-end">
             <div className="flex flex-wrap gap-2">
               <Button asChild variant="outline">
+                <Link to="/home/daily-workbench">返回总控台</Link>
+              </Button>
+              <Button asChild variant="outline">
                 <Link to="/home/alerts">提醒中心</Link>
               </Button>
               <Button asChild variant="outline">
