@@ -6,7 +6,8 @@ from typing import Any, Optional
 from loguru import logger
 
 from ...db.repositories.watchlist_repository import WatchlistRepository
-from ..portfolio import DailyBriefingService, HoldingService
+from ..portfolio.daily_briefing_service import DailyBriefingService
+from ..portfolio.holding_service import HoldingService
 from .asset_service import AssetService
 from .emotion_cycle_service import EmotionCycleService
 from .market_pulse_service import MarketPulseService

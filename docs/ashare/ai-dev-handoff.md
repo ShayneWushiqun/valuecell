@@ -193,6 +193,8 @@
   - 已提供单 ticker 的 Agent 裁决上下文 MVP，统一组合市场、题材、候选、买点信号、提醒、偏好与持仓摘要
 - `python/valuecell/server/services/assets/ashare_decision_judge_service.py`
   - 已提供 Agent 裁决接口 MVP，默认只走规则 fallback，输出结构化 judgement
+- `python/valuecell/server/services/portfolio/holding_exit_signal_service.py`
+  - 已提供持仓卖点与减仓裁决 MVP，区分继续持有、持有观察、减仓观察、保护利润和纪律止损
 - `frontend/src/app/home/alerts.tsx`
   - 已提供提醒中心页面，可回看提醒并执行已读 / 忽略
 - `frontend/src/app/home/strategy-preferences.tsx`
@@ -213,6 +215,7 @@
 - 已完成提醒中心持久化 MVP，但还没有完成完整复杂提醒系统
 - 已完成 Agent 裁决上下文 MVP，但还没有接真实 LLM 裁决
 - 已完成 Agent 裁决接口 MVP，但默认仍是规则 fallback
+- 已完成持仓卖点与减仓裁决 MVP，持仓侧处理已与新开仓裁决解耦
 - 还没有完成更细粒度提醒去重与历史运营能力和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 

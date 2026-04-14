@@ -3,12 +3,14 @@
 from fastapi import APIRouter, HTTPException, Path
 from loguru import logger
 
-from ...services.portfolio import (
-    get_daily_briefing_service,
-    get_holding_diagnosis_service,
-    get_holding_service,
+from ...services.portfolio.daily_briefing_service import get_daily_briefing_service
+from ...services.portfolio.diagnosis_service import get_holding_diagnosis_service
+from ...services.portfolio.holding_exit_signal_service import (
+    get_holding_exit_signal_service,
 )
+from ...services.portfolio.holding_service import get_holding_service
 from ..schemas import SuccessResponse
+from ..schemas.holding_exit_signal import HoldingExitSignalData, HoldingExitSignalListData
 from ..schemas.portfolio import (
     CreateHoldingRequest,
     DailyBriefingData,
@@ -27,6 +29,7 @@ def create_portfolio_router() -> APIRouter:
     router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
     holding_service = get_holding_service()
     diagnosis_service = get_holding_diagnosis_service()
+    exit_signal_service = get_holding_exit_signal_service()
     briefing_service = get_daily_briefing_service()
 
     @router.get(
@@ -57,6 +60,28 @@ def create_portfolio_router() -> APIRouter:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error retrieving portfolio overview: {str(exc)}",
+            ) from exc
+
+    @router.get(
+        "/exit-signals",
+        response_model=SuccessResponse[HoldingExitSignalListData],
+    )
+    async def list_holding_exit_signals():
+        """List exit/reduce-position signals for all holdings."""
+        try:
+            result = exit_signal_service.list_exit_signals(DEFAULT_USER_ID)
+            return SuccessResponse.create(
+                data=HoldingExitSignalListData(
+                    generated_at=result["generated_at"],
+                    items=[HoldingExitSignalData(**item) for item in result["items"]],
+                    count=result["count"],
+                ),
+                msg="Holding exit signals retrieved successfully",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error retrieving holding exit signals: {str(exc)}",
             ) from exc
 
     @router.get(
@@ -206,6 +231,62 @@ def create_portfolio_router() -> APIRouter:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error deleting holding: {str(exc)}",
+            ) from exc
+
+    @router.post(
+        "/holdings/{holding_id}/exit-signal/refresh",
+        response_model=SuccessResponse[HoldingExitSignalData],
+    )
+    async def refresh_holding_exit_signal(
+        holding_id: int = Path(..., ge=1, description="Holding ID"),
+    ):
+        """Refresh and return one holding exit/reduce-position signal."""
+        try:
+            result = exit_signal_service.get_exit_signal(
+                user_id=DEFAULT_USER_ID,
+                holding_id=holding_id,
+                force_refresh=True,
+            )
+            if result is None:
+                raise HTTPException(status_code=404, detail="Holding not found")
+            return SuccessResponse.create(
+                data=HoldingExitSignalData(**result),
+                msg="Holding exit signal refreshed successfully",
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error refreshing holding exit signal: {str(exc)}",
+            ) from exc
+
+    @router.get(
+        "/holdings/{holding_id}/exit-signal",
+        response_model=SuccessResponse[HoldingExitSignalData],
+    )
+    async def get_holding_exit_signal(
+        holding_id: int = Path(..., ge=1, description="Holding ID"),
+    ):
+        """Get one holding exit/reduce-position signal."""
+        try:
+            result = exit_signal_service.get_exit_signal(
+                user_id=DEFAULT_USER_ID,
+                holding_id=holding_id,
+                force_refresh=False,
+            )
+            if result is None:
+                raise HTTPException(status_code=404, detail="Holding not found")
+            return SuccessResponse.create(
+                data=HoldingExitSignalData(**result),
+                msg="Holding exit signal retrieved successfully",
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error retrieving holding exit signal: {str(exc)}",
             ) from exc
 
     @router.post(

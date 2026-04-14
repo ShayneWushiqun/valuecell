@@ -8,6 +8,11 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  useGetHoldingExitSignal,
+  useGetHoldingExitSignals,
+  useRefreshHoldingExitSignal,
+} from "@/api/holding-exit-signal";
+import {
   useCreateHolding,
   useDeleteHolding,
   useGetPortfolioOverview,
@@ -20,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -27,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import type { HoldingExitSignal } from "@/types/holding-exit-signal";
 import type { CreateHoldingRequest, UserHolding } from "@/types/portfolio";
 
 type HoldingFormState = {
@@ -69,6 +76,14 @@ const getRiskBadgeClassName = (risk?: string | null) => {
   if (risk === "高") return "bg-red-500/10 text-red-500";
   if (risk === "中") return "bg-orange-500/10 text-orange-500";
   return "bg-emerald-500/10 text-emerald-500";
+};
+
+const getExitActionBadgeClassName = (action?: string | null) => {
+  if (action === "纪律止损") return "bg-red-500/10 text-red-500";
+  if (action === "保护利润") return "bg-amber-500/10 text-amber-600";
+  if (action === "减仓观察") return "bg-orange-500/10 text-orange-500";
+  if (action === "继续持有") return "bg-emerald-500/10 text-emerald-500";
+  return "bg-blue-500/10 text-blue-500";
 };
 
 const formatPercent = (value?: number | null) => {
@@ -275,6 +290,119 @@ function HoldingFormDialog({
   );
 }
 
+function HoldingExitSignalDialog({
+  holding,
+  open,
+  onOpenChange,
+}: {
+  holding: UserHolding | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const holdingId = holding?.id ?? null;
+  const {
+    data: exitSignal,
+    isLoading,
+    isError,
+  } = useGetHoldingExitSignal(holdingId, open);
+  const refreshExitSignal = useRefreshHoldingExitSignal();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{holding?.asset_name || holding?.ticker || "持仓裁决"}</DialogTitle>
+          <DialogDescription>
+            这是持仓处理建议，不等于新开仓建议，也不构成交易指令。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (holdingId) refreshExitSignal.mutate(holdingId);
+            }}
+            disabled={!holdingId || refreshExitSignal.isPending}
+          >
+            {refreshExitSignal.isPending ? "刷新中..." : "刷新持仓裁决"}
+          </Button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex min-h-40 items-center justify-center">
+            <Spinner className="size-5" />
+          </div>
+        ) : null}
+
+        {!isLoading && (isError || !exitSignal?.available) ? (
+          <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
+            {exitSignal?.empty_message || "暂无可用持仓裁决"}
+          </div>
+        ) : null}
+
+        {!isLoading && !isError && exitSignal?.available ? (
+          <div className="space-y-4">
+            <section className="rounded-xl border bg-card p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={getExitActionBadgeClassName(exitSignal.action)}>
+                  {exitSignal.action}
+                </Badge>
+                <Badge variant="outline">置信度 {exitSignal.confidence}</Badge>
+              </div>
+              <p className="mt-3 text-sm">{exitSignal.summary}</p>
+              <p className="mt-2 text-muted-foreground text-sm">{exitSignal.thesis}</p>
+            </section>
+
+            <section className="rounded-xl border bg-card p-4">
+              <h3 className="font-medium text-sm">利润保护视角</h3>
+              <p className="mt-2 text-muted-foreground text-sm">
+                {exitSignal.profit_protection_view}
+              </p>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="font-medium text-sm">证据</h3>
+                <div className="mt-2 space-y-1 text-muted-foreground text-sm">
+                  {exitSignal.evidence.map((item) => (
+                    <p key={item}>- {item}</p>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="font-medium text-sm">矛盾点</h3>
+                <div className="mt-2 space-y-1 text-muted-foreground text-sm">
+                  {exitSignal.disagreement.map((item) => (
+                    <p key={item}>- {item}</p>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="font-medium text-sm">失效条件</h3>
+                <div className="mt-2 space-y-1 text-muted-foreground text-sm">
+                  {exitSignal.invalid_conditions.map((item) => (
+                    <p key={item}>- {item}</p>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="font-medium text-sm">风控提示</h3>
+                <div className="mt-2 space-y-1 text-muted-foreground text-sm">
+                  {exitSignal.risk_controls.map((item) => (
+                    <p key={item}>- {item}</p>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PortfolioOverview({
   showDailySummary = true,
   sectionTitle = "持仓处理",
@@ -287,9 +415,12 @@ export default function PortfolioOverview({
   const updateHolding = useUpdateHolding();
   const deleteHolding = useDeleteHolding();
   const refreshDiagnosis = useRefreshHoldingDiagnosis();
+  const { data: exitSignalList } = useGetHoldingExitSignals();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState<UserHolding | null>(null);
+  const [exitSignalDialogOpen, setExitSignalDialogOpen] = useState(false);
+  const [selectedHolding, setSelectedHolding] = useState<UserHolding | null>(null);
   const [form, setForm] = useState<HoldingFormState>(emptyForm);
 
   const holdings = data?.holdings || [];
@@ -298,6 +429,13 @@ export default function PortfolioOverview({
   const focusCount = useMemo(
     () => holdings.filter((item) => item.latest_diagnosis?.is_focus).length,
     [holdings],
+  );
+  const exitSignalByHoldingId = useMemo(
+    () =>
+      new Map(
+        (exitSignalList?.items || []).map((item) => [item.holding_id, item]),
+      ),
+    [exitSignalList?.items],
   );
 
   const openCreateDialog = () => {
@@ -310,6 +448,11 @@ export default function PortfolioOverview({
     setEditingHolding(holding);
     setForm(buildFormFromHolding(holding));
     setDialogOpen(true);
+  };
+
+  const openExitSignalDialog = (holding: UserHolding) => {
+    setSelectedHolding(holding);
+    setExitSignalDialogOpen(true);
   };
 
   const handleSubmit = async () => {
@@ -474,7 +617,11 @@ export default function PortfolioOverview({
             </div>
           )}
 
-          {holdings.map((holding) => (
+          {holdings.map((holding) => {
+            const exitSignal = exitSignalByHoldingId.get(holding.id) as
+              | HoldingExitSignal
+              | undefined;
+            return (
             <div
               key={holding.id}
               className="rounded-2xl border bg-card p-4 shadow-sm"
@@ -489,6 +636,11 @@ export default function PortfolioOverview({
                     <Badge className={getActionBadgeClassName(holding.latest_diagnosis?.action)}>
                       {holding.latest_diagnosis?.action || "待诊断"}
                     </Badge>
+                    {exitSignal ? (
+                      <Badge className={getExitActionBadgeClassName(exitSignal.action)}>
+                        {exitSignal.action}
+                      </Badge>
+                    ) : null}
                     {holding.latest_diagnosis?.risk_level ? (
                       <Badge className={getRiskBadgeClassName(holding.latest_diagnosis.risk_level)}>
                         风险 {holding.latest_diagnosis.risk_level}
@@ -521,7 +673,9 @@ export default function PortfolioOverview({
                   </div>
 
                   <p className="text-sm">
-                    {holding.latest_diagnosis?.summary || "还没有诊断结果，请手动刷新。"}
+                    {exitSignal?.summary ||
+                      holding.latest_diagnosis?.summary ||
+                      "还没有诊断结果，请手动刷新。"}
                   </p>
 
                   {!!holding.latest_diagnosis?.reasons?.length && (
@@ -541,6 +695,13 @@ export default function PortfolioOverview({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openExitSignalDialog(holding)}
+                  >
+                    查看持仓裁决
+                  </Button>
                   <Button
                     variant="secondary"
                     size="icon"
@@ -588,7 +749,8 @@ export default function PortfolioOverview({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -600,6 +762,11 @@ export default function PortfolioOverview({
         onOpenChange={setDialogOpen}
         onChange={setForm}
         onSubmit={handleSubmit}
+      />
+      <HoldingExitSignalDialog
+        holding={selectedHolding}
+        open={exitSignalDialogOpen}
+        onOpenChange={setExitSignalDialogOpen}
       />
     </div>
   );

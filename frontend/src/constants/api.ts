@@ -52,6 +52,8 @@ const TRADINGAGENTS_QUERY_KEYS = {
 const PORTFOLIO_QUERY_KEYS = {
   overview: ["portfolio", "overview"],
   holdings: ["portfolio", "holdings"],
+  exitSignals: ["portfolio", "exit-signals"],
+  exitSignalDetail: (holdingId: number) => ["portfolio", "exit-signal", holdingId],
 } as const;
 
 const HOMEPAGE_QUERY_KEYS = {
