@@ -40,6 +40,9 @@ export default function DailyWorkbench() {
             <Link to="/home/alerts">去提醒中心</Link>
           </Button>
           <Button asChild variant="outline">
+            <Link to="/home/daily-review">去复盘中心</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/home/strategy-preferences">去策略偏好</Link>
           </Button>
         </div>

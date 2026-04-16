@@ -22,6 +22,7 @@ from .exceptions import (
 from .routers.agent import create_agent_router
 from .routers.agent_stream import create_agent_stream_router
 from .routers.ashare_daily_workbench import create_ashare_daily_workbench_router
+from .routers.ashare_daily_snapshot import create_ashare_daily_snapshot_router
 from .routers.ashare_decision_context import create_ashare_decision_context_router
 from .routers.ashare_decision_judge import create_ashare_decision_judge_router
 from .routers.conversation import create_conversation_router
@@ -253,6 +254,7 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_entry_timing_router(), prefix=API_PREFIX)
     app.include_router(create_decision_alert_router(), prefix=API_PREFIX)
     app.include_router(create_ashare_daily_workbench_router(), prefix=API_PREFIX)
+    app.include_router(create_ashare_daily_snapshot_router(), prefix=API_PREFIX)
     app.include_router(create_ashare_decision_context_router(), prefix=API_PREFIX)
     app.include_router(create_ashare_decision_judge_router(), prefix=API_PREFIX)
 

@@ -7,6 +7,7 @@ All models are automatically imported to ensure they are registered with SQLAlch
 
 # Import all models to ensure they are registered with SQLAlchemy
 from .agent import Agent
+from .ashare_daily_snapshot import AShareDailySnapshot
 from .asset import Asset
 from .daily_briefing import DailyBriefing
 from .decision_alert import DecisionAlert
@@ -29,6 +30,7 @@ from .watchlist import Watchlist, WatchlistItem
 __all__ = [
     "Base",
     "Agent",
+    "AShareDailySnapshot",
     "Asset",
     "Strategy",
     "Watchlist",

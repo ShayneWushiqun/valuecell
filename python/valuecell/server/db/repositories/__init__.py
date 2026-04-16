@@ -5,6 +5,7 @@ from .asset_repository import (
     get_asset_repository,
     reset_asset_repository,
 )
+from .ashare_daily_snapshot_repository import AShareDailySnapshotRepository
 from .decision_alert_repository import DecisionAlertRepository
 from .strategy_repository import (
     StrategyRepository,
@@ -22,6 +23,7 @@ __all__ = [
     "AssetRepository",
     "get_asset_repository",
     "reset_asset_repository",
+    "AShareDailySnapshotRepository",
     "UserProfileRepository",
     "DecisionAlertRepository",
     "WatchlistRepository",

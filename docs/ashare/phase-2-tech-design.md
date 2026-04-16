@@ -79,13 +79,17 @@
   - 负责聚合市场、机会、提醒和持仓处理结果，形成单页日常决策工作台
   - `GET /ashare-workbench/overview` 只读，不触发写库
   - `POST /ashare-workbench/refresh` 显式刷新提醒落库和持仓裁决重算
+- `AShareDailySnapshotService`
+  - 负责把总控台编排结果按日沉淀为 snapshot
+  - `GET /ashare-workbench/snapshots*` 只读
+  - `POST /ashare-workbench/snapshots/refresh` 显式生成或更新当天快照
 
 同时：
 
 - `HomepageContextService` 应保持聚合层定位，不再承载观察规则和题材候选规则
 - `EmotionCycleService` 已支持优先复用 window item data 构造时间线，减少逐日重复请求
 
-这意味着当前状态是“阶段二 MVP 规则版闭环 + 阶段三前置上下文准备”已完成，具体包括机会池、买点裁决、轻量提醒摘要、提醒中心持久化 MVP、机会池页面、策略偏好模板、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点与减仓裁决 MVP 和 A 股每日决策总控台 MVP；但这仍不等于“阶段三真实 Agent 裁决已经完成”。
+这意味着当前状态是“阶段二 MVP 规则版闭环 + 阶段三前置上下文准备”已完成，具体包括机会池、买点裁决、轻量提醒摘要、提醒中心持久化 MVP、机会池页面、策略偏好模板、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点与减仓裁决 MVP、A 股每日决策总控台 MVP 和每日快照与复盘中心 MVP；但这仍不等于“阶段三真实 Agent 裁决已经完成”。
 
 当前仍未完成：
 
@@ -106,6 +110,12 @@
 - 机会
 - 提醒
 - 持仓处理
+
+在此基础上，系统已支持：
+
+- 今日决策总控台
+- 日级快照沉淀
+- 复盘中心回看
 
 ## 3. 数据来源建议
 

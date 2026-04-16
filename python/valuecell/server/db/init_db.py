@@ -26,6 +26,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from valuecell.server.config.settings import get_settings
 from valuecell.server.db.connection import DatabaseManager, get_database_manager
 from valuecell.server.db.models.agent import Agent
+from valuecell.server.db.models.ashare_daily_snapshot import AShareDailySnapshot
 from valuecell.server.db.models.base import Base
 from valuecell.server.db.models.strategy_prompt import StrategyPrompt
 from valuecell.server.db.repositories.asset_repository import get_asset_repository

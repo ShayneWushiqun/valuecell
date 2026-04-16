@@ -96,6 +96,16 @@ const ASHARE_DAILY_WORKBENCH_QUERY_KEYS = {
   overview: ["ashare-daily-workbench", "overview"],
 } as const;
 
+const ASHARE_DAILY_SNAPSHOT_QUERY_KEYS = {
+  list: (limit: number, includeToday: boolean) => [
+    "ashare-daily-snapshot",
+    "list",
+    limit,
+    includeToday,
+  ],
+  detail: (snapshotDate: string) => ["ashare-daily-snapshot", "detail", snapshotDate],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -117,6 +127,7 @@ export const API_QUERY_KEYS = {
   ASHARE_DECISION_CONTEXT: ASHARE_DECISION_CONTEXT_QUERY_KEYS,
   ASHARE_DECISION_JUDGE: ASHARE_DECISION_JUDGE_QUERY_KEYS,
   ASHARE_DAILY_WORKBENCH: ASHARE_DAILY_WORKBENCH_QUERY_KEYS,
+  ASHARE_DAILY_SNAPSHOT: ASHARE_DAILY_SNAPSHOT_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

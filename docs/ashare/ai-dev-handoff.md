@@ -197,8 +197,12 @@
   - 已提供持仓卖点与减仓裁决 MVP，区分继续持有、持有观察、减仓观察、保护利润和纪律止损
 - `python/valuecell/server/services/assets/ashare_daily_workbench_service.py`
   - 已提供 A 股每日决策总控台 MVP，负责把市场、机会、提醒和持仓处理聚合到一个编排层
+- `python/valuecell/server/services/assets/ashare_daily_snapshot_service.py`
+  - 已提供每日快照与复盘中心 MVP 的快照沉淀能力，按日记录总控台编排结果
 - `frontend/src/app/home/daily-workbench.tsx`
   - 已提供每日决策总控台页面，用于每日先看风险、持仓和机会摘要
+- `frontend/src/app/home/daily-review.tsx`
+  - 已提供复盘中心页面，用于回看和比较最近几天的 snapshot 变化
 - `frontend/src/app/home/alerts.tsx`
   - 已提供提醒中心页面，可回看提醒并执行已读 / 忽略
 - `frontend/src/app/home/strategy-preferences.tsx`
@@ -221,6 +225,7 @@
 - 已完成 Agent 裁决接口 MVP，但默认仍是规则 fallback
 - 已完成持仓卖点与减仓裁决 MVP，持仓侧处理已与新开仓裁决解耦
 - 已完成 A 股每日决策总控台 MVP，形成“市场 -> 机会 -> 提醒 -> 持仓处理”的日常工作流
+- 已完成每日快照与复盘中心 MVP，支持日级快照沉淀和最近几天的变化回看
 - 还没有完成更细粒度提醒去重与历史运营能力和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 

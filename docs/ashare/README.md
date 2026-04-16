@@ -70,8 +70,10 @@ ValueCell 当前已经具备以下基础能力：
   - `ashare_decision_judge_service`
   - `holding_exit_signal_service`
   - `ashare_daily_workbench_service`
+  - `ashare_daily_snapshot_service`
   - `/home/opportunities` 机会池页面
   - `/home/daily-workbench` 每日决策总控台页面
+  - `/home/daily-review` 复盘中心页面
   - `strategy_preference_service`
   - `/home/strategy-preferences` 策略偏好页面
   - `/home/alerts` 提醒中心页面
@@ -103,7 +105,7 @@ ValueCell 当前已经具备以下基础能力：
 
 因此目前的真实状态应理解为：
 
-`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP 与 A 股每日决策总控台 MVP 已完成，系统已形成“市场 -> 机会 -> 提醒 -> 持仓处理”的日常工作流，但真实 LLM 裁决、完整复杂提醒系统和自动交易仍未开始。`
+`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP、A 股每日决策总控台 MVP 与每日快照/复盘中心 MVP 已完成，系统已形成“市场 -> 机会 -> 提醒 -> 持仓处理”的日常工作流，并具备日级快照沉淀与回看能力，但真实 LLM 裁决、完整复杂提醒系统和自动交易仍未开始。`
 
 首页不应一上来就推荐个股，而应先建立用户对今天市场环境的全局认知。
 

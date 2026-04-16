@@ -639,6 +639,9 @@ function Home() {
                   <Button asChild variant="outline">
                     <Link to="/home/daily-workbench">进入每日决策总控台</Link>
                   </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/home/daily-review">复盘中心</Link>
+                  </Button>
                 </div>
               </section>
 
