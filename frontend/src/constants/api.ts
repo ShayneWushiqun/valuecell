@@ -114,6 +114,21 @@ const WATCHLIST_CENTER_QUERY_KEYS = {
   overview: ["watchlist-center", "overview"],
 } as const;
 
+const HOLDING_LIFECYCLE_QUERY_KEYS = {
+  overview: ["holding-lifecycle", "overview"],
+  detail: (holdingId: number) => ["holding-lifecycle", "detail", holdingId],
+} as const;
+
+const EXIT_RISK_CENTER_QUERY_KEYS = {
+  overview: ["exit-risk-center", "overview"],
+} as const;
+
+const DECISION_RECORD_QUERY_KEYS = {
+  base: ["decision-records"],
+  list: (limit: number, action: string) => ["decision-records", "list", limit, action],
+  detail: (recordId: number) => ["decision-records", "detail", recordId],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -138,6 +153,9 @@ export const API_QUERY_KEYS = {
   ASHARE_DAILY_SNAPSHOT: ASHARE_DAILY_SNAPSHOT_QUERY_KEYS,
   THEME_RADAR: THEME_RADAR_QUERY_KEYS,
   WATCHLIST_CENTER: WATCHLIST_CENTER_QUERY_KEYS,
+  HOLDING_LIFECYCLE: HOLDING_LIFECYCLE_QUERY_KEYS,
+  EXIT_RISK_CENTER: EXIT_RISK_CENTER_QUERY_KEYS,
+  DECISION_RECORD: DECISION_RECORD_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

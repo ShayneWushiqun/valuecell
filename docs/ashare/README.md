@@ -73,11 +73,16 @@ ValueCell 当前已经具备以下基础能力：
   - `ashare_daily_snapshot_service`
   - `theme_radar_service`
   - `watchlist_center_service`
+  - `holding_lifecycle_service`
+  - `exit_risk_center_service`
+  - `decision_record_service`
   - `/home/opportunities` 机会池页面
   - `/home/daily-workbench` 每日决策总控台页面
   - `/home/daily-review` 复盘中心页面
   - `/home/theme-radar` 题材雷达页面
   - `/home/watchlist-center` 观察池中心页面
+  - `/home/holding-lifecycle` 持仓周期中心页面
+  - `/home/exit-risk-center` 卖点与风险中心页面
   - `strategy_preference_service`
   - `/home/strategy-preferences` 策略偏好页面
   - `/home/alerts` 提醒中心页面
@@ -109,7 +114,7 @@ ValueCell 当前已经具备以下基础能力：
 
 因此目前的真实状态应理解为：
 
-`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP、A 股每日决策总控台 MVP、每日快照/复盘中心 MVP、题材雷达中心 MVP 与观察池中心 MVP 已完成，系统工作流已升级为“市场 / 总控台 -> 题材雷达 -> 观察池 -> 机会池 -> 提醒 -> 持仓处理 -> 复盘”，并具备日级快照沉淀与回看能力，但真实 LLM 裁决和自动交易仍未开始。`
+`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP、A 股每日决策总控台 MVP、每日快照/复盘中心 MVP、题材雷达中心 MVP、观察池中心 MVP，以及阶段三第一波的持仓周期中心 MVP、卖点与风险中心 MVP、决策记录沉淀 MVP 已完成。当前系统完整链路已升级为“市场 / 总控台 -> 题材雷达 -> 观察池 -> 机会池 -> 提醒 -> 持仓周期 -> 卖点与风险 -> 复盘”，并具备日级快照沉淀与关键决策记录回看能力，但真实 LLM 裁决和自动交易仍未开始。`
 
 首页不应一上来就推荐个股，而应先建立用户对今天市场环境的全局认知。
 

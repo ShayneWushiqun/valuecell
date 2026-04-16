@@ -26,7 +26,10 @@ from .routers.ashare_daily_snapshot import create_ashare_daily_snapshot_router
 from .routers.ashare_decision_context import create_ashare_decision_context_router
 from .routers.ashare_decision_judge import create_ashare_decision_judge_router
 from .routers.conversation import create_conversation_router
+from .routers.decision_record import create_decision_record_router
 from .routers.decision_alert import create_decision_alert_router
+from .routers.exit_risk_center import create_exit_risk_center_router
+from .routers.holding_lifecycle import create_holding_lifecycle_router
 from .routers.homepage_context import create_homepage_context_router
 from .routers.entry_timing import create_entry_timing_router
 from .routers.opportunity_pool import create_opportunity_pool_router
@@ -259,6 +262,9 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_ashare_daily_snapshot_router(), prefix=API_PREFIX)
     app.include_router(create_ashare_decision_context_router(), prefix=API_PREFIX)
     app.include_router(create_ashare_decision_judge_router(), prefix=API_PREFIX)
+    app.include_router(create_holding_lifecycle_router(), prefix=API_PREFIX)
+    app.include_router(create_exit_risk_center_router(), prefix=API_PREFIX)
+    app.include_router(create_decision_record_router(), prefix=API_PREFIX)
     app.include_router(create_theme_radar_router(), prefix=API_PREFIX)
     app.include_router(create_watchlist_center_router(), prefix=API_PREFIX)
 

@@ -7,6 +7,7 @@ from .asset_repository import (
 )
 from .ashare_daily_snapshot_repository import AShareDailySnapshotRepository
 from .decision_alert_repository import DecisionAlertRepository
+from .decision_record_repository import DecisionRecordRepository
 from .strategy_repository import (
     StrategyRepository,
     get_strategy_repository,
@@ -26,6 +27,7 @@ __all__ = [
     "AShareDailySnapshotRepository",
     "UserProfileRepository",
     "DecisionAlertRepository",
+    "DecisionRecordRepository",
     "WatchlistRepository",
     "get_watchlist_repository",
     "reset_watchlist_repository",

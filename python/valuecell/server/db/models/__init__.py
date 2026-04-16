@@ -11,6 +11,7 @@ from .ashare_daily_snapshot import AShareDailySnapshot
 from .asset import Asset
 from .daily_briefing import DailyBriefing
 from .decision_alert import DecisionAlert
+from .decision_record import DecisionRecord
 from .holding_diagnosis import HoldingDiagnosis
 
 # Import base model
@@ -39,6 +40,7 @@ __all__ = [
     "HoldingDiagnosis",
     "DailyBriefing",
     "DecisionAlert",
+    "DecisionRecord",
     "UserProfile",
     "ProfileCategory",
     "StrategyHolding",

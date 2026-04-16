@@ -203,6 +203,12 @@
   - 已提供题材雷达中心 MVP，聚合题材状态、参与边界、偏好命中与观察/机会共振
 - `python/valuecell/server/services/assets/watchlist_center_service.py`
   - 已提供观察池中心 MVP，聚合自选观察、提醒联动、机会池联动与持仓关系
+- `python/valuecell/server/services/assets/holding_lifecycle_service.py`
+  - 已提供持仓周期中心 MVP，给每只持仓归类为固定生命周期阶段并补处理框架
+- `python/valuecell/server/services/assets/exit_risk_center_service.py`
+  - 已提供卖点与风险中心 MVP，按优先级集中展示保护利润、纪律止损与观察项
+- `python/valuecell/server/services/assets/decision_record_service.py`
+  - 已提供决策记录沉淀 MVP，按日记录关键持仓处理建议，供复盘中心回看
 - `frontend/src/app/home/daily-workbench.tsx`
   - 已提供每日决策总控台页面，用于每日先看风险、持仓和机会摘要
 - `frontend/src/app/home/daily-review.tsx`
@@ -211,6 +217,10 @@
   - 已提供题材雷达页面，用于集中查看方向强弱、参与边界和题材共振
 - `frontend/src/app/home/watchlist-center.tsx`
   - 已提供观察池中心页面，用于集中查看重点观察、自选联动和持仓关系
+- `frontend/src/app/home/holding-lifecycle.tsx`
+  - 已提供持仓周期中心页面，用于查看所有持仓当前所处阶段与处理框架
+- `frontend/src/app/home/exit-risk-center.tsx`
+  - 已提供卖点与风险中心页面，用于集中处理高优先级持仓风险
 - `frontend/src/app/home/alerts.tsx`
   - 已提供提醒中心页面，可回看提醒并执行已读 / 忽略
 - `frontend/src/app/home/strategy-preferences.tsx`
@@ -236,6 +246,9 @@
 - 已完成每日快照与复盘中心 MVP，支持日级快照沉淀和最近几天的变化回看
 - 已完成题材雷达中心 MVP，补齐方向强弱、参与边界与共振关系的独立页面
 - 已完成观察池中心 MVP，补齐自选观察、提醒联动、机会池联动与持仓关系的独立页面
+- 已完成持仓周期中心 MVP，补齐“当前持仓处于哪个阶段”的统一视图
+- 已完成卖点与风险中心 MVP，补齐“今天优先处理什么持仓”的独立操作台
+- 已完成决策记录沉淀 MVP，补齐“当时为什么这么判断”的复盘材料
 - 还没有完成更细粒度提醒去重与历史运营能力和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 

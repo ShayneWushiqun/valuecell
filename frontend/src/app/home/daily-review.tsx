@@ -6,6 +6,8 @@ import {
   useGetAShareDailySnapshots,
   useRefreshAShareDailySnapshot,
 } from "@/api/ashare-daily-snapshot";
+import { useCaptureDecisionRecords, useRefreshDecisionRecords } from "@/api/decision-record";
+import DailyReviewDecisionRecords from "@/app/home/components/daily-review-decision-records";
 import DailyReviewDetailPanel from "@/app/home/components/daily-review-detail-panel";
 import DailyReviewSummaryPanel from "@/app/home/components/daily-review-summary-panel";
 import DailyReviewTimeline from "@/app/home/components/daily-review-timeline";
@@ -18,6 +20,8 @@ export default function DailyReview() {
     includeToday: true,
   });
   const refreshSnapshot = useRefreshAShareDailySnapshot();
+  const captureDecisionRecords = useCaptureDecisionRecords();
+  const refreshDecisionRecords = useRefreshDecisionRecords();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const { data: snapshotDetail, isLoading: detailLoading } =
     useGetAShareDailySnapshotDetail(selectedDate, !!selectedDate);
@@ -77,6 +81,26 @@ export default function DailyReview() {
           <Button asChild variant="outline">
             <Link to="/home/watchlist-center">去观察池中心</Link>
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => captureDecisionRecords.mutate()}
+            disabled={captureDecisionRecords.isPending}
+          >
+            {captureDecisionRecords.isPending ? "沉淀中..." : "沉淀关键记录"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => refreshDecisionRecords.mutate()}
+            disabled={refreshDecisionRecords.isPending}
+          >
+            {refreshDecisionRecords.isPending ? "刷新中..." : "刷新决策记录"}
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/holding-lifecycle">去持仓周期中心</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/exit-risk-center">去卖点与风险中心</Link>
+          </Button>
         </div>
       </div>
 
@@ -120,6 +144,8 @@ export default function DailyReview() {
               <DailyReviewDetailPanel snapshot={snapshotDetail || null} />
             )}
           </div>
+
+          <DailyReviewDecisionRecords />
         </>
       ) : null}
     </div>

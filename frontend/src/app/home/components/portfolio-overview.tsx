@@ -609,6 +609,12 @@ export default function PortfolioOverview({
             <Button asChild variant="outline">
               <Link to="/home/daily-workbench">回到总控台</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link to="/home/holding-lifecycle">查看全部持仓周期</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/home/exit-risk-center">查看卖点与风险</Link>
+            </Button>
             <Button onClick={openCreateDialog}>
               <Plus size={16} />
               新增持仓
