@@ -106,6 +106,14 @@ const ASHARE_DAILY_SNAPSHOT_QUERY_KEYS = {
   detail: (snapshotDate: string) => ["ashare-daily-snapshot", "detail", snapshotDate],
 } as const;
 
+const THEME_RADAR_QUERY_KEYS = {
+  overview: ["theme-radar", "overview"],
+} as const;
+
+const WATCHLIST_CENTER_QUERY_KEYS = {
+  overview: ["watchlist-center", "overview"],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -128,6 +136,8 @@ export const API_QUERY_KEYS = {
   ASHARE_DECISION_JUDGE: ASHARE_DECISION_JUDGE_QUERY_KEYS,
   ASHARE_DAILY_WORKBENCH: ASHARE_DAILY_WORKBENCH_QUERY_KEYS,
   ASHARE_DAILY_SNAPSHOT: ASHARE_DAILY_SNAPSHOT_QUERY_KEYS,
+  THEME_RADAR: THEME_RADAR_QUERY_KEYS,
+  WATCHLIST_CENTER: WATCHLIST_CENTER_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

@@ -83,6 +83,12 @@
   - 负责把总控台编排结果按日沉淀为 snapshot
   - `GET /ashare-workbench/snapshots*` 只读
   - `POST /ashare-workbench/snapshots/refresh` 显式生成或更新当天快照
+- `ThemeRadarService`
+  - 负责把 `ThemeCandidateService`、观察池和机会池联动聚合为题材雷达视图
+  - 当前补充偏好命中、观察池共振、机会池共振与参与边界信息
+- `WatchlistCenterService`
+  - 负责把 `WatchlistObservationService`、机会池、提醒、持仓和持仓动作联动成观察池中心
+  - 当前突出重点观察、主线共振、提醒联动和持仓关系，不重写 watchlist 规则
 
 同时：
 
@@ -106,14 +112,19 @@
 
 当前日常工作流已收敛为：
 
-- 市场
+- 市场 / 总控台
+- 题材雷达
+- 观察池
 - 机会
 - 提醒
 - 持仓处理
+- 复盘
 
 在此基础上，系统已支持：
 
 - 今日决策总控台
+- 题材雷达中心
+- 观察池中心
 - 日级快照沉淀
 - 复盘中心回看
 

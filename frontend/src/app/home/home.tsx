@@ -636,12 +636,20 @@ function Home() {
                       先看风险，再看持仓，再看机会，把市场、提醒和持仓处理收敛到一个页面。
                     </p>
                   </div>
-                  <Button asChild variant="outline">
-                    <Link to="/home/daily-workbench">进入每日决策总控台</Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link to="/home/daily-review">复盘中心</Link>
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="outline">
+                      <Link to="/home/daily-workbench">进入每日决策总控台</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link to="/home/theme-radar">题材雷达</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link to="/home/watchlist-center">观察池中心</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link to="/home/daily-review">复盘中心</Link>
+                    </Button>
+                  </div>
                 </div>
               </section>
 

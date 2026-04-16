@@ -199,10 +199,18 @@
   - 已提供 A 股每日决策总控台 MVP，负责把市场、机会、提醒和持仓处理聚合到一个编排层
 - `python/valuecell/server/services/assets/ashare_daily_snapshot_service.py`
   - 已提供每日快照与复盘中心 MVP 的快照沉淀能力，按日记录总控台编排结果
+- `python/valuecell/server/services/assets/theme_radar_service.py`
+  - 已提供题材雷达中心 MVP，聚合题材状态、参与边界、偏好命中与观察/机会共振
+- `python/valuecell/server/services/assets/watchlist_center_service.py`
+  - 已提供观察池中心 MVP，聚合自选观察、提醒联动、机会池联动与持仓关系
 - `frontend/src/app/home/daily-workbench.tsx`
   - 已提供每日决策总控台页面，用于每日先看风险、持仓和机会摘要
 - `frontend/src/app/home/daily-review.tsx`
   - 已提供复盘中心页面，用于回看和比较最近几天的 snapshot 变化
+- `frontend/src/app/home/theme-radar.tsx`
+  - 已提供题材雷达页面，用于集中查看方向强弱、参与边界和题材共振
+- `frontend/src/app/home/watchlist-center.tsx`
+  - 已提供观察池中心页面，用于集中查看重点观察、自选联动和持仓关系
 - `frontend/src/app/home/alerts.tsx`
   - 已提供提醒中心页面，可回看提醒并执行已读 / 忽略
 - `frontend/src/app/home/strategy-preferences.tsx`
@@ -226,6 +234,8 @@
 - 已完成持仓卖点与减仓裁决 MVP，持仓侧处理已与新开仓裁决解耦
 - 已完成 A 股每日决策总控台 MVP，形成“市场 -> 机会 -> 提醒 -> 持仓处理”的日常工作流
 - 已完成每日快照与复盘中心 MVP，支持日级快照沉淀和最近几天的变化回看
+- 已完成题材雷达中心 MVP，补齐方向强弱、参与边界与共振关系的独立页面
+- 已完成观察池中心 MVP，补齐自选观察、提醒联动、机会池联动与持仓关系的独立页面
 - 还没有完成更细粒度提醒去重与历史运营能力和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
 

@@ -14,6 +14,8 @@ export default [
       index("app/home/home.tsx"),
       route("/daily-workbench", "app/home/daily-workbench.tsx"),
       route("/daily-review", "app/home/daily-review.tsx"),
+      route("/theme-radar", "app/home/theme-radar.tsx"),
+      route("/watchlist-center", "app/home/watchlist-center.tsx"),
       route("/alerts", "app/home/alerts.tsx"),
       route("/opportunities", "app/home/opportunities.tsx"),
       route("/strategy-preferences", "app/home/strategy-preferences.tsx"),

@@ -43,6 +43,12 @@ export default function DailyWorkbench() {
             <Link to="/home/daily-review">去复盘中心</Link>
           </Button>
           <Button asChild variant="outline">
+            <Link to="/home/theme-radar">去题材雷达</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/watchlist-center">去观察池中心</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/home/strategy-preferences">去策略偏好</Link>
           </Button>
         </div>

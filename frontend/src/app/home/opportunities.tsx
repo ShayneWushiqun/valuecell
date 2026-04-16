@@ -79,6 +79,12 @@ export default function Opportunities() {
                 <Link to="/home/daily-workbench">返回总控台</Link>
               </Button>
               <Button asChild variant="outline">
+                <Link to="/home/theme-radar">去题材雷达</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/home/watchlist-center">去观察池中心</Link>
+              </Button>
+              <Button asChild variant="outline">
                 <Link to="/home/alerts">提醒中心</Link>
               </Button>
               <Button asChild variant="outline">

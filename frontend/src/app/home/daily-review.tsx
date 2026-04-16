@@ -71,6 +71,12 @@ export default function DailyReview() {
           <Button asChild variant="outline">
             <Link to="/home/alerts">去提醒中心</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/theme-radar">去题材雷达</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/watchlist-center">去观察池中心</Link>
+          </Button>
         </div>
       </div>
 

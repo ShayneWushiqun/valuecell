@@ -37,9 +37,11 @@ from .routers.strategy_preference import create_strategy_preference_router
 from .routers.strategy_api import create_strategy_api_router
 from .routers.system import create_system_router
 from .routers.task import create_task_router
+from .routers.theme_radar import create_theme_radar_router
 from .routers.tradingagents import create_tradingagents_router
 from .routers.user_profile import create_user_profile_router
 from .routers.watchlist import create_watchlist_router
+from .routers.watchlist_center import create_watchlist_center_router
 from .schemas import AppInfoData, SuccessResponse
 
 
@@ -257,6 +259,8 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_ashare_daily_snapshot_router(), prefix=API_PREFIX)
     app.include_router(create_ashare_decision_context_router(), prefix=API_PREFIX)
     app.include_router(create_ashare_decision_judge_router(), prefix=API_PREFIX)
+    app.include_router(create_theme_radar_router(), prefix=API_PREFIX)
+    app.include_router(create_watchlist_center_router(), prefix=API_PREFIX)
 
     # Include portfolio router
     app.include_router(create_portfolio_router(), prefix=API_PREFIX)
