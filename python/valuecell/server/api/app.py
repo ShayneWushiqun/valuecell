@@ -21,6 +21,7 @@ from .exceptions import (
 )
 from .routers.agent import create_agent_router
 from .routers.agent_stream import create_agent_stream_router
+from .routers.analysis_context_card import create_analysis_context_card_router
 from .routers.ashare_daily_workbench import create_ashare_daily_workbench_router
 from .routers.ashare_daily_snapshot import create_ashare_daily_snapshot_router
 from .routers.ashare_decision_context import create_ashare_decision_context_router
@@ -50,6 +51,7 @@ from .routers.user_profile import create_user_profile_router
 from .routers.watchlist import create_watchlist_router
 from .routers.watchlist_center import create_watchlist_center_router
 from .routers.short_cycle_context_event import create_short_cycle_context_event_router
+from .routers.stock_analysis_thread import create_stock_analysis_thread_router
 from .schemas import AppInfoData, SuccessResponse
 
 
@@ -274,6 +276,8 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_decision_effectiveness_router(), prefix=API_PREFIX)
     app.include_router(create_short_cycle_context_event_router(), prefix=API_PREFIX)
     app.include_router(create_decision_context_window_router(), prefix=API_PREFIX)
+    app.include_router(create_stock_analysis_thread_router(), prefix=API_PREFIX)
+    app.include_router(create_analysis_context_card_router(), prefix=API_PREFIX)
     app.include_router(create_theme_radar_router(), prefix=API_PREFIX)
     app.include_router(create_watchlist_center_router(), prefix=API_PREFIX)
     app.include_router(create_risk_sizing_router(), prefix=API_PREFIX)

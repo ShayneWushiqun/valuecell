@@ -1,8 +1,13 @@
 import { ChevronDown, History, Loader2 } from "lucide-react";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useGetModelProviderDetail, useGetSortedModelProviders } from "@/api/setting";
+import {
+  useGetStockAnalysisThreads,
+  useImportStockAnalysisContext,
+} from "@/api/stock-analysis";
 import {
   useCreateTradingAgentsRun,
   useGetTradingAgentsRun,
@@ -151,6 +156,7 @@ function getPreferredReportKey(result: TradingAgentsRunResult | null): string {
 
 const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { providers = [], defaultProvider } = useGetSortedModelProviders();
   const supportedProviders = useMemo(
     () =>
@@ -174,6 +180,8 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
   const [selectedReportKey, setSelectedReportKey] = useState<string>("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
+  const [threadDialogOpen, setThreadDialogOpen] = useState(false);
+  const [targetThreadId, setTargetThreadId] = useState<string>("");
 
   useEffect(() => {
     setForm((current) => ({
@@ -197,8 +205,10 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
 
   const { data: providerDetail } = useGetModelProviderDetail(form.provider || undefined);
   const createRun = useCreateTradingAgentsRun();
+  const importContext = useImportStockAnalysisContext();
   const { data: runList } = useGetTradingAgentsRuns();
   const { data: runDetail } = useGetTradingAgentsRun(selectedRunId || undefined);
+  const { data: threadList } = useGetStockAnalysisThreads();
 
   const selectedRun = useMemo(
     () =>
@@ -304,6 +314,50 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
       toast.success(t("tradingagents.toast.runCreated"));
     } catch {
       toast.error(t("tradingagents.toast.runFailed"));
+    }
+  };
+
+  const handleCreateAnalysisThread = async () => {
+    if (!selectedRun) {
+      toast.error("请先选择一个 TradingAgents run");
+      return;
+    }
+    try {
+      const response = await importContext.mutateAsync({
+        source_module: "tradingagents_run",
+        source_ref: selectedRun.run_id,
+        create_new_thread: true,
+        mode: "append",
+      });
+      toast.success("已创建分析线程并导入当前 run");
+      navigate(`/home/stock-analysis?threadId=${response.data.thread.thread_id}`);
+    } catch {
+      toast.error("创建分析线程失败");
+    }
+  };
+
+  const handleAppendToExistingThread = async () => {
+    if (!selectedRun) {
+      toast.error("请先选择一个 TradingAgents run");
+      return;
+    }
+    if (!targetThreadId) {
+      toast.error("请先选择目标线程");
+      return;
+    }
+    try {
+      const response = await importContext.mutateAsync({
+        source_module: "tradingagents_run",
+        source_ref: selectedRun.run_id,
+        target_thread_id: Number(targetThreadId),
+        create_new_thread: false,
+        mode: "append",
+      });
+      setThreadDialogOpen(false);
+      toast.success("当前 run 已加入选中分析线程");
+      navigate(`/home/stock-analysis?threadId=${response.data.thread.thread_id}`);
+    } catch {
+      toast.error("加入现有线程失败");
     }
   };
 
@@ -651,13 +705,36 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
 
           <Card className={cn("gap-2 py-4 xl:col-span-4", RESIZABLE_HERO_CARD_CLASS)}>
             <CardHeader className="px-4">
-              <CardTitle className="text-base">
-                {t("tradingagents.coreSummary.finalDecision")}
-              </CardTitle>
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                <CardTitle className="text-base">
+                  {t("tradingagents.coreSummary.finalDecision")}
+                </CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCreateAnalysisThread}
+                    disabled={!selectedRun || importContext.isPending}
+                  >
+                    新建分析线程
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setThreadDialogOpen(true)}
+                    disabled={!selectedRun || importContext.isPending}
+                  >
+                    加入现有线程
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="flex h-full min-h-0 flex-col gap-3 px-4 text-sm">
               <div className="break-words font-semibold text-2xl">
                 {selectedRun?.decision_signal || t("tradingagents.coreSummary.empty")}
+              </div>
+              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
+                当前 run 可作为研究线程上下文导入到股票分析工作区；本轮不会在这里直接接聊天执行。
               </div>
               <SummaryMarkdown
                 content={
@@ -768,6 +845,56 @@ const TradingAgentsArea: FC<AgentViewProps> = ({ agentName }) => {
           </Card>
         </div>
       </div>
+
+      <Dialog open={threadDialogOpen} onOpenChange={setThreadDialogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>加入现有分析线程</DialogTitle>
+            <DialogDescription>
+              把当前选中的 TradingAgents run 作为一张上下文卡片 append 到现有线程。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[360px] space-y-3 overflow-y-auto">
+            {threadList?.items.length ? (
+              threadList.items.map((thread) => (
+                <button
+                  type="button"
+                  key={thread.thread_id}
+                  onClick={() => setTargetThreadId(String(thread.thread_id))}
+                  className={cn(
+                    "w-full rounded-xl border px-4 py-3 text-left transition-colors hover:bg-muted/50",
+                    targetThreadId === String(thread.thread_id) &&
+                      "border-primary bg-primary/5",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-sm">{thread.title}</span>
+                    <Badge variant="outline">{thread.focus_type}</Badge>
+                  </div>
+                  <div className="mt-2 text-muted-foreground text-xs">
+                    {thread.context_count} 张上下文卡片
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed px-4 py-6 text-muted-foreground text-sm">
+                当前还没有现有分析线程，可直接使用“新建分析线程”。
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setThreadDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={handleAppendToExistingThread}
+              disabled={!selectedRun || !targetThreadId || importContext.isPending}
+            >
+              {importContext.isPending ? "导入中..." : "加入现有线程"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

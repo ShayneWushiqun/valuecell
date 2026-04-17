@@ -164,6 +164,13 @@ const RISK_SIZING_QUERY_KEYS = {
   ticker: (ticker: string) => ["risk-sizing", "ticker", ticker],
 } as const;
 
+const STOCK_ANALYSIS_QUERY_KEYS = {
+  threads: ["stock-analysis", "threads"],
+  overviewBase: ["stock-analysis", "overview"],
+  overview: (threadId: number) => ["stock-analysis", "overview", threadId],
+  contexts: (threadId: number) => ["stock-analysis", "contexts", threadId],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -196,6 +203,7 @@ export const API_QUERY_KEYS = {
   DECISION_OUTCOME_REVIEW: DECISION_OUTCOME_REVIEW_QUERY_KEYS,
   DECISION_EFFECTIVENESS: DECISION_EFFECTIVENESS_QUERY_KEYS,
   RISK_SIZING: RISK_SIZING_QUERY_KEYS,
+  STOCK_ANALYSIS: STOCK_ANALYSIS_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

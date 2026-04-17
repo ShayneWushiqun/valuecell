@@ -482,6 +482,15 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - [阶段四需求文档](./phase-4-prd.md)
 - [阶段四技术方案](./phase-4-tech-design.md)
 
+当前阶段四第一轮已完成到：
+
+- 已完成 `/home/stock-analysis` 三栏工作区骨架
+- 已完成研究线程 CRUD，线程创建时同步生成并绑定 `conversation_id`
+- 已完成上下文卡片 CRUD 的基础管理，当前先支持 `tradingagents_run`
+- 已完成 TradingAgents run -> context card 导入能力，支持新建线程导入和加入现有线程
+- 已完成 TradingAgents 页面入口改造，支持“新建分析线程”和“加入现有线程”
+- 当前仍未接真正聊天执行、自动补数据、多模块 context import、外部工具调用策略和自动交易
+
 ## 7. 推荐执行顺序
 
 建议开发顺序如下：
