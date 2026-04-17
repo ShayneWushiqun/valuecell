@@ -27,6 +27,8 @@ class DecisionRecordItemData(BaseModel):
     tradeability_state: str | None = None
     expectation_state: str | None = None
     source: str
+    context_window_id: int | None = None
+    linked_event_ids_json: list[int] = Field(default_factory=list)
     context_snapshot_json: dict[str, Any] = Field(default_factory=dict)
     outcome_status: str
     review_note: str | None = None

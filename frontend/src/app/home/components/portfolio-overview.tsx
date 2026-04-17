@@ -615,6 +615,9 @@ export default function PortfolioOverview({
             <Button asChild variant="outline">
               <Link to="/home/exit-risk-center">查看卖点与风险</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link to="/home/decision-contexts">查看决策上下文</Link>
+            </Button>
             <Button onClick={openCreateDialog}>
               <Plus size={16} />
               新增持仓

@@ -19,6 +19,8 @@ export type DecisionRecord = {
   tradeability_state: string | null;
   expectation_state: string | null;
   source: string;
+  context_window_id: number | null;
+  linked_event_ids_json: number[];
   context_snapshot_json: Record<string, unknown>;
   outcome_status: string;
   review_note: string | null;

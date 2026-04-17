@@ -209,6 +209,10 @@
   - 已提供卖点与风险中心 MVP，按优先级集中展示保护利润、纪律止损与观察项
 - `python/valuecell/server/services/assets/decision_record_service.py`
   - 已提供决策记录沉淀 MVP，按日记录关键持仓处理建议，供复盘中心回看
+- `python/valuecell/server/services/assets/short_cycle_context_event_service.py`
+  - 已提供统一事件模型 MVP，围绕重点标的宇宙归一市场、题材、机会、提醒与持仓判断
+- `python/valuecell/server/services/assets/decision_context_window_service.py`
+  - 已提供决策时间窗上下文 MVP，把最近 10 / 20 / 40 日的支持、反对和风险证据整理为可读窗口
 - `frontend/src/app/home/daily-workbench.tsx`
   - 已提供每日决策总控台页面，用于每日先看风险、持仓和机会摘要
 - `frontend/src/app/home/daily-review.tsx`
@@ -221,6 +225,8 @@
   - 已提供持仓周期中心页面，用于查看所有持仓当前所处阶段与处理框架
 - `frontend/src/app/home/exit-risk-center.tsx`
   - 已提供卖点与风险中心页面，用于集中处理高优先级持仓风险
+- `frontend/src/app/home/decision-contexts.tsx`
+  - 已提供决策上下文页，用于系统查看某只票最近时间窗的支持、反对与风险链条
 - `frontend/src/app/home/alerts.tsx`
   - 已提供提醒中心页面，可回看提醒并执行已读 / 忽略
 - `frontend/src/app/home/strategy-preferences.tsx`
@@ -249,8 +255,12 @@
 - 已完成持仓周期中心 MVP，补齐“当前持仓处于哪个阶段”的统一视图
 - 已完成卖点与风险中心 MVP，补齐“今天优先处理什么持仓”的独立操作台
 - 已完成决策记录沉淀 MVP，补齐“当时为什么这么判断”的复盘材料
+- 已完成统一事件模型 MVP，围绕重点标的宇宙形成可去重、可解释的短周期事件对象
+- 已完成决策时间窗上下文 MVP，支持 10 / 20 / 40 日窗口的支持 / 反对 / 风险证据整理
+- 已完成决策上下文页 MVP，补齐“当前为什么这样判断”的独立解释页
 - 还没有完成更细粒度提醒去重与历史运营能力和自动交易
 - 部分规则仍是轻量版，需要继续校准字段口径和阈值
+- 还没有完成分钟级实时事件流、全市场事件总线和复杂收益归因
 
 ## 6.2 当前首页收敛进度
 

@@ -55,6 +55,9 @@ export default function DailyWorkbench() {
             <Link to="/home/exit-risk-center">去卖点与风险中心</Link>
           </Button>
           <Button asChild variant="outline">
+            <Link to="/home/decision-contexts">去决策上下文页</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/home/strategy-preferences">去策略偏好</Link>
           </Button>
         </div>

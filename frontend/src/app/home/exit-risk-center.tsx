@@ -45,6 +45,13 @@ const renderRiskGroup = (title: string, items: ExitRiskItem[]) => (
               <p className="mt-2 text-muted-foreground text-sm">退出难度：{item.liquidity_warning}</p>
             ) : null}
             <p className="mt-2 text-muted-foreground text-sm">退出计划：{item.expected_exit_plan}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link to={`/home/decision-contexts?ticker=${encodeURIComponent(item.ticker)}`}>
+                  查看决策上下文
+                </Link>
+              </Button>
+            </div>
           </div>
         ))}
       </div>

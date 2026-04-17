@@ -128,10 +128,29 @@ class FakeAShareDailySnapshotService:
         }
 
 
+class FakeDecisionContextWindowRepository:
+    def list_windows(
+        self,
+        *,
+        user_id: str,
+        ticker: str | None = None,
+        window_size: int | None = None,
+        limit: int = 100,
+    ):
+        return []
+
+
+class FakeShortCycleContextEventRepository:
+    def list_events(self, *, user_id: str, ticker: str | None = None, limit: int = 200):
+        return []
+
+
 def test_decision_record_service_upserts_daily_records() -> None:
     repository = FakeDecisionRecordRepository()
     service = DecisionRecordService(
         decision_record_repository=cast(Any, repository),
+        decision_context_window_repository=cast(Any, FakeDecisionContextWindowRepository()),
+        short_cycle_context_event_repository=cast(Any, FakeShortCycleContextEventRepository()),
         holding_lifecycle_service=cast(Any, FakeHoldingLifecycleService()),
         holding_exit_signal_service=cast(Any, FakeHoldingExitSignalService()),
         ashare_daily_snapshot_service=cast(Any, FakeAShareDailySnapshotService()),

@@ -129,6 +129,27 @@ const DECISION_RECORD_QUERY_KEYS = {
   detail: (recordId: number) => ["decision-records", "detail", recordId],
 } as const;
 
+const SHORT_CYCLE_CONTEXT_EVENT_QUERY_KEYS = {
+  base: ["short-cycle-context-events"],
+  list: (ticker: string, limit: number) => [
+    "short-cycle-context-events",
+    "list",
+    ticker,
+    limit,
+  ],
+} as const;
+
+const DECISION_CONTEXT_WINDOW_QUERY_KEYS = {
+  base: ["decision-context-windows"],
+  list: (ticker: string, windowSize: number, limit: number) => [
+    "decision-context-windows",
+    "list",
+    ticker,
+    windowSize,
+    limit,
+  ],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -156,6 +177,8 @@ export const API_QUERY_KEYS = {
   HOLDING_LIFECYCLE: HOLDING_LIFECYCLE_QUERY_KEYS,
   EXIT_RISK_CENTER: EXIT_RISK_CENTER_QUERY_KEYS,
   DECISION_RECORD: DECISION_RECORD_QUERY_KEYS,
+  SHORT_CYCLE_CONTEXT_EVENT: SHORT_CYCLE_CONTEXT_EVENT_QUERY_KEYS,
+  DECISION_CONTEXT_WINDOW: DECISION_CONTEXT_WINDOW_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

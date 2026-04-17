@@ -3,7 +3,13 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Optional
 
+from ...db.repositories.decision_context_window_repository import (
+    DecisionContextWindowRepository,
+)
 from ...db.repositories.decision_record_repository import DecisionRecordRepository
+from ...db.repositories.short_cycle_context_event_repository import (
+    ShortCycleContextEventRepository,
+)
 from ..portfolio.holding_exit_signal_service import HoldingExitSignalService
 from .ashare_daily_snapshot_service import AShareDailySnapshotService
 from .holding_lifecycle_service import HoldingLifecycleService
@@ -13,12 +19,22 @@ class DecisionRecordService:
     def __init__(
         self,
         decision_record_repository: Optional[DecisionRecordRepository] = None,
+        decision_context_window_repository: Optional[DecisionContextWindowRepository] = None,
+        short_cycle_context_event_repository: Optional[
+            ShortCycleContextEventRepository
+        ] = None,
         holding_lifecycle_service: Optional[HoldingLifecycleService] = None,
         holding_exit_signal_service: Optional[HoldingExitSignalService] = None,
         ashare_daily_snapshot_service: Optional[AShareDailySnapshotService] = None,
     ) -> None:
         self.decision_record_repository = (
             decision_record_repository or DecisionRecordRepository()
+        )
+        self.decision_context_window_repository = (
+            decision_context_window_repository or DecisionContextWindowRepository()
+        )
+        self.short_cycle_context_event_repository = (
+            short_cycle_context_event_repository or ShortCycleContextEventRepository()
         )
         self.holding_lifecycle_service = (
             holding_lifecycle_service or HoldingLifecycleService()
@@ -80,6 +96,15 @@ class DecisionRecordService:
                 lifecycle_item=lifecycle_item,
                 exit_signal=exit_signal,
                 snapshot_context=snapshot_context,
+                context_window=self._load_latest_context_window(
+                    user_id=user_id,
+                    ticker=str(lifecycle_item.get("ticker") or ""),
+                ),
+                linked_events=self._load_linked_events(
+                    user_id=user_id,
+                    ticker=str(lifecycle_item.get("ticker") or ""),
+                    record_date=record_date,
+                ),
                 user_id=user_id,
                 record_date=record_date,
                 source=source,
@@ -130,6 +155,8 @@ class DecisionRecordService:
         lifecycle_item: dict[str, Any],
         exit_signal: dict[str, Any] | None,
         snapshot_context: dict[str, Any],
+        context_window: dict[str, Any] | None,
+        linked_events: list[dict[str, Any]],
         user_id: str,
         record_date: str,
         source: str,
@@ -169,6 +196,12 @@ class DecisionRecordService:
             "expectation_state": lifecycle_item.get("expectation_state") or candidate_context.get("expectation_gap_level"),
             "source": source,
             "dedupe_key": dedupe_key,
+            "context_window_id": context_window.get("window_id") if context_window else None,
+            "linked_event_ids_json": [
+                int(event.get("event_id") or 0)
+                for event in linked_events
+                if int(event.get("event_id") or 0) > 0
+            ],
             "context_snapshot_json": {
                 "holding": {
                     "holding_id": lifecycle_item.get("holding_id"),
@@ -189,6 +222,13 @@ class DecisionRecordService:
                     "candidate_context": candidate_context,
                     "risk_context": decision_context.get("risk_context") or {},
                 },
+                "context_window": {
+                    "window_id": context_window.get("window_id"),
+                    "window_size": context_window.get("window_size"),
+                    "summary": context_window.get("summary"),
+                }
+                if context_window
+                else {},
             },
             "outcome_status": "待复盘",
             "review_note": None,
@@ -217,10 +257,56 @@ class DecisionRecordService:
             "tradeability_state": payload["tradeability_state"],
             "expectation_state": payload["expectation_state"],
             "source": payload["source"],
+            "context_window_id": payload["context_window_id"],
+            "linked_event_ids_json": list(payload["linked_event_ids_json"]),
             "context_snapshot_json": payload["context_snapshot_json"],
             "outcome_status": payload["outcome_status"],
             "review_note": payload["review_note"],
         }
+
+    def _load_latest_context_window(
+        self,
+        *,
+        user_id: str,
+        ticker: str,
+    ) -> dict[str, Any] | None:
+        if not ticker:
+            return None
+        try:
+            windows = self.decision_context_window_repository.list_windows(
+                user_id=user_id,
+                ticker=ticker,
+                limit=1,
+            )
+        except Exception:
+            return None
+        if not windows:
+            return None
+        return windows[0].to_dict()
+
+    def _load_linked_events(
+        self,
+        *,
+        user_id: str,
+        ticker: str,
+        record_date: str,
+    ) -> list[dict[str, Any]]:
+        if not ticker:
+            return []
+        try:
+            events = self.short_cycle_context_event_repository.list_events(
+                user_id=user_id,
+                ticker=ticker,
+                limit=20,
+            )
+        except Exception:
+            return []
+        linked_items: list[dict[str, Any]] = []
+        for event in events:
+            item = event.to_dict()
+            if str(item.get("record_date") or "") == record_date:
+                linked_items.append(item)
+        return linked_items[:6]
 
 
 _decision_record_service: Optional[DecisionRecordService] = None

@@ -212,6 +212,11 @@ export default function HoldingLifecycle() {
                             <Link to="/home/exit-risk-center">去卖点与风险中心</Link>
                           </Button>
                           <Button asChild size="sm" variant="outline">
+                            <Link to={`/home/decision-contexts?ticker=${encodeURIComponent(item.ticker)}`}>
+                              查看决策上下文
+                            </Link>
+                          </Button>
+                          <Button asChild size="sm" variant="outline">
                             <Link to="/home/daily-review">去复盘记录</Link>
                           </Button>
                         </div>

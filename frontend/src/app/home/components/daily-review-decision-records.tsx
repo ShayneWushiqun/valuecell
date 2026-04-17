@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import { useGetDecisionRecords } from "@/api/decision-record";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,22 @@ export default function DailyReviewDecisionRecords() {
                     风险提示：{item.risk_controls[0]}
                   </p>
                 ) : null}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/home/decision-contexts?ticker=${encodeURIComponent(item.ticker)}`}>
+                      查看决策上下文
+                    </Link>
+                  </Button>
+                  {item.context_window_id ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link
+                        to={`/home/decision-contexts?ticker=${encodeURIComponent(item.ticker)}&windowId=${item.context_window_id}`}
+                      >
+                        查看对应时间窗
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             ))
           ) : (

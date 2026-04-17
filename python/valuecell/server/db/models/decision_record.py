@@ -33,6 +33,8 @@ class DecisionRecord(Base):
     expectation_state = Column(String(100), nullable=True)
     source = Column(String(50), nullable=False, index=True)
     dedupe_key = Column(String(255), nullable=False, index=True)
+    context_window_id = Column(Integer, nullable=True, index=True)
+    linked_event_ids_json = Column(JSON, nullable=False, default=list)
     context_snapshot_json = Column(JSON, nullable=False, default=dict)
     outcome_status = Column(String(50), nullable=False, default="待复盘")
     review_note = Column(Text, nullable=True)
@@ -67,6 +69,8 @@ class DecisionRecord(Base):
             "tradeability_state": self.tradeability_state,
             "expectation_state": self.expectation_state,
             "source": self.source,
+            "context_window_id": self.context_window_id,
+            "linked_event_ids_json": list(self.linked_event_ids_json or []),
             "context_snapshot_json": self.context_snapshot_json or {},
             "outcome_status": self.outcome_status,
             "review_note": self.review_note,
