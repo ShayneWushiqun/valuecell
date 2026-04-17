@@ -348,6 +348,16 @@ if/else 组合。
 - `DecisionRecordService`
   - 已增强为可选挂接最近时间窗与关键事件引用，保持旧字段兼容
 
+阶段三第三波当前已完成的能力：
+
+- `DecisionOutcomeReviewService`
+  - 复用 `AssetService.get_historical_prices(..., interval="1d")` 作为历史价格主入口
+  - 复用 `DecisionRecordService` 读取动作、阶段、记录快照和上下文引用
+  - 复用 `DecisionContextWindowService` 补时间窗证据和关联窗口
+  - 复用 `AShareDailySnapshotService` 补充回看文案中的当日市场背景
+  - 已支持 5 / 10 / 20 日窗口的日级、轻量、保守 outcome review 持久化
+  - 当前只做可解释状态判断，不做复杂收益归因、回测或分钟级复盘
+
 当前页面与工作流已扩展为：
 
 - 市场 / 总控台
@@ -365,4 +375,6 @@ if/else 组合。
 - 真实 LLM 参与持仓处理
 - 自动交易执行
 - 复杂收益归因和回测闭环
+- 决策有效性聚合摘要服务
+- 独立风控分仓服务与前端页面
 - 分钟级事件流与全市场事件总线
