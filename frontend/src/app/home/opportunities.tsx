@@ -90,6 +90,9 @@ export default function Opportunities() {
               <Button asChild variant="outline">
                 <Link to="/home/strategy-preferences">策略偏好</Link>
               </Button>
+              <Button asChild variant="outline">
+                <Link to="/home/risk-sizing">查看风控分仓建议</Link>
+              </Button>
             </div>
             {opportunityPool?.source_summary ? (
               <div className="flex flex-wrap gap-2">

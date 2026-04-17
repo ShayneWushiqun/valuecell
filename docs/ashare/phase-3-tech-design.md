@@ -348,16 +348,6 @@ if/else 组合。
 - `DecisionRecordService`
   - 已增强为可选挂接最近时间窗与关键事件引用，保持旧字段兼容
 
-阶段三第三波当前已完成的能力：
-
-- `DecisionOutcomeReviewService`
-  - 复用 `AssetService.get_historical_prices(..., interval="1d")` 作为历史价格主入口
-  - 复用 `DecisionRecordService` 读取动作、阶段、记录快照和上下文引用
-  - 复用 `DecisionContextWindowService` 补时间窗证据和关联窗口
-  - 复用 `AShareDailySnapshotService` 补充回看文案中的当日市场背景
-  - 已支持 5 / 10 / 20 日窗口的日级、轻量、保守 outcome review 持久化
-  - 当前只做可解释状态判断，不做复杂收益归因、回测或分钟级复盘
-
 当前页面与工作流已扩展为：
 
 - 市场 / 总控台
@@ -370,11 +360,24 @@ if/else 组合。
 - 决策上下文页
 - 复盘中心
 
+阶段三第三波现已补齐：
+
+- `DecisionOutcomeReview`
+  - 以 `DecisionRecordService`、`DecisionContextWindowService`、`AShareDailySnapshotService` 和日线价格为输入，做 5 / 10 / 20 日保守结果回看
+- `DecisionEffectivenessService`
+  - 只聚合已有 `decision_outcome_review`，不重复重算价格路径或主判定规则
+  - 输出 `overall_summary`、`overall_score`、动作拆分、角色拆分、题材拆分和最近样本摘要
+- `RiskSizingService`
+  - 复用 `HomepageContextService`、`HoldingLifecycleService`、`ExitRiskCenterService`、`OpportunityPoolService`、`AShareDecisionJudgeService`、`StrategyPreferenceService`
+  - 输出组合层总仓位区间、新开仓区间、加仓区间，以及 ticker 级保守分仓建议
+- 前端页面
+  - 新增 `/home/decision-reviews`
+  - 新增 `/home/risk-sizing`
+  - 已增强 `/home/daily-review`、`/home/daily-workbench`、`/home/decision-contexts`、`/home/opportunities`
+
 当前仍未实现：
 
 - 真实 LLM 参与持仓处理
 - 自动交易执行
 - 复杂收益归因和回测闭环
-- 决策有效性聚合摘要服务
-- 独立风控分仓服务与前端页面
 - 分钟级事件流与全市场事件总线

@@ -6,6 +6,7 @@ import {
   useGetAShareDailySnapshots,
   useRefreshAShareDailySnapshot,
 } from "@/api/ashare-daily-snapshot";
+import { useGetDecisionEffectivenessSummary } from "@/api/decision-effectiveness";
 import { useCaptureDecisionRecords, useRefreshDecisionRecords } from "@/api/decision-record";
 import DailyReviewDecisionRecords from "@/app/home/components/daily-review-decision-records";
 import DailyReviewDetailPanel from "@/app/home/components/daily-review-detail-panel";
@@ -22,6 +23,7 @@ export default function DailyReview() {
   const refreshSnapshot = useRefreshAShareDailySnapshot();
   const captureDecisionRecords = useCaptureDecisionRecords();
   const refreshDecisionRecords = useRefreshDecisionRecords();
+  const { data: effectivenessSummary } = useGetDecisionEffectivenessSummary();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const { data: snapshotDetail, isLoading: detailLoading } =
     useGetAShareDailySnapshotDetail(selectedDate, !!selectedDate);
@@ -101,6 +103,9 @@ export default function DailyReview() {
           <Button asChild variant="outline">
             <Link to="/home/exit-risk-center">去卖点与风险中心</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/decision-reviews">查看全部决策结果回看</Link>
+          </Button>
         </div>
       </div>
 
@@ -124,6 +129,30 @@ export default function DailyReview() {
               当前复盘口径：{reviewTone}。关注风险回避、接近可参与窗口和持仓处理动作的日级变化。
             </p>
           </section>
+
+          {effectivenessSummary?.available ? (
+            <section className="rounded-2xl border bg-background p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="font-semibold text-lg">近期决策有效性摘要</p>
+                  <p className="mt-2 text-muted-foreground text-sm">
+                    {effectivenessSummary.overall_summary}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-secondary px-3 py-1 text-sm">
+                    总体得分 {effectivenessSummary.overall_score}
+                  </span>
+                  <span className="rounded-full border px-3 py-1 text-sm">
+                    有效 {effectivenessSummary.effective_count}
+                  </span>
+                  <span className="rounded-full border px-3 py-1 text-sm">
+                    失效 {effectivenessSummary.failed_count}
+                  </span>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <DailyReviewSummaryPanel
             current={currentSnapshot}

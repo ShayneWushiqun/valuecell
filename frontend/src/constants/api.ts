@@ -150,6 +150,20 @@ const DECISION_CONTEXT_WINDOW_QUERY_KEYS = {
   ],
 } as const;
 
+const DECISION_OUTCOME_REVIEW_QUERY_KEYS = {
+  base: ["decision-outcome-reviews"],
+  list: (paramsKey: string) => ["decision-outcome-reviews", "list", paramsKey],
+} as const;
+
+const DECISION_EFFECTIVENESS_QUERY_KEYS = {
+  summary: ["decision-effectiveness", "summary"],
+} as const;
+
+const RISK_SIZING_QUERY_KEYS = {
+  summary: ["risk-sizing", "summary"],
+  ticker: (ticker: string) => ["risk-sizing", "ticker", ticker],
+} as const;
+
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
@@ -179,6 +193,9 @@ export const API_QUERY_KEYS = {
   DECISION_RECORD: DECISION_RECORD_QUERY_KEYS,
   SHORT_CYCLE_CONTEXT_EVENT: SHORT_CYCLE_CONTEXT_EVENT_QUERY_KEYS,
   DECISION_CONTEXT_WINDOW: DECISION_CONTEXT_WINDOW_QUERY_KEYS,
+  DECISION_OUTCOME_REVIEW: DECISION_OUTCOME_REVIEW_QUERY_KEYS,
+  DECISION_EFFECTIVENESS: DECISION_EFFECTIVENESS_QUERY_KEYS,
+  RISK_SIZING: RISK_SIZING_QUERY_KEYS,
   SYSTEM: SYSTEM_QUERY_KEYS,
 } as const;
 

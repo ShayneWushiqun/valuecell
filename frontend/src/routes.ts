@@ -14,6 +14,8 @@ export default [
       index("app/home/home.tsx"),
       route("/daily-workbench", "app/home/daily-workbench.tsx"),
       route("/daily-review", "app/home/daily-review.tsx"),
+      route("/decision-reviews", "app/home/decision-reviews.tsx"),
+      route("/risk-sizing", "app/home/risk-sizing.tsx"),
       route("/holding-lifecycle", "app/home/holding-lifecycle.tsx"),
       route("/exit-risk-center", "app/home/exit-risk-center.tsx"),
       route("/decision-contexts", "app/home/decision-contexts.tsx"),

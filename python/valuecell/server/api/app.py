@@ -26,6 +26,7 @@ from .routers.ashare_daily_snapshot import create_ashare_daily_snapshot_router
 from .routers.ashare_decision_context import create_ashare_decision_context_router
 from .routers.ashare_decision_judge import create_ashare_decision_judge_router
 from .routers.conversation import create_conversation_router
+from .routers.decision_effectiveness import create_decision_effectiveness_router
 from .routers.decision_outcome_review import create_decision_outcome_review_router
 from .routers.decision_record import create_decision_record_router
 from .routers.decision_alert import create_decision_alert_router
@@ -44,6 +45,7 @@ from .routers.system import create_system_router
 from .routers.task import create_task_router
 from .routers.theme_radar import create_theme_radar_router
 from .routers.tradingagents import create_tradingagents_router
+from .routers.risk_sizing import create_risk_sizing_router
 from .routers.user_profile import create_user_profile_router
 from .routers.watchlist import create_watchlist_router
 from .routers.watchlist_center import create_watchlist_center_router
@@ -269,10 +271,12 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_exit_risk_center_router(), prefix=API_PREFIX)
     app.include_router(create_decision_record_router(), prefix=API_PREFIX)
     app.include_router(create_decision_outcome_review_router(), prefix=API_PREFIX)
+    app.include_router(create_decision_effectiveness_router(), prefix=API_PREFIX)
     app.include_router(create_short_cycle_context_event_router(), prefix=API_PREFIX)
     app.include_router(create_decision_context_window_router(), prefix=API_PREFIX)
     app.include_router(create_theme_radar_router(), prefix=API_PREFIX)
     app.include_router(create_watchlist_center_router(), prefix=API_PREFIX)
+    app.include_router(create_risk_sizing_router(), prefix=API_PREFIX)
 
     # Include portfolio router
     app.include_router(create_portfolio_router(), prefix=API_PREFIX)

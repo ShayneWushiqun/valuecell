@@ -1,6 +1,7 @@
 import BackButton from "@valuecell/button/back-button";
 import { Link } from "react-router";
 import { useGetAShareDailyWorkbenchOverview, useRefreshAShareDailyWorkbench } from "@/api/ashare-daily-workbench";
+import { useGetRiskSizingSummary } from "@/api/risk-sizing";
 import DailyWorkbenchActionQueue from "@/app/home/components/daily-workbench-action-queue";
 import DailyWorkbenchAlertPanel from "@/app/home/components/daily-workbench-alert-panel";
 import DailyWorkbenchHoldingPanel from "@/app/home/components/daily-workbench-holding-panel";
@@ -12,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export default function DailyWorkbench() {
   const { data, isLoading, isError } = useGetAShareDailyWorkbenchOverview();
+  const { data: riskSizingSummary } = useGetRiskSizingSummary();
   const refreshWorkbench = useRefreshAShareDailyWorkbench();
 
   return (
@@ -41,6 +43,12 @@ export default function DailyWorkbench() {
           </Button>
           <Button asChild variant="outline">
             <Link to="/home/daily-review">去复盘中心</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/decision-reviews">去决策结果回看</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/risk-sizing">去风控分仓建议</Link>
           </Button>
           <Button asChild variant="outline">
             <Link to="/home/theme-radar">去题材雷达</Link>
@@ -117,6 +125,30 @@ export default function DailyWorkbench() {
             <Badge variant="outline">持仓优先于冲动追新</Badge>
             <Badge variant="outline">不构成交易指令</Badge>
           </div>
+
+          {riskSizingSummary?.available ? (
+            <section className="rounded-2xl border bg-background p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="font-semibold text-lg">今日风控分仓摘要</p>
+                  <p className="mt-2 text-muted-foreground text-sm">
+                    {riskSizingSummary.entry_risk_note}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <Badge variant="secondary">
+                    市场风险 {riskSizingSummary.market_risk_level}
+                  </Badge>
+                  <Badge variant="outline">
+                    总仓位 {riskSizingSummary.suggested_total_exposure_range}
+                  </Badge>
+                  <Badge variant="outline">
+                    新开仓 {riskSizingSummary.suggested_new_position_range}
+                  </Badge>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <DailyWorkbenchActionQueue items={data.today_action_queue} />
           <DailyWorkbenchAlertPanel alerts={data.top_alerts} />

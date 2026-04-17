@@ -2,6 +2,7 @@ import BackButton from "@valuecell/button/back-button";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useGetDecisionContextWindows, useRefreshDecisionContextWindows } from "@/api/decision-context-window";
+import { useGetDecisionOutcomeReviews } from "@/api/decision-outcome-review";
 import DecisionContextSummaryPanel from "@/app/home/components/decision-context-summary-panel";
 import DecisionContextWindowCard from "@/app/home/components/decision-context-window-card";
 import DecisionContextWindowDetail from "@/app/home/components/decision-context-window-detail";
@@ -39,6 +40,7 @@ export default function DecisionContexts() {
   const [activeFilter, setActiveFilter] = useState<FilterOption>("全部");
   const [selectedItem, setSelectedItem] = useState<DecisionContextWindow | null>(null);
   const { data, isLoading, isError } = useGetDecisionContextWindows({ limit: 120 });
+  const { data: reviews } = useGetDecisionOutcomeReviews({ limit: 120 });
   const refresh = useRefreshDecisionContextWindows();
 
   const filteredItems = useMemo(
@@ -57,6 +59,23 @@ export default function DecisionContexts() {
     }),
     [data?.count, data?.items],
   );
+
+  const reviewByWindowId = useMemo(
+    () =>
+      new Map(
+        (reviews?.items || [])
+          .filter((item) => item.linked_context_window_id)
+          .map((item) => [
+            item.linked_context_window_id as number,
+            {
+              reviewId: item.review_id,
+              outcomeStatus: item.outcome_status,
+            },
+          ]),
+      ),
+    [reviews?.items],
+  );
+  const linkedReviewCount = reviewByWindowId.size;
 
   return (
     <div className="flex h-full flex-col gap-6 bg-card px-8 py-6">
@@ -85,6 +104,9 @@ export default function DecisionContexts() {
           <Button asChild variant="outline">
             <Link to="/home/exit-risk-center">去卖点与风险中心</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/decision-reviews">去决策结果回看</Link>
+          </Button>
         </div>
       </div>
 
@@ -103,6 +125,17 @@ export default function DecisionContexts() {
       {!isLoading && !isError && !!data?.count ? (
         <>
           <DecisionContextSummaryPanel summary={summary} />
+          <div className="rounded-2xl border bg-background p-4 text-sm">
+            {linkedReviewCount ? (
+              <p className="text-muted-foreground">
+                当前已有 {linkedReviewCount} 个时间窗关联到 outcome review，可从卡片进入结果回看页继续查看。
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                当前时间窗尚未匹配到回看结果，先保持保守观察。
+              </p>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             {FILTER_OPTIONS.map((option) => (
               <Button
@@ -122,6 +155,7 @@ export default function DecisionContexts() {
                   key={item.window_id}
                   item={item}
                   onSelect={setSelectedItem}
+                  reviewMeta={reviewByWindowId.get(item.window_id) ?? null}
                 />
               ))}
             </div>

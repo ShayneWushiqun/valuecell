@@ -618,6 +618,12 @@ export default function PortfolioOverview({
             <Button asChild variant="outline">
               <Link to="/home/decision-contexts">查看决策上下文</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link to="/home/decision-reviews">查看决策结果回看</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/home/risk-sizing">查看风控分仓建议</Link>
+            </Button>
             <Button onClick={openCreateDialog}>
               <Plus size={16} />
               新增持仓

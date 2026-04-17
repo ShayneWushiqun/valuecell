@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DecisionContextWindow } from "@/types/decision-context-window";
+import { Link } from "react-router";
 
 const getRiskClassName = (riskLevel: string) => {
   if (riskLevel === "高") return "bg-red-500/10 text-red-500";
@@ -11,9 +12,14 @@ const getRiskClassName = (riskLevel: string) => {
 export default function DecisionContextWindowCard({
   item,
   onSelect,
+  reviewMeta,
 }: {
   item: DecisionContextWindow;
   onSelect: (item: DecisionContextWindow) => void;
+  reviewMeta?: {
+    reviewId: number;
+    outcomeStatus: string;
+  } | null;
 }) {
   const action = String(item.judgement_snapshot_json.action || "继续观察");
   const confidence = Number(item.judgement_snapshot_json.confidence || 0);
@@ -49,6 +55,17 @@ export default function DecisionContextWindowCard({
         <Button size="sm" variant="outline" onClick={() => onSelect(item)}>
           查看详情
         </Button>
+        {reviewMeta ? (
+          <Button asChild size="sm" variant="outline">
+            <Link to="/home/decision-reviews">
+              查看回看结果 · {reviewMeta.outcomeStatus}
+            </Link>
+          </Button>
+        ) : (
+          <div className="flex items-center text-muted-foreground text-xs">
+            暂无关联回看结果
+          </div>
+        )}
       </div>
     </div>
   );
