@@ -32,12 +32,17 @@
   - `POST /api/v1/stock-analysis/threads/{thread_id}/messages`
   - 线程历史跟随 `conversation_id` 回看
   - 前端工作区聊天区与多页面研究线程入口
+- 第三轮：
+  - `StockAnalysisToolPlanner`
+  - `StockAnalysisToolingService`
+  - `context_only / need_tooling / user_forced_tooling`
+  - 第一层内部结构化工具补充与第二层日线行情补充
+  - 回答依据说明区、工具调用说明区、临时证据块
+  - 高级研究卡片导入：`decision_context_window / decision_outcome_review / risk_sizing / decision_effectiveness`
 
 阶段四当前未实现：
 
-- 外部工具补数
-- `need_tooling` / `user_forced_tooling`
-- 独立 `StockAnalysisToolPlanner`
+- 稳定的第三层新闻 / YFinance / 外部解释型补充
 - 复杂流式可视化
 
 ## 2. 设计原则
@@ -325,17 +330,23 @@
 - 调用底层流式入口
 - 记录本轮消息的依据说明和工具调用说明
 
-当前第二轮已实现：
+当前第三轮已实现：
 
 - 根据 `thread_id` 查找 `conversation_id`
 - 读取线程当前上下文卡片
 - 调用 `StockAnalysisContextAssembler` 生成分段 prompt context
+- 调用 `StockAnalysisToolPlanner` 决定是直接回答还是补临时证据
+- 在需要时调用 `StockAnalysisToolingService`
 - 读取并返回当前线程消息历史
 - 写入 user / assistant message
 - 在 metadata 中返回：
-  - `answer_basis = context_only`
+  - `answer_basis`
+  - `mode`
   - `used_context_ids`
   - `missing_context_hints`
+  - `tool_reason`
+  - `tool_calls_summary`
+  - `temporary_evidence_blocks`
 
 ## 8. 建议新增 API
 

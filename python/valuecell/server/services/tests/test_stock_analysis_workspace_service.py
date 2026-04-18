@@ -158,6 +158,92 @@ class FakeDecisionAlertService:
         }
 
 
+class FakeDecisionContextWindowService:
+    def list_windows(self, *, user_id: str, limit: int = 100) -> dict[str, Any]:
+        del user_id, limit
+        return {
+            "items": [
+                {
+                    "window_id": 11,
+                    "ticker": "SZSE:300308",
+                    "display_name": "中际旭创",
+                    "theme_name": "AI算力",
+                    "action": "继续持有",
+                    "window_date": "2026-04-18",
+                    "support_points": ["趋势仍在"],
+                    "opposing_points": ["高位分歧"],
+                    "risk_points": ["波动放大"],
+                }
+            ]
+        }
+
+
+class FakeDecisionOutcomeReviewService:
+    def list_reviews(self, *, user_id: str, limit: int = 100) -> dict[str, Any]:
+        del user_id, limit
+        return {
+            "items": [
+                {
+                    "review_id": 21,
+                    "ticker": "SZSE:300308",
+                    "display_name": "中际旭创",
+                    "outcome_status": "有效",
+                    "outcome_score": 88,
+                    "review_horizon_days": 10,
+                    "summary": "继续持有判断在窗口内有效。",
+                    "what_happened": "趋势延续。",
+                    "what_was_right": "识别主升。",
+                    "what_was_wrong": "分歧时点偏乐观。",
+                }
+            ]
+        }
+
+
+class FakeRiskSizingService:
+    def get_summary(self, *, user_id: str) -> dict[str, Any]:
+        del user_id
+        return {
+            "available": True,
+            "market_risk_level": "中",
+            "suggested_total_exposure_range": "30% - 50%",
+            "suggested_single_position_range": "6% - 10%",
+            "position_guidance": "先控制节奏。",
+            "ticker_suggestions": [
+                {
+                    "ticker": "SZSE:300308",
+                    "display_name": "中际旭创",
+                    "risk_level": "中",
+                    "suggested_position_range": "6% - 10%",
+                    "guidance": "优先分批。",
+                }
+            ],
+        }
+
+    def get_ticker_summary(self, *, user_id: str, ticker: str) -> dict[str, Any]:
+        del user_id
+        return {
+            "available": True,
+            "ticker": ticker,
+            "display_name": "中际旭创",
+            "risk_level": "中",
+            "suggested_position_range": "6% - 10%",
+            "guidance": "优先分批。",
+        }
+
+
+class FakeDecisionEffectivenessService:
+    def get_summary(self, *, user_id: str) -> dict[str, Any]:
+        del user_id
+        return {
+            "available": True,
+            "overall_summary": "近期继续持有类判断整体更稳。",
+            "overall_score": 76,
+            "review_count": 8,
+            "effective_count": 5,
+            "failed_count": 1,
+        }
+
+
 @pytest.mark.asyncio
 async def test_import_create_new_thread_returns_thread_and_context_card() -> None:
     service = StockAnalysisWorkspaceService(
@@ -224,6 +310,10 @@ async def test_import_replace_replaces_existing_tradingagents_cards() -> None:
         ("theme", "ai_compute", "theme"),
         ("alert", "SZSE:300308|holding_risk", "alert"),
         ("ticker", "SZSE:600519", "ticker"),
+        ("decision_context_window", "11", "decision_context_window"),
+        ("decision_outcome_review", "21", "decision_outcome_review"),
+        ("risk_sizing", "__portfolio__", "risk_sizing"),
+        ("decision_effectiveness", "__summary__", "decision_effectiveness"),
     ],
 )
 async def test_import_multi_module_contexts(
@@ -242,6 +332,10 @@ async def test_import_multi_module_contexts(
         watchlist_center_service=cast(Any, FakeWatchlistCenterService()),
         theme_radar_service=cast(Any, FakeThemeRadarService()),
         decision_alert_service=cast(Any, FakeDecisionAlertService()),
+        decision_context_window_service=cast(Any, FakeDecisionContextWindowService()),
+        decision_outcome_review_service=cast(Any, FakeDecisionOutcomeReviewService()),
+        risk_sizing_service=cast(Any, FakeRiskSizingService()),
+        decision_effectiveness_service=cast(Any, FakeDecisionEffectivenessService()),
     )
 
     result = await service.import_context(

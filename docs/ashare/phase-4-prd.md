@@ -27,7 +27,7 @@
 
 ## 2.1 当前落地状态
 
-阶段四目前已经完成两轮交付：
+阶段四目前已经完成三轮交付：
 
 - 第一轮：
   - 工作区骨架
@@ -40,13 +40,17 @@
   - 基于当前显式上下文与线程历史的 `context_only` 聊天 MVP
   - `/home/stock-analysis` 可聊天工作区
   - TradingAgents 与机会池 / 观察池 / 题材雷达 / 持仓 / 提醒入口联动
+- 第三轮：
+  - `StockAnalysisToolPlanner`
+  - `context_only / need_tooling / user_forced_tooling`
+  - 第一层内部结构化补充 + 第二层日线行情补充
+  - 回答依据说明区、工具调用说明区、临时证据补充区
+  - `decision_context_window / decision_outcome_review / risk_sizing / decision_effectiveness` 高级研究卡片接入
 
 当前仍未落地：
 
-- 外部工具补数
-- 自动或手动 Tushare / 新闻 / YFinance 工具调用
+- 稳定的第三层新闻 / YFinance / 外部解释型补充
 - 自动长期记忆
-- 独立 tool planner
 - 自动交易
 
 ## 3. 产品核心问题
@@ -182,11 +186,12 @@
 
 时，才触发外部工具。
 
-当前第二轮实际交付先收口为：
+当前第三轮实际交付先收口为：
 
-- 默认且仅支持 `context_only`
-- 回答只能基于当前线程显式挂载的 context cards 和线程历史
-- 如果上下文不足，必须明确说明缺什么
+- 默认优先 `context_only`
+- 当前问题缺少最新状态时进入 `need_tooling`
+- 用户显式点击“补数据后再回答”时进入 `user_forced_tooling`
+- 补数结果只作为临时证据补充，不自动升级为长期上下文卡片
 
 ### 6.6 回答依据说明
 

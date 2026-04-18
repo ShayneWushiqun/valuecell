@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -9,9 +11,14 @@ class StockAnalysisMessageItemData(BaseModel):
     event: str | None = None
     conversation_id: str | None = None
     content: str
-    answer_basis: str = "context_only"
+    answer_basis: str = "当前上下文"
+    mode: str = "context_only"
     used_context_ids: list[int] = Field(default_factory=list)
     missing_context_hints: list[str] = Field(default_factory=list)
+    tool_reason: str | None = None
+    tool_calls_summary: list[str] = Field(default_factory=list)
+    temporary_evidence_blocks: list[dict[str, Any]] = Field(default_factory=list)
+    unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class StockAnalysisMessageListData(BaseModel):
@@ -23,13 +30,19 @@ class StockAnalysisMessageListData(BaseModel):
 
 class StockAnalysisMessageCreateRequest(BaseModel):
     message: str
+    force_tooling: bool = False
 
 
 class StockAnalysisMessageCreateData(BaseModel):
     conversation_id: str
     thread_id: int
-    answer_basis: str = "context_only"
+    answer_basis: str = "当前上下文"
+    mode: str = "context_only"
     used_context_ids: list[int] = Field(default_factory=list)
     missing_context_hints: list[str] = Field(default_factory=list)
+    tool_reason: str | None = None
+    tool_calls_summary: list[str] = Field(default_factory=list)
+    temporary_evidence_blocks: list[dict[str, Any]] = Field(default_factory=list)
+    unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
     user_message: StockAnalysisMessageItemData
     assistant_message: StockAnalysisMessageItemData

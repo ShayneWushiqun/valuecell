@@ -1,21 +1,27 @@
 from __future__ import annotations
 
-import json
 import datetime as dt
+import json
 from typing import Any, Optional
 
 from agno.agent import Agent
 from pydantic import BaseModel
 
-from valuecell.core.types import (
-    BaseResponseDataPayload,
-    NotifyResponseEvent,
-    Role,
-)
+from valuecell.core.types import BaseResponseDataPayload, NotifyResponseEvent, Role
 from valuecell.server.services.conversation_service import ConversationService
 from valuecell.utils.model import get_model_for_agent
 
 from .stock_analysis_context_assembler import StockAnalysisContextAssembler
+from .stock_analysis_tool_planner import (
+    CONTEXT_ONLY_MODE,
+    StockAnalysisToolPlanner,
+    get_stock_analysis_tool_planner,
+)
+from .stock_analysis_tooling_service import (
+    StockAnalysisToolingResult,
+    StockAnalysisToolingService,
+    get_stock_analysis_tooling_service,
+)
 from .stock_analysis_workspace_service import (
     DEFAULT_USER_ID,
     STOCK_ANALYSIS_AGENT_NAME,
@@ -29,8 +35,13 @@ class StockAnalysisMessageResult(BaseModel):
     conversation_id: str
     thread_id: int
     answer_basis: str
+    mode: str
     used_context_ids: list[int]
     missing_context_hints: list[str]
+    tool_reason: str | None = None
+    tool_calls_summary: list[str]
+    temporary_evidence_blocks: list[dict[str, Any]]
+    unavailable_tools: list[dict[str, Any]]
     user_message: dict[str, Any]
     assistant_message: dict[str, Any]
 
@@ -41,12 +52,16 @@ class StockAnalysisMessageService:
         stock_analysis_workspace_service: Optional[StockAnalysisWorkspaceService] = None,
         conversation_service: Optional[ConversationService] = None,
         context_assembler: Optional[StockAnalysisContextAssembler] = None,
+        tool_planner: Optional[StockAnalysisToolPlanner] = None,
+        tooling_service: Optional[StockAnalysisToolingService] = None,
     ) -> None:
         self.stock_analysis_workspace_service = (
             stock_analysis_workspace_service or StockAnalysisWorkspaceService()
         )
         self.conversation_service = conversation_service or ConversationService()
         self.context_assembler = context_assembler or StockAnalysisContextAssembler()
+        self.tool_planner = tool_planner or get_stock_analysis_tool_planner()
+        self.tooling_service = tooling_service or get_stock_analysis_tooling_service()
 
     async def list_messages(
         self,
@@ -83,6 +98,7 @@ class StockAnalysisMessageService:
         user_id: str,
         thread_id: int,
         message: str,
+        force_tooling: bool = False,
     ) -> StockAnalysisMessageResult | None:
         thread_obj = self.stock_analysis_workspace_service.stock_analysis_thread_repository.get_thread_by_id(
             user_id=user_id,
@@ -110,6 +126,29 @@ class StockAnalysisMessageService:
             for item in history_items
             if str(item.event) == str(NotifyResponseEvent.MESSAGE)
         ]
+        planner_result = self.tool_planner.plan(
+            thread=thread,
+            context_cards=context_cards,
+            conversation_history=history_messages,
+            user_message=message.strip(),
+            force_tooling=force_tooling,
+            ticker_refs=assembled["ticker_refs"],
+            theme_refs=assembled["theme_refs"],
+        )
+        effective_missing_hints = list(
+            dict.fromkeys(
+                list(assembled["missing_context_hints"])
+                + list(planner_result.missing_context_hints)
+            )
+        )
+        tooling_result = self.tooling_service.collect_evidence(
+            user_id=user_id,
+            thread=thread,
+            context_cards=context_cards,
+            planner_result=planner_result,
+            ticker_refs=assembled["ticker_refs"],
+            theme_refs=assembled["theme_refs"],
+        )
 
         user_item = await self.conversation_service.core_conversation_service.add_item(
             role=Role.USER,
@@ -118,21 +157,38 @@ class StockAnalysisMessageService:
             payload=BaseResponseDataPayload(content=message.strip()),
             agent_name=STOCK_ANALYSIS_AGENT_NAME,
             metadata={
-                "answer_basis": "context_only",
+                "answer_basis": "当前上下文",
+                "mode": planner_result.mode,
+                "force_tooling": force_tooling,
                 "thread_id": thread_id,
             },
         )
 
-        assistant_text = await self._generate_context_only_answer(
+        assistant_text = await self._generate_answer(
             assembled_context=assembled["prompt_context"],
             history_messages=history_messages,
             user_question=message.strip(),
+            mode=planner_result.mode,
+            tool_reason=planner_result.tool_reason,
+            tooling_result=tooling_result,
         )
         assistant_metadata = {
-            "answer_basis": "context_only",
+            "answer_basis": tooling_result.answer_basis,
+            "mode": planner_result.mode,
             "used_context_ids_json": json.dumps(assembled["used_context_ids"], ensure_ascii=False),
-            "missing_context_hints_json": json.dumps(
-                assembled["missing_context_hints"], ensure_ascii=False
+            "missing_context_hints_json": json.dumps(effective_missing_hints, ensure_ascii=False),
+            "tool_reason": planner_result.tool_reason or "",
+            "tool_calls_summary_json": json.dumps(
+                tooling_result.tool_call_summaries,
+                ensure_ascii=False,
+            ),
+            "temporary_evidence_blocks_json": json.dumps(
+                tooling_result.temporary_evidence_blocks,
+                ensure_ascii=False,
+            ),
+            "unavailable_tools_json": json.dumps(
+                tooling_result.unavailable_tools,
+                ensure_ascii=False,
             ),
             "thread_id": thread_id,
         }
@@ -152,19 +208,27 @@ class StockAnalysisMessageService:
         return StockAnalysisMessageResult(
             conversation_id=thread_obj.conversation_id,
             thread_id=thread_id,
-            answer_basis="context_only",
+            answer_basis=tooling_result.answer_basis,
+            mode=planner_result.mode,
             used_context_ids=assembled["used_context_ids"],
-            missing_context_hints=assembled["missing_context_hints"],
+            missing_context_hints=effective_missing_hints,
+            tool_reason=planner_result.tool_reason,
+            tool_calls_summary=tooling_result.tool_call_summaries,
+            temporary_evidence_blocks=tooling_result.temporary_evidence_blocks,
+            unavailable_tools=tooling_result.unavailable_tools,
             user_message=self._serialize_message_item(user_item),
             assistant_message=self._serialize_message_item(assistant_item),
         )
 
-    async def _generate_context_only_answer(
+    async def _generate_answer(
         self,
         *,
         assembled_context: str,
         history_messages: list[dict[str, Any]],
         user_question: str,
+        mode: str,
+        tool_reason: str | None,
+        tooling_result: StockAnalysisToolingResult,
     ) -> str:
         model = get_model_for_agent("research_agent")
         history_block = "\n".join(
@@ -172,20 +236,27 @@ class StockAnalysisMessageService:
             for item in history_messages[-8:]
             if str(item.get("content") or "").strip()
         )
+        evidence_block = self._build_evidence_prompt_block(tooling_result)
         prompt = "\n\n".join(
             [
-                "You are a stock analysis workspace assistant in context_only mode.",
+                "You are a stock analysis workspace assistant.",
+                f"Current Mode: {mode}",
                 assembled_context,
                 "Conversation History",
                 history_block or "No previous messages.",
+                "Temporary Evidence",
+                evidence_block,
                 "Current User Question",
                 user_question,
                 "Answer Requirements",
                 (
-                    "Answer in Chinese. Explain your reasoning briefly and concretely. "
-                    "Do not claim any external data or tools. "
-                    "If the context is insufficient, explicitly say what is missing. "
-                    "State that the basis is the current context."
+                    "Answer in Chinese. Prioritize explicit reasoning. "
+                    "Default to the current context. "
+                    "If temporary evidence is present, treat it as temporary supplemental evidence only. "
+                    "Do not claim any unavailable tool result. "
+                    "If information is still insufficient, clearly say what is missing. "
+                    f"Tool reason: {tool_reason or 'No tooling needed.'} "
+                    f"Basis label to respect: {tooling_result.answer_basis}."
                 ),
             ]
         )
@@ -193,7 +264,29 @@ class StockAnalysisMessageService:
         content = str(getattr(response, "content", "") or "").strip()
         if content:
             return content
-        return "回答依据：当前上下文。当前上下文不足以支持更明确结论，请补充相关卡片后继续追问。"
+        if mode == CONTEXT_ONLY_MODE:
+            return "回答依据：当前上下文。当前上下文不足以支持更明确结论，请补充相关卡片后继续追问。"
+        return (
+            f"回答依据：{tooling_result.answer_basis}。"
+            "本轮已尝试补充临时证据，但仍缺少足够信息，请继续补充更具体的研究对象。"
+        )
+
+    @staticmethod
+    def _build_evidence_prompt_block(tooling_result: StockAnalysisToolingResult) -> str:
+        if not tooling_result.temporary_evidence_blocks and not tooling_result.unavailable_tools:
+            return "No temporary evidence."
+        parts: list[str] = []
+        for block in tooling_result.temporary_evidence_blocks[:5]:
+            parts.append(
+                f"{block.get('title')}: {block.get('summary')} (temporary={block.get('temporary')})"
+            )
+        for item in tooling_result.unavailable_tools[:3]:
+            parts.append(
+                f"Unavailable {item.get('tool')}: {item.get('reason')}"
+            )
+        if tooling_result.evidence_summary:
+            parts.append(f"Evidence Summary: {tooling_result.evidence_summary}")
+        return "\n".join(parts)
 
     @staticmethod
     def _serialize_message_item(item: Any | None) -> dict[str, Any]:
@@ -202,9 +295,14 @@ class StockAnalysisMessageService:
                 "item_id": "",
                 "role": "",
                 "content": "",
-                "answer_basis": "context_only",
+                "answer_basis": "当前上下文",
+                "mode": CONTEXT_ONLY_MODE,
                 "used_context_ids": [],
                 "missing_context_hints": [],
+                "tool_reason": None,
+                "tool_calls_summary": [],
+                "temporary_evidence_blocks": [],
+                "unavailable_tools": [],
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -214,12 +312,23 @@ class StockAnalysisMessageService:
             "event": str(item.event),
             "conversation_id": item.conversation_id,
             "content": payload.get("content") or "",
-            "answer_basis": metadata.get("answer_basis") or "context_only",
+            "answer_basis": metadata.get("answer_basis") or "当前上下文",
+            "mode": metadata.get("mode") or CONTEXT_ONLY_MODE,
             "used_context_ids": StockAnalysisMessageService._parse_json_list(
                 metadata.get("used_context_ids_json")
             ),
             "missing_context_hints": StockAnalysisMessageService._parse_json_list(
                 metadata.get("missing_context_hints_json")
+            ),
+            "tool_reason": str(metadata.get("tool_reason") or "").strip() or None,
+            "tool_calls_summary": StockAnalysisMessageService._parse_json_list(
+                metadata.get("tool_calls_summary_json")
+            ),
+            "temporary_evidence_blocks": StockAnalysisMessageService._parse_json_list(
+                metadata.get("temporary_evidence_blocks_json")
+            ),
+            "unavailable_tools": StockAnalysisMessageService._parse_json_list(
+                metadata.get("unavailable_tools_json")
             ),
         }
 

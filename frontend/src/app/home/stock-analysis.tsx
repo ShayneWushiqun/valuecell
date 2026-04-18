@@ -3,9 +3,13 @@ import { Copy, Pin, PinOff, Plus, Send, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { useGetDecisionContextWindows } from "@/api/decision-context-window";
+import { useGetDecisionEffectivenessSummary } from "@/api/decision-effectiveness";
 import { useGetDecisionAlertSummary } from "@/api/decision-alert";
+import { useGetDecisionOutcomeReviews } from "@/api/decision-outcome-review";
 import { useGetHoldingLifecycleOverview } from "@/api/holding-lifecycle";
 import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
+import { useGetRiskSizingSummary } from "@/api/risk-sizing";
 import {
   useCreateStockAnalysisMessage,
   useCreateStockAnalysisThread,
@@ -105,6 +109,10 @@ export default function StockAnalysis() {
   const { data: watchlistOverview } = useGetWatchlistCenterOverview();
   const { data: themeOverview } = useGetThemeRadarOverview();
   const { data: alertSummary } = useGetDecisionAlertSummary();
+  const { data: decisionWindows } = useGetDecisionContextWindows({ limit: 80 });
+  const { data: decisionReviews } = useGetDecisionOutcomeReviews({ limit: 60 });
+  const { data: decisionEffectiveness } = useGetDecisionEffectivenessSummary();
+  const { data: riskSizingSummary } = useGetRiskSizingSummary();
   const createThread = useCreateStockAnalysisThread();
   const updateThread = useUpdateStockAnalysisThread();
   const deleteThread = useDeleteStockAnalysisThread();
@@ -204,12 +212,68 @@ export default function StockAnalysis() {
         summary: item.next_action || item.body,
       }));
     }
+    if (addContextSource === "decision_context_window") {
+      return (decisionWindows?.items || []).map((item) => ({
+        ref: String(item.window_id),
+        title: `${item.display_name || item.ticker || item.topic_name || "研究对象"} 决策上下文`,
+        subtitle: `${String(item.judgement_snapshot_json.action || "继续观察")} · ${item.window_size} 日窗口`,
+        summary:
+          item.summary ||
+          [
+            ...(item.support_events_json || []).slice(0, 1).map((event) => event.summary),
+            ...(item.risk_events_json || []).slice(0, 1).map((event) => event.summary),
+          ].join("；"),
+      }));
+    }
+    if (addContextSource === "decision_outcome_review") {
+      return (decisionReviews?.items || []).map((item) => ({
+        ref: String(item.review_id),
+        title: `${item.display_name} 结果回看`,
+        subtitle: `${item.outcome_status} · ${item.review_horizon_days} 日`,
+        summary: item.summary,
+      }));
+    }
+    if (addContextSource === "risk_sizing") {
+      const portfolioItem = riskSizingSummary?.available
+        ? [
+            {
+              ref: "__portfolio__",
+              title: "组合分仓建议",
+              subtitle: `${riskSizingSummary.market_risk_level} · 组合层`,
+              summary: riskSizingSummary.holding_risk_note,
+            },
+          ]
+        : [];
+      const tickerItems = (riskSizingSummary?.ticker_suggestions || []).map((item) => ({
+        ref: item.ticker,
+        title: `${item.display_name} 分仓建议`,
+        subtitle: `${item.risk_level} · ${item.suggested_position_range}`,
+        summary: item.summary,
+      }));
+      return [...portfolioItem, ...tickerItems];
+    }
+    if (addContextSource === "decision_effectiveness") {
+      return decisionEffectiveness?.available
+        ? [
+            {
+              ref: "__summary__",
+              title: "近期判断有效性摘要",
+              subtitle: `得分 ${decisionEffectiveness.overall_score} · ${decisionEffectiveness.review_count} 条`,
+              summary: decisionEffectiveness.overall_summary,
+            },
+          ]
+        : [];
+    }
     return [];
   }, [
     addContextSource,
     alertSummary?.items,
+    decisionEffectiveness,
+    decisionReviews?.items,
+    decisionWindows?.items,
     holdingOverview?.items,
     opportunityOverview?.items,
+    riskSizingSummary,
     themeOverview?.items,
     tradingRuns?.runs,
     watchlistOverview?.items,
@@ -330,7 +394,7 @@ export default function StockAnalysis() {
     }
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (forceTooling = false) => {
     if (!currentThread) {
       toast.error("请先选中线程");
       return;
@@ -342,7 +406,7 @@ export default function StockAnalysis() {
     try {
       await createMessage.mutateAsync({
         threadId: currentThread.thread_id,
-        data: { message: messageInput.trim() },
+        data: { message: messageInput.trim(), force_tooling: forceTooling },
       });
       setMessageInput("");
     } catch {
@@ -358,7 +422,7 @@ export default function StockAnalysis() {
         <div>
           <h1 className="font-semibold text-2xl">股票分析工作区</h1>
           <p className="mt-1 text-muted-foreground text-sm">
-            当前已启用 `context_only` 研究线程聊天：回答只基于当前显式上下文卡片和线程历史，不自动补外部数据。
+            默认先基于当前显式上下文卡片和线程历史回答；当信息不足或你显式点击补数按钮时，再补临时证据，不自动保存为长期上下文。
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -494,7 +558,7 @@ export default function StockAnalysis() {
           <Card className="min-h-0">
             <CardHeader>
               <CardTitle>当前线程主区</CardTitle>
-              <CardDescription>当前回答依据：显式上下文卡片 + 当前线程历史。</CardDescription>
+              <CardDescription>默认先回答；信息不足或你主动触发时，再进入补数模式。</CardDescription>
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
               {currentThread ? (
@@ -520,7 +584,8 @@ export default function StockAnalysis() {
 
                   <div className="rounded-xl border p-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">回答依据：当前上下文</Badge>
+                      <Badge variant="secondary">默认模式：context_only</Badge>
+                      <Badge variant="outline">可切换：need_tooling / user_forced_tooling</Badge>
                       <Badge variant="outline">
                         conversation_id: {currentThread.conversation_id}
                       </Badge>
@@ -552,10 +617,105 @@ export default function StockAnalysis() {
                                     : "用户"}
                                 </Badge>
                                 {item.role === "assistant" || item.role === "agent" ? (
-                                  <Badge variant="secondary">依据：当前上下文</Badge>
+                                  <>
+                                    <Badge variant="secondary">{item.answer_basis}</Badge>
+                                    <Badge variant="outline">模式：{item.mode}</Badge>
+                                    <Badge variant="outline">
+                                      使用上下文 {item.used_context_ids.length} 张
+                                    </Badge>
+                                  </>
                                 ) : null}
                               </div>
                               <p className="mt-3 whitespace-pre-wrap text-sm">{item.content}</p>
+                              {item.role === "assistant" || item.role === "agent" ? (
+                                <div className="mt-3 space-y-3">
+                                  {item.tool_reason ? (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm">
+                                      <p className="font-medium">回答依据说明</p>
+                                      <p className="mt-1 text-muted-foreground">
+                                        {item.tool_reason}
+                                      </p>
+                                    </div>
+                                  ) : null}
+                                  {(item.tool_calls_summary.length ||
+                                    item.unavailable_tools.length ||
+                                    item.temporary_evidence_blocks.length) ? (
+                                    <details className="rounded-lg border p-3 text-sm">
+                                      <summary className="cursor-pointer font-medium">
+                                        工具调用说明区
+                                      </summary>
+                                      <div className="mt-3 space-y-3 text-muted-foreground">
+                                        {item.tool_calls_summary.length ? (
+                                          <div>
+                                            <p className="font-medium text-foreground">
+                                              已补哪些数据
+                                            </p>
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                              {item.tool_calls_summary.map((summary) => (
+                                                <Badge
+                                                  key={summary}
+                                                  variant="outline"
+                                                  className="whitespace-normal"
+                                                >
+                                                  {summary}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                        {item.unavailable_tools.length ? (
+                                          <div>
+                                            <p className="font-medium text-foreground">
+                                              不可用工具
+                                            </p>
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                              {item.unavailable_tools.map((tool) => (
+                                                <Badge
+                                                  key={`${tool.tool}-${tool.reason}`}
+                                                  variant="outline"
+                                                  className="whitespace-normal"
+                                                >
+                                                  {tool.tool}: {tool.reason}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                        {item.temporary_evidence_blocks.length ? (
+                                          <div>
+                                            <p className="font-medium text-foreground">
+                                              临时证据补充
+                                            </p>
+                                            <div className="mt-2 space-y-2">
+                                              {item.temporary_evidence_blocks.map((block) => (
+                                                <div
+                                                  key={`${block.title}-${block.summary}`}
+                                                  className="rounded-lg border border-dashed p-3"
+                                                >
+                                                  <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="font-medium text-foreground">
+                                                      {block.title}
+                                                    </p>
+                                                    <Badge variant="outline">
+                                                      {block.temporary
+                                                        ? "temporary=true"
+                                                        : "temporary=false"}
+                                                    </Badge>
+                                                  </div>
+                                                  <p className="mt-1">{block.summary}</p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                        <p className="text-xs">
+                                          以上证据仅用于本轮回答，未自动保存为长期上下文。
+                                        </p>
+                                      </div>
+                                    </details>
+                                  ) : null}
+                                </div>
+                              ) : null}
                               {item.missing_context_hints.length ? (
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   {item.missing_context_hints.map((hint) => (
@@ -581,11 +741,24 @@ export default function StockAnalysis() {
                       <Textarea
                         value={messageInput}
                         onChange={(event) => setMessageInput(event.target.value)}
-                        placeholder="例如：请比较当前线程里这几只票的优先级，并说明依据哪些上下文卡片。"
+                        placeholder="例如：先比较当前线程里这几只票的优先级；如果需要最新状态，再点“补数据后再回答”。"
                         className="min-h-24"
                       />
-                      <div className="flex justify-end">
-                        <Button onClick={handleSendMessage} disabled={createMessage.isPending}>
+                      <p className="text-muted-foreground text-xs">
+                        默认先基于当前上下文回答；若你明确需要最新价格、市场、题材或风险补充，可使用“补数据后再回答”。
+                      </p>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleSendMessage(true)}
+                          disabled={createMessage.isPending}
+                        >
+                          {createMessage.isPending ? "补数中..." : "补数据后再回答"}
+                        </Button>
+                        <Button
+                          onClick={() => handleSendMessage(false)}
+                          disabled={createMessage.isPending}
+                        >
                           <Send className="size-4" />
                           {createMessage.isPending ? "生成中..." : "发送"}
                         </Button>
@@ -606,7 +779,9 @@ export default function StockAnalysis() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <CardTitle>上下文卡片</CardTitle>
-                  <CardDescription>统一管理 TradingAgents、持仓、机会池、观察池、题材雷达与提醒上下文。</CardDescription>
+                  <CardDescription>
+                    统一管理基础上下文和高级研究卡片；长期挂载仍必须显式导入。
+                  </CardDescription>
                 </div>
                 <Button
                   size="sm"
@@ -668,6 +843,11 @@ export default function StockAnalysis() {
                           {ref}
                         </Badge>
                       ))}
+                      {item.theme_refs_json.map((ref) => (
+                        <Badge key={ref} variant="outline">
+                          {ref}
+                        </Badge>
+                      ))}
                     </div>
                     {item.staleness_hint ? (
                       <p className="mt-3 text-muted-foreground text-xs">{item.staleness_hint}</p>
@@ -676,7 +856,7 @@ export default function StockAnalysis() {
                 ))
               ) : (
                 <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
-                  当前线程还没有上下文卡片。可先从 TradingAgents、机会池、观察池、持仓、题材雷达或提醒导入。
+                  当前线程还没有上下文卡片。可先从 TradingAgents、机会池、观察池、持仓、题材雷达、提醒或高级研究卡片导入。
                 </div>
               )}
             </CardContent>
@@ -711,7 +891,7 @@ export default function StockAnalysis() {
           <DialogHeader>
             <DialogTitle>添加上下文卡片</DialogTitle>
             <DialogDescription>
-              当前支持从 TradingAgents、持仓、机会池、观察池、题材雷达和提醒导入到当前线程。
+              当前支持从基础来源和高级研究对象导入到当前线程，长期上下文只会在你显式导入时挂载。
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
@@ -727,6 +907,10 @@ export default function StockAnalysis() {
                   <SelectItem value="watchlist">观察池</SelectItem>
                   <SelectItem value="theme">题材雷达</SelectItem>
                   <SelectItem value="alert">提醒</SelectItem>
+                  <SelectItem value="decision_context_window">决策上下文</SelectItem>
+                  <SelectItem value="decision_outcome_review">结果回看</SelectItem>
+                  <SelectItem value="risk_sizing">分仓建议</SelectItem>
+                  <SelectItem value="decision_effectiveness">有效性摘要</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={addContextMode} onValueChange={(value) => setAddContextMode(value as "append" | "replace")}>

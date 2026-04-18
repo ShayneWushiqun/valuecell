@@ -63,6 +63,7 @@ type ImportContextPayload = {
 
 type CreateMessagePayload = {
   message: string;
+  force_tooling?: boolean;
 };
 
 export const useGetStockAnalysisThreads = () =>

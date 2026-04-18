@@ -57,6 +57,13 @@ export default function RiskSizing() {
           <Button asChild variant="outline">
             <Link to="/home/holding-lifecycle">去持仓周期中心</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link
+              to="/home/stock-analysis?sourceModule=risk_sizing&sourceRef=__portfolio__&createThread=1"
+            >
+              以分仓建议新建线程
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -250,6 +257,15 @@ export default function RiskSizing() {
                         {reason}
                       </Badge>
                     ))}
+                  </div>
+                  <div className="mt-3">
+                    <Button asChild size="sm" variant="outline">
+                      <Link
+                        to={`/home/stock-analysis?sourceModule=risk_sizing&sourceRef=${item.ticker}&createThread=1`}
+                      >
+                        加入研究线程
+                      </Link>
+                    </Button>
                   </div>
                 </button>
               ))}

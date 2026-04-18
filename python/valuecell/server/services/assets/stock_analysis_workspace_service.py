@@ -18,9 +18,13 @@ from ...db.repositories.stock_analysis_thread_repository import (
     StockAnalysisThreadRepository,
 )
 from .decision_alert_service import DecisionAlertService
+from .decision_context_window_service import DecisionContextWindowService
+from .decision_effectiveness_service import DecisionEffectivenessService
+from .decision_outcome_review_service import DecisionOutcomeReviewService
 from .exit_risk_center_service import ExitRiskCenterService
 from .holding_lifecycle_service import HoldingLifecycleService
 from .opportunity_pool_service import OpportunityPoolService
+from .risk_sizing_service import RiskSizingService
 from .theme_radar_service import ThemeRadarService
 from .watchlist_center_service import WatchlistCenterService
 
@@ -33,6 +37,10 @@ WATCHLIST_CONTEXT_TYPE = "watchlist"
 THEME_CONTEXT_TYPE = "theme"
 ALERT_CONTEXT_TYPE = "alert"
 TICKER_CONTEXT_TYPE = "ticker"
+DECISION_CONTEXT_WINDOW_CONTEXT_TYPE = "decision_context_window"
+DECISION_OUTCOME_REVIEW_CONTEXT_TYPE = "decision_outcome_review"
+RISK_SIZING_CONTEXT_TYPE = "risk_sizing"
+DECISION_EFFECTIVENESS_CONTEXT_TYPE = "decision_effectiveness"
 SUPPORTED_SOURCE_MODULES = {
     "tradingagents_run",
     "holding",
@@ -41,6 +49,10 @@ SUPPORTED_SOURCE_MODULES = {
     "theme",
     "alert",
     "ticker",
+    "decision_context_window",
+    "decision_outcome_review",
+    "risk_sizing",
+    "decision_effectiveness",
 }
 SUPPORTED_FOCUS_TYPES = {
     "ticker",
@@ -58,6 +70,10 @@ SUPPORTED_CONTEXT_TYPES = {
     THEME_CONTEXT_TYPE,
     ALERT_CONTEXT_TYPE,
     TICKER_CONTEXT_TYPE,
+    DECISION_CONTEXT_WINDOW_CONTEXT_TYPE,
+    DECISION_OUTCOME_REVIEW_CONTEXT_TYPE,
+    RISK_SIZING_CONTEXT_TYPE,
+    DECISION_EFFECTIVENESS_CONTEXT_TYPE,
 }
 
 
@@ -87,6 +103,10 @@ class StockAnalysisWorkspaceService:
         watchlist_center_service: Optional[WatchlistCenterService] = None,
         theme_radar_service: Optional[ThemeRadarService] = None,
         decision_alert_service: Optional[DecisionAlertService] = None,
+        decision_context_window_service: Optional[DecisionContextWindowService] = None,
+        decision_outcome_review_service: Optional[DecisionOutcomeReviewService] = None,
+        risk_sizing_service: Optional[RiskSizingService] = None,
+        decision_effectiveness_service: Optional[DecisionEffectivenessService] = None,
     ) -> None:
         self.stock_analysis_thread_repository = (
             stock_analysis_thread_repository or StockAnalysisThreadRepository()
@@ -104,6 +124,16 @@ class StockAnalysisWorkspaceService:
         self.watchlist_center_service = watchlist_center_service or WatchlistCenterService()
         self.theme_radar_service = theme_radar_service or ThemeRadarService()
         self.decision_alert_service = decision_alert_service or DecisionAlertService()
+        self.decision_context_window_service = (
+            decision_context_window_service or DecisionContextWindowService()
+        )
+        self.decision_outcome_review_service = (
+            decision_outcome_review_service or DecisionOutcomeReviewService()
+        )
+        self.risk_sizing_service = risk_sizing_service or RiskSizingService()
+        self.decision_effectiveness_service = (
+            decision_effectiveness_service or DecisionEffectivenessService()
+        )
 
     async def list_threads(self, *, user_id: str) -> dict[str, Any]:
         threads = self.stock_analysis_thread_repository.list_threads(user_id=user_id)
@@ -612,6 +642,23 @@ class StockAnalysisWorkspaceService:
             return self._build_alert_context_payload(user_id=user_id, source_ref=source_ref)
         if source_module == "ticker":
             return self._build_ticker_context_payload(source_ref=source_ref)
+        if source_module == "decision_context_window":
+            return self._build_decision_context_window_payload(
+                user_id=user_id,
+                source_ref=source_ref,
+            )
+        if source_module == "decision_outcome_review":
+            return self._build_decision_outcome_review_payload(
+                user_id=user_id,
+                source_ref=source_ref,
+            )
+        if source_module == "risk_sizing":
+            return self._build_risk_sizing_payload(user_id=user_id, source_ref=source_ref)
+        if source_module == "decision_effectiveness":
+            return self._build_decision_effectiveness_payload(
+                user_id=user_id,
+                source_ref=source_ref,
+            )
         raise ValueError("Unsupported stock analysis context source")
 
     def _build_holding_context_payload(
@@ -887,6 +934,203 @@ class StockAnalysisWorkspaceService:
             "source_module": "ticker",
             "source_ref": ticker,
             "staleness_hint": "该卡片不含自动补数，仅用于建立最轻量研究锚点。",
+            "is_pinned": False,
+        }
+
+    def _build_decision_context_window_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        window_result = self.decision_context_window_service.list_windows(
+            user_id=user_id,
+            limit=120,
+        )
+        item = self._find_by_keys(
+            window_result.get("items") or [],
+            source_ref,
+            keys=("window_id", "ticker", "theme_name"),
+        )
+        if item is None:
+            raise ValueError("Decision context window source not found")
+        ticker = str(item.get("ticker") or "").strip()
+        theme_name = str(item.get("theme_name") or "").strip()
+        support_points = [str(point).strip() for point in list(item.get("support_points") or []) if str(point).strip()]
+        opposing_points = [
+            str(point).strip() for point in list(item.get("opposing_points") or []) if str(point).strip()
+        ]
+        risk_points = [str(point).strip() for point in list(item.get("risk_points") or []) if str(point).strip()]
+        title_anchor = ticker or theme_name or "当前研究对象"
+        summary = (
+            f"{title_anchor} 决策窗口支持点 {support_points[0] if support_points else '待确认'}；"
+            f"反对点 {opposing_points[0] if opposing_points else '待确认'}；"
+            f"风险提示 {risk_points[0] if risk_points else '待确认'}。"
+        )
+        return {
+            "context_type": DECISION_CONTEXT_WINDOW_CONTEXT_TYPE,
+            "title": f"{title_anchor} 决策上下文窗口",
+            "subtitle": f"{item.get('action') or '待判断'} · {item.get('window_date') or '--'}",
+            "ticker_refs_json": [ticker] if ticker else [],
+            "theme_refs_json": [theme_name] if theme_name else [],
+            "summary": summary,
+            "snapshot_payload_json": {
+                "window_id": item.get("window_id"),
+                "ticker": ticker or None,
+                "theme_name": theme_name or None,
+                "action": item.get("action"),
+                "support_points": support_points[:3],
+                "opposing_points": opposing_points[:3],
+                "risk_points": risk_points[:3],
+            },
+            "source_module": DECISION_CONTEXT_WINDOW_CONTEXT_TYPE,
+            "source_ref": str(item.get("window_id") or source_ref),
+            "staleness_hint": "决策窗口反映当时判断语境，不等于当前最新事实。",
+            "is_pinned": False,
+        }
+
+    def _build_decision_outcome_review_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        review_result = self.decision_outcome_review_service.list_reviews(
+            user_id=user_id,
+            limit=120,
+        )
+        item = self._find_by_keys(
+            review_result.get("items") or [],
+            source_ref,
+            keys=("review_id", "ticker"),
+        )
+        if item is None:
+            raise ValueError("Decision outcome review source not found")
+        ticker = str(item.get("ticker") or "").strip()
+        display_name = str(item.get("display_name") or ticker or "")
+        status = str(item.get("outcome_status") or "数据不足")
+        summary = (
+            f"{display_name} 该条判断结果为 {status}。"
+            f"{str(item.get('summary') or '').strip() or str(item.get('what_happened') or '').strip()}"
+        )
+        return {
+            "context_type": DECISION_OUTCOME_REVIEW_CONTEXT_TYPE,
+            "title": f"{display_name} 判断结果回看",
+            "subtitle": f"{status} · {item.get('review_horizon_days') or '--'} 日",
+            "ticker_refs_json": [ticker] if ticker else [],
+            "theme_refs_json": [],
+            "summary": summary,
+            "snapshot_payload_json": {
+                "review_id": item.get("review_id"),
+                "ticker": ticker or None,
+                "display_name": display_name,
+                "outcome_status": status,
+                "outcome_score": item.get("outcome_score"),
+                "review_horizon_days": item.get("review_horizon_days"),
+                "what_was_right": item.get("what_was_right"),
+                "what_was_wrong": item.get("what_was_wrong"),
+            },
+            "source_module": DECISION_OUTCOME_REVIEW_CONTEXT_TYPE,
+            "source_ref": str(item.get("review_id") or source_ref),
+            "staleness_hint": "结果回看是历史复盘证据，建议与当前上下文一起使用。",
+            "is_pinned": False,
+        }
+
+    def _build_risk_sizing_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        normalized_ref = str(source_ref or "").strip() or "__portfolio__"
+        if normalized_ref == "__portfolio__":
+            summary_result = self.risk_sizing_service.get_summary(user_id=user_id)
+            if not summary_result.get("available"):
+                raise ValueError("Risk sizing summary is not available")
+            return {
+                "context_type": RISK_SIZING_CONTEXT_TYPE,
+                "title": "组合分仓建议",
+                "subtitle": f"{summary_result.get('market_risk_level') or '待确认'} · 组合层",
+                "ticker_refs_json": [],
+                "theme_refs_json": [],
+                "summary": (
+                    f"当前建议总仓位 {summary_result.get('suggested_total_exposure_range') or '待确认'}，"
+                    f"单票建议 {summary_result.get('suggested_single_position_range') or '待确认'}。"
+                ),
+                "snapshot_payload_json": {
+                    "market_risk_level": summary_result.get("market_risk_level"),
+                    "suggested_total_exposure_range": summary_result.get(
+                        "suggested_total_exposure_range"
+                    ),
+                    "suggested_single_position_range": summary_result.get(
+                        "suggested_single_position_range"
+                    ),
+                    "position_guidance": summary_result.get("position_guidance"),
+                },
+                "source_module": RISK_SIZING_CONTEXT_TYPE,
+                "source_ref": "__portfolio__",
+                "staleness_hint": "分仓建议依赖当前市场环境与风险状态，建议日级复核。",
+                "is_pinned": False,
+            }
+        ticker_result = self.risk_sizing_service.get_ticker_summary(
+            user_id=user_id,
+            ticker=normalized_ref,
+        )
+        if not ticker_result.get("available"):
+            raise ValueError("Risk sizing ticker summary is not available")
+        ticker = str(ticker_result.get("ticker") or normalized_ref)
+        display_name = str(ticker_result.get("display_name") or ticker)
+        risk_level = str(ticker_result.get("risk_level") or "待确认")
+        return {
+            "context_type": RISK_SIZING_CONTEXT_TYPE,
+            "title": f"{display_name} 分仓建议",
+            "subtitle": f"{risk_level} · {ticker_result.get('suggested_position_range') or '待确认'}",
+            "ticker_refs_json": [ticker],
+            "theme_refs_json": [],
+            "summary": (
+                f"{display_name} 当前建议仓位 {ticker_result.get('suggested_position_range') or '待确认'}，"
+                f"风险等级 {risk_level}。{ticker_result.get('guidance') or ''}"
+            ),
+            "snapshot_payload_json": {
+                "ticker": ticker,
+                "display_name": display_name,
+                "risk_level": risk_level,
+                "suggested_position_range": ticker_result.get("suggested_position_range"),
+                "guidance": ticker_result.get("guidance"),
+            },
+            "source_module": RISK_SIZING_CONTEXT_TYPE,
+            "source_ref": ticker,
+            "staleness_hint": "单票分仓建议会随市场环境和持仓阶段变化。",
+            "is_pinned": False,
+        }
+
+    def _build_decision_effectiveness_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        del source_ref
+        summary_result = self.decision_effectiveness_service.get_summary(user_id=user_id)
+        if not summary_result.get("available"):
+            raise ValueError("Decision effectiveness summary is not available")
+        return {
+            "context_type": DECISION_EFFECTIVENESS_CONTEXT_TYPE,
+            "title": "近期判断有效性摘要",
+            "subtitle": f"得分 {summary_result.get('overall_score') or 0} · {summary_result.get('review_count') or 0} 条",
+            "ticker_refs_json": [],
+            "theme_refs_json": [],
+            "summary": str(summary_result.get("overall_summary") or "暂无有效性摘要"),
+            "snapshot_payload_json": {
+                "overall_summary": summary_result.get("overall_summary"),
+                "overall_score": summary_result.get("overall_score"),
+                "review_count": summary_result.get("review_count"),
+                "effective_count": summary_result.get("effective_count"),
+                "failed_count": summary_result.get("failed_count"),
+            },
+            "source_module": DECISION_EFFECTIVENESS_CONTEXT_TYPE,
+            "source_ref": "__summary__",
+            "staleness_hint": "有效性摘要反映近期复盘窗口，不等于未来收益保证。",
             "is_pinned": False,
         }
 

@@ -107,6 +107,9 @@ export default function DecisionContexts() {
           <Button asChild variant="outline">
             <Link to="/home/decision-reviews">去决策结果回看</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/stock-analysis">去研究线程工作区</Link>
+          </Button>
         </div>
       </div>
 

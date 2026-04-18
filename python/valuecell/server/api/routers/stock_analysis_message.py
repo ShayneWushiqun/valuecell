@@ -54,6 +54,7 @@ def create_stock_analysis_message_router() -> APIRouter:
                 user_id=DEFAULT_USER_ID,
                 thread_id=thread_id,
                 message=request.message,
+                force_tooling=request.force_tooling,
             )
             if data is None:
                 raise HTTPException(status_code=404, detail="Thread not found")

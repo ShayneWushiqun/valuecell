@@ -108,6 +108,13 @@ export default function DecisionReviews() {
           <Button asChild variant="outline">
             <Link to="/home/daily-workbench">返回总控台</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link
+              to="/home/stock-analysis?sourceModule=decision_effectiveness&sourceRef=__summary__&createThread=1"
+            >
+              以有效性摘要新建线程
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -358,6 +365,13 @@ export default function DecisionReviews() {
                 <div className="flex flex-wrap gap-2">
                   <Button asChild size="sm" variant="outline">
                     <Link to="/home/daily-review">查看关联 decision record</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to={`/home/stock-analysis?sourceModule=decision_outcome_review&sourceRef=${item.review_id}&createThread=1`}
+                    >
+                      加入研究线程
+                    </Link>
                   </Button>
                   <Button asChild size="sm" variant="outline">
                     <Link to="/home/decision-contexts">查看关联 decision context</Link>

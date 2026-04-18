@@ -15,6 +15,10 @@ ALLOWED_CONTEXT_TYPES = {
     "theme",
     "alert",
     "ticker",
+    "decision_context_window",
+    "decision_outcome_review",
+    "risk_sizing",
+    "decision_effectiveness",
 }
 ALLOWED_CONTEXT_MODES = {"append", "replace"}
 

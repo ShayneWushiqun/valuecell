@@ -245,7 +245,8 @@
 - 现在已经补上首页上下文聚合服务、首页工作台第一屏，以及股票分析研究线程工作区
 - 阶段四第一轮已完成工作区骨架、研究线程 CRUD、上下文卡片 CRUD 和 TradingAgents 接入口
 - 阶段四第二轮已完成多模块 context import、context assembler、研究线程消息历史与 `context_only` 聊天 MVP
-- 当前阶段四仍未接自动补数据、外部工具调用策略和独立 tool planner
+- 阶段四第三轮已完成 `StockAnalysisToolPlanner`、按需补数模式、临时证据补充区和高级研究卡片接入
+- 当前阶段四仍未接自动长期记忆、自动交易和稳定第三层外部解释型工具
 
 ## 6.2 当前阶段推进建议
 
@@ -267,17 +268,19 @@
 - `stock_analysis_thread` 与 `analysis_context_card` 两个核心模型
 - `StockAnalysisWorkspaceService` 统一管理线程 CRUD、卡片 CRUD 和多模块 context import
 - `StockAnalysisContextAssembler` 负责把当前线程卡片装配成稳定 prompt context
-- `StockAnalysisMessageService` 负责按 `thread.conversation_id` 读取历史、写入消息并执行 `context_only` 回答
+- `StockAnalysisToolPlanner` 负责判定 `context_only / need_tooling / user_forced_tooling`
+- `StockAnalysisToolingService` 负责补内部结构化结果、日线行情和临时证据块
+- `StockAnalysisMessageService` 负责按 `thread.conversation_id` 读取历史、写入消息并执行默认回答或按需补数回答
 - `/api/v1/stock-analysis/threads/{thread_id}/messages`
-  - 已可在同一线程中多轮继续聊
+  - 已可在同一线程中多轮继续聊，并返回 `mode / answer_basis / tool_reason / temporary_evidence_blocks`
 - `/home/stock-analysis`
-  - 已从骨架页升级为可用聊天工作区，顶部明确展示“回答依据：当前上下文”
+  - 已从骨架页升级为可用聊天工作区，支持“发送”和“补数据后再回答”两种动作
 
 当前仍需留到下一轮的点：
 
-- 外部工具补数与 `need_tooling` 语义
-- 决策上下文 / 结果回看等高级卡片接入
-- 更细的流式可视化和工具调用说明
+- 稳定的第三层新闻 / YFinance / 外部解释型补充
+- 更细的流式可视化
+- 临时证据保存为长期上下文的显式交互
 - 已新增 `/api/v1/homepage/context` 作为前端消费入口
 - 聊天和通用 Agent 已降级到页面次要区域
 - `HomepageContextService` 当前应只做聚合，不再承载自选观察和题材候选的具体规则

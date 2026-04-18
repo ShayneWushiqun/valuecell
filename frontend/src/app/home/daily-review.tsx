@@ -106,6 +106,13 @@ export default function DailyReview() {
           <Button asChild variant="outline">
             <Link to="/home/decision-reviews">查看全部决策结果回看</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link
+              to="/home/stock-analysis?sourceModule=decision_effectiveness&sourceRef=__summary__&createThread=1"
+            >
+              以复盘摘要新建线程
+            </Link>
+          </Button>
         </div>
       </div>
 

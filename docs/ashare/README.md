@@ -144,13 +144,16 @@ ValueCell 当前已经具备以下基础能力：
 - TradingAgents / 持仓 / 机会池 / 观察池 / 题材雷达 / 提醒 / ticker 导入线程
 - `/home/stock-analysis` 三栏工作区与线程历史回看
 - 仅基于当前显式上下文和线程历史的 `context_only` 聊天 MVP
+- `StockAnalysisToolPlanner`、`need_tooling / user_forced_tooling` 与按需补数模式
+- 第一层内部结构化补充 + 第二层日线行情补充
+- 回答依据说明区、工具调用说明区、临时证据补充区
+- `decision_context_window / decision_outcome_review / risk_sizing / decision_effectiveness` 高级研究卡片导入
 
 当前仍未开始的是：
 
-- Tushare / 新闻 / YFinance 等外部工具补数
-- `need_tooling` / `user_forced_tooling`
+- 稳定的第三层新闻 / YFinance / 外部解释型补充
 - 自动长期记忆
-- 独立 tool planner 与复杂 SSE 可视化
+- 复杂 SSE 可视化
 
 首页不应一上来就推荐个股，而应先建立用户对今天市场环境的全局认知。
 
@@ -497,14 +500,14 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - [阶段四需求文档](./phase-4-prd.md)
 - [阶段四技术方案](./phase-4-tech-design.md)
 
-当前阶段四第一轮已完成到：
+当前阶段四第三轮已完成到：
 
-- 已完成 `/home/stock-analysis` 三栏工作区骨架
-- 已完成研究线程 CRUD，线程创建时同步生成并绑定 `conversation_id`
-- 已完成上下文卡片 CRUD 的基础管理，当前先支持 `tradingagents_run`
-- 已完成 TradingAgents run -> context card 导入能力，支持新建线程导入和加入现有线程
-- 已完成 TradingAgents 页面入口改造，支持“新建分析线程”和“加入现有线程”
-- 当前仍未接真正聊天执行、自动补数据、多模块 context import、外部工具调用策略和自动交易
+- 已完成 `/home/stock-analysis` 工作区默认 `context_only` 回答与按需补数双模式
+- 已完成 `StockAnalysisToolPlanner`，能判定 `context_only / need_tooling / user_forced_tooling`
+- 已完成工具补数层，优先使用内部结构化服务，再补 `AssetService.get_historical_prices(interval="1d")`
+- 已完成回答依据说明区、工具调用说明区和临时证据区
+- 已完成高级研究卡片导入：`decision_context_window / decision_outcome_review / risk_sizing / decision_effectiveness`
+- 当前仍未接自动交易、自动长期记忆和稳定第三层外部新闻解释工具
 
 ## 7. 推荐执行顺序
 

@@ -55,6 +55,13 @@ export default function DecisionContextWindowCard({
         <Button size="sm" variant="outline" onClick={() => onSelect(item)}>
           查看详情
         </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link
+            to={`/home/stock-analysis?sourceModule=decision_context_window&sourceRef=${item.window_id}&createThread=1`}
+          >
+            加入研究线程
+          </Link>
+        </Button>
         {reviewMeta ? (
           <Button asChild size="sm" variant="outline">
             <Link to="/home/decision-reviews">
