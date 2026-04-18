@@ -94,6 +94,70 @@ class FakeContextRecord:
         }
 
 
+@dataclass
+class FakeMemoryRecord:
+    id: int
+    thread_id: int
+    user_id: str
+    title: str
+    summary: str
+    stance: str
+    confidence: float
+    time_horizon: str
+    focus_tickers_json: list[str]
+    focus_themes_json: list[str]
+    compared_tickers_json: list[str]
+    support_points_json: list[str]
+    opposing_points_json: list[str]
+    risk_points_json: list[str]
+    key_uncertainties_json: list[str]
+    invalidation_conditions_json: list[str]
+    next_questions_json: list[str]
+    next_data_to_check_json: list[str]
+    linked_context_ids_json: list[int]
+    linked_message_ids_json: list[str]
+    linked_compare_targets_json: list[dict[str, Any]]
+    source_snapshot_json: dict[str, Any]
+    is_active: bool
+    created_at: Any = None
+    updated_at: Any = None
+
+    def __post_init__(self) -> None:
+        import datetime as dt
+
+        self.created_at = self.created_at or dt.datetime.now(dt.UTC)
+        self.updated_at = self.updated_at or dt.datetime.now(dt.UTC)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "memory_id": self.id,
+            "thread_id": self.thread_id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "summary": self.summary,
+            "stance": self.stance,
+            "confidence": self.confidence,
+            "time_horizon": self.time_horizon,
+            "focus_tickers_json": list(self.focus_tickers_json),
+            "focus_themes_json": list(self.focus_themes_json),
+            "compared_tickers_json": list(self.compared_tickers_json),
+            "support_points_json": list(self.support_points_json),
+            "opposing_points_json": list(self.opposing_points_json),
+            "risk_points_json": list(self.risk_points_json),
+            "key_uncertainties_json": list(self.key_uncertainties_json),
+            "invalidation_conditions_json": list(self.invalidation_conditions_json),
+            "next_questions_json": list(self.next_questions_json),
+            "next_data_to_check_json": list(self.next_data_to_check_json),
+            "linked_context_ids_json": list(self.linked_context_ids_json),
+            "linked_message_ids_json": list(self.linked_message_ids_json),
+            "linked_compare_targets_json": list(self.linked_compare_targets_json),
+            "source_snapshot_json": dict(self.source_snapshot_json),
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+
 class FakeThreadRepository:
     def __init__(self) -> None:
         self.items: list[FakeThreadRecord] = []
@@ -200,6 +264,81 @@ class FakeContextRepository:
                 kept.append(item)
         self.items = kept
         return before - len(self.items)
+
+
+class FakeThreadMemoryRepository:
+    def __init__(self) -> None:
+        self.items: list[FakeMemoryRecord] = []
+        self.next_id = 1
+
+    def list_memories(self, *, user_id: str, thread_id: int, limit: int = 100):
+        result = [
+            item
+            for item in self.items
+            if item.user_id == user_id and item.thread_id == thread_id
+        ]
+        result.sort(key=lambda item: (item.created_at, item.id), reverse=True)
+        return result[:limit]
+
+    def get_memory_by_id(self, *, user_id: str, thread_id: int, memory_id: int):
+        for item in self.items:
+            if item.user_id == user_id and item.thread_id == thread_id and item.id == memory_id:
+                return item
+        return None
+
+    def get_active_memory(self, *, user_id: str, thread_id: int):
+        candidates = [
+            item
+            for item in self.items
+            if item.user_id == user_id
+            and item.thread_id == thread_id
+            and bool(item.is_active)
+        ]
+        candidates.sort(key=lambda item: (item.updated_at, item.id), reverse=True)
+        return candidates[0] if candidates else None
+
+    def create_memory(self, payload: dict[str, Any]):
+        item = FakeMemoryRecord(id=self.next_id, **payload)
+        self.next_id += 1
+        self.items.append(item)
+        return item
+
+    def update_memory(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        memory_id: int,
+        payload: dict[str, Any],
+    ):
+        item = self.get_memory_by_id(
+            user_id=user_id,
+            thread_id=thread_id,
+            memory_id=memory_id,
+        )
+        if item is None:
+            return None
+        for key, value in payload.items():
+            setattr(item, key, value)
+        return item
+
+    def deactivate_thread_memories(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        exclude_memory_id: int | None = None,
+    ) -> int:
+        count = 0
+        for item in self.items:
+            if item.user_id != user_id or item.thread_id != thread_id:
+                continue
+            if exclude_memory_id is not None and item.id == exclude_memory_id:
+                continue
+            if item.is_active:
+                item.is_active = False
+                count += 1
+        return count
 
 
 class FakeConversationManager:

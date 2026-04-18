@@ -11,6 +11,7 @@ from valuecell.server.services.assets.stock_analysis_workspace_service import (
 from valuecell.server.services.tests.test_stock_analysis_thread_service import (
     FakeContextRepository,
     FakeConversationService,
+    FakeThreadMemoryRepository,
     FakeThreadRepository,
 )
 
@@ -397,8 +398,10 @@ async def test_import_replace_keeps_unrelated_context_cards() -> None:
 async def test_fork_thread_copies_selected_contexts_without_copying_message_history() -> None:
     conversation_service = FakeConversationService()
     context_repository = FakeContextRepository()
+    memory_repository = FakeThreadMemoryRepository()
     service = StockAnalysisWorkspaceService(
         stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        stock_analysis_thread_memory_repository=cast(Any, memory_repository),
         analysis_context_card_repository=cast(Any, context_repository),
         conversation_service=cast(Any, conversation_service),
     )
@@ -464,6 +467,71 @@ async def test_fork_thread_copies_selected_contexts_without_copying_message_hist
     assert result["contexts"][0]["context_id"] != second["context_id"]
     assert result["contexts"][0]["title"] == "中军持仓卡"
     assert result["contexts"][0]["is_pinned"] is True
+    assert memory_repository.list_memories(
+        user_id="default_user",
+        thread_id=result["thread"]["thread_id"],
+    ) == []
+
+
+@pytest.mark.asyncio
+async def test_fork_thread_can_seed_active_memory_without_copying_history() -> None:
+    conversation_service = FakeConversationService()
+    context_repository = FakeContextRepository()
+    memory_repository = FakeThreadMemoryRepository()
+    service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        stock_analysis_thread_memory_repository=cast(Any, memory_repository),
+        analysis_context_card_repository=cast(Any, context_repository),
+        conversation_service=cast(Any, conversation_service),
+    )
+    source_thread = await service.create_thread(
+        user_id="default_user",
+        title="主线研究",
+        focus_type="ticker",
+        ticker_refs_json=["SZSE:300308"],
+    )
+    memory_repository.create_memory(
+        {
+            "thread_id": source_thread["thread_id"],
+            "user_id": "default_user",
+            "title": "当前研究记忆",
+            "summary": "当前仍看主线承接。",
+            "stance": "继续观察",
+            "confidence": 0.58,
+            "time_horizon": "短线到波段",
+            "focus_tickers_json": ["SZSE:300308"],
+            "focus_themes_json": [],
+            "compared_tickers_json": [],
+            "support_points_json": ["主线仍在。"],
+            "opposing_points_json": [],
+            "risk_points_json": ["需防波动。"],
+            "key_uncertainties_json": ["最新价格动作未确认。"],
+            "invalidation_conditions_json": ["刷新后摘要若变化则失效。"],
+            "next_questions_json": ["刷新后是否仍优先？"],
+            "next_data_to_check_json": ["最新价格动作"],
+            "linked_context_ids_json": [],
+            "linked_message_ids_json": ["item_2"],
+            "linked_compare_targets_json": [],
+            "source_snapshot_json": {"context_count": 0},
+            "is_active": True,
+        }
+    )
+
+    result = await service.fork_thread(
+        user_id="default_user",
+        thread_id=source_thread["thread_id"],
+        seed_from_active_memory=True,
+    )
+
+    assert result is not None
+    seeded = memory_repository.get_active_memory(
+        user_id="default_user",
+        thread_id=result["thread"]["thread_id"],
+    )
+    assert seeded is not None
+    assert seeded.title.endswith("（分叉初始记忆）")
+    assert seeded.summary == "当前仍看主线承接。"
+    assert seeded.linked_message_ids_json == []
 
 
 @pytest.mark.asyncio

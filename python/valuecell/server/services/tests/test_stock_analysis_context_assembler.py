@@ -35,6 +35,23 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
                 },
             ],
         },
+        active_memory={
+            "memory_id": 8,
+            "version": 2,
+            "title": "当前研究记忆",
+            "updated_at": "2026-04-19T10:00:00Z",
+            "stance": "比较观察",
+            "confidence": 0.6,
+            "time_horizon": "短线到波段",
+            "summary": "当前以显式上下文比较两只票的优先级。",
+            "support_points_json": ["主线仍清晰。"],
+            "opposing_points_json": ["候选票承接待确认。"],
+            "risk_points_json": ["旧卡片需刷新。"],
+            "key_uncertainties_json": ["最新价格动作尚未确认。"],
+            "invalidation_conditions_json": ["刷新后若摘要变化则失效。"],
+            "next_questions_json": ["刷新后谁更优先？"],
+            "next_data_to_check_json": ["最新价格动作"],
+        },
         context_cards=[
             {
                 "context_id": 10,
@@ -70,11 +87,14 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
 
     assert result["used_context_ids"] == [10, 11]
     assert result["comparison_mode"] is True
+    assert result["used_active_memory"] is True
     assert result["compared_tickers"] == ["SZSE:300308", "SZSE:000001"]
     assert result["stale_context_ids"] == [11]
     assert "AI算力题材摘要" in result["prompt_context"]
     assert "Comparison Targets" in result["prompt_context"]
     assert "Current Context Refresh Status" in result["prompt_context"]
+    assert "Thread Active Research Memory" in result["prompt_context"]
+    assert "Memory ID: 8" in result["prompt_context"]
     assert "source=holding" in result["prompt_context"]
     assert "已删除卡片" not in result["prompt_context"]
     assert "比较中际旭创和平安银行" in result["prompt_context"]

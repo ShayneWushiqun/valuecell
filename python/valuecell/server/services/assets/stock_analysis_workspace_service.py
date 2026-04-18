@@ -14,6 +14,9 @@ from valuecell.utils.uuid import generate_conversation_id
 from ...db.repositories.analysis_context_card_repository import (
     AnalysisContextCardRepository,
 )
+from ...db.repositories.stock_analysis_thread_memory_repository import (
+    StockAnalysisThreadMemoryRepository,
+)
 from ...db.repositories.stock_analysis_thread_repository import (
     StockAnalysisThreadRepository,
 )
@@ -219,6 +222,9 @@ class StockAnalysisWorkspaceService:
     def __init__(
         self,
         stock_analysis_thread_repository: Optional[StockAnalysisThreadRepository] = None,
+        stock_analysis_thread_memory_repository: Optional[
+            StockAnalysisThreadMemoryRepository
+        ] = None,
         analysis_context_card_repository: Optional[AnalysisContextCardRepository] = None,
         tradingagents_service: Optional[TradingAgentsService] = None,
         conversation_service: Optional[ServerConversationService] = None,
@@ -235,6 +241,10 @@ class StockAnalysisWorkspaceService:
     ) -> None:
         self.stock_analysis_thread_repository = (
             stock_analysis_thread_repository or StockAnalysisThreadRepository()
+        )
+        self.stock_analysis_thread_memory_repository = (
+            stock_analysis_thread_memory_repository
+            or StockAnalysisThreadMemoryRepository()
         )
         self.analysis_context_card_repository = (
             analysis_context_card_repository or AnalysisContextCardRepository()
@@ -452,6 +462,7 @@ class StockAnalysisWorkspaceService:
         selected_context_ids: Sequence[int] | None = None,
         include_compare_targets: bool = True,
         pin_imported_contexts: bool = False,
+        seed_from_active_memory: bool = False,
         focus_type_override: str | None = None,
     ) -> dict[str, Any] | None:
         source_thread = self.stock_analysis_thread_repository.get_thread_by_id(
@@ -515,6 +526,67 @@ class StockAnalysisWorkspaceService:
             )
             if created is not None:
                 copied_contexts.append(self._serialize_context_card(created))
+        if seed_from_active_memory:
+            source_memory = self.stock_analysis_thread_memory_repository.get_active_memory(
+                user_id=user_id,
+                thread_id=thread_id,
+            )
+            if source_memory is not None:
+                self.stock_analysis_thread_memory_repository.deactivate_thread_memories(
+                    user_id=user_id,
+                    thread_id=int(forked["thread_id"]),
+                )
+                self.stock_analysis_thread_memory_repository.create_memory(
+                    {
+                        "thread_id": int(forked["thread_id"]),
+                        "user_id": user_id,
+                        "title": f"{str(source_memory.title or source_thread.title).strip()}（分叉初始记忆）",
+                        "summary": str(source_memory.summary or "").strip(),
+                        "stance": str(source_memory.stance or "继续观察").strip()
+                        or "继续观察",
+                        "confidence": float(source_memory.confidence or 0.0),
+                        "time_horizon": str(
+                            source_memory.time_horizon or "短线到波段"
+                        ).strip()
+                        or "短线到波段",
+                        "focus_tickers_json": list(
+                            source_memory.focus_tickers_json or []
+                        ),
+                        "focus_themes_json": list(source_memory.focus_themes_json or []),
+                        "compared_tickers_json": list(
+                            source_memory.compared_tickers_json or []
+                        ),
+                        "support_points_json": list(
+                            source_memory.support_points_json or []
+                        ),
+                        "opposing_points_json": list(
+                            source_memory.opposing_points_json or []
+                        ),
+                        "risk_points_json": list(source_memory.risk_points_json or []),
+                        "key_uncertainties_json": list(
+                            source_memory.key_uncertainties_json or []
+                        ),
+                        "invalidation_conditions_json": list(
+                            source_memory.invalidation_conditions_json or []
+                        ),
+                        "next_questions_json": list(
+                            source_memory.next_questions_json or []
+                        ),
+                        "next_data_to_check_json": list(
+                            source_memory.next_data_to_check_json or []
+                        ),
+                        "linked_context_ids_json": [],
+                        "linked_message_ids_json": [],
+                        "linked_compare_targets_json": list(compare_targets or []),
+                        "source_snapshot_json": {
+                            **dict(source_memory.source_snapshot_json or {}),
+                            "forked_from_thread_id": thread_id,
+                            "forked_from_memory_id": int(source_memory.id),
+                            "seeded_for_thread_id": int(forked["thread_id"]),
+                        },
+                        "is_active": True,
+                    }
+                )
         return {
             "thread": forked,
             "contexts": copied_contexts,

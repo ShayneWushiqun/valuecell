@@ -34,6 +34,9 @@ from valuecell.server.db.models.decision_outcome_review import DecisionOutcomeRe
 from valuecell.server.db.models.decision_record import DecisionRecord
 from valuecell.server.db.models.short_cycle_context_event import ShortCycleContextEvent
 from valuecell.server.db.models.stock_analysis_thread import StockAnalysisThread
+from valuecell.server.db.models.stock_analysis_thread_memory import (
+    StockAnalysisThreadMemory,
+)
 from valuecell.server.db.models.strategy_prompt import StrategyPrompt
 from valuecell.server.db.repositories.asset_repository import get_asset_repository
 from valuecell.server.services.assets import get_asset_service

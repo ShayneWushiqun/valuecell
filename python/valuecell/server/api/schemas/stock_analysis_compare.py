@@ -35,6 +35,7 @@ class StockAnalysisThreadForkRequest(BaseModel):
     selected_context_ids: list[int] = Field(default_factory=list)
     include_compare_targets: bool = True
     pin_imported_contexts: bool = False
+    seed_from_active_memory: bool = False
     focus_type_override: str | None = None
 
 

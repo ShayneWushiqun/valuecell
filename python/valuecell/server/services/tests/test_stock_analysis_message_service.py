@@ -155,6 +155,15 @@ class FakeToolingService:
         )
 
 
+class FakeThreadMemoryService:
+    def __init__(self, active_memory: dict[str, Any] | None = None) -> None:
+        self.active_memory = active_memory
+
+    async def get_active_memory(self, *, user_id: str, thread_id: int):
+        del user_id, thread_id
+        return self.active_memory
+
+
 @pytest.mark.asyncio
 async def test_stock_analysis_message_service_reads_thread_conversation_and_persists_history(
     monkeypatch,
@@ -185,6 +194,7 @@ async def test_stock_analysis_message_service_reads_thread_conversation_and_pers
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        thread_memory_service=FakeThreadMemoryService(),
     )
     monkeypatch.setattr(
         service,
@@ -233,6 +243,7 @@ async def test_stock_analysis_message_service_keeps_context_only_without_externa
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=tooling,
+        thread_memory_service=FakeThreadMemoryService(),
     )
 
     called = {"count": 0}
@@ -289,6 +300,7 @@ async def test_stock_analysis_message_service_switches_history_by_thread(monkeyp
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        thread_memory_service=FakeThreadMemoryService(),
     )
     monkeypatch.setattr(
         service,
@@ -343,6 +355,7 @@ async def test_stock_analysis_message_service_force_tooling_enters_user_forced_m
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(USER_FORCED_TOOLING_MODE),
         tooling_service=tooling,
+        thread_memory_service=FakeThreadMemoryService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -396,6 +409,7 @@ async def test_stock_analysis_message_service_need_tooling_returns_metadata(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
+        thread_memory_service=FakeThreadMemoryService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -474,6 +488,7 @@ async def test_stock_analysis_message_service_returns_comparison_metadata(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        thread_memory_service=FakeThreadMemoryService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -495,6 +510,78 @@ async def test_stock_analysis_message_service_returns_comparison_metadata(
     assert history is not None
     assert history["items"][1]["comparison_mode"] is True
     assert history["items"][1]["compared_tickers"] == ["SHSE:603986", "SZSE:300474"]
+
+
+@pytest.mark.asyncio
+async def test_stock_analysis_message_service_marks_active_memory_usage(
+    monkeypatch,
+) -> None:
+    conversation_service = FakeConversationServiceForMessages()
+    workspace_service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        conversation_service=cast(Any, conversation_service),
+    )
+    thread = await workspace_service.create_thread(
+        user_id="default_user",
+        title="记忆接入",
+        focus_type="ticker",
+        ticker_refs_json=["SZSE:300308"],
+    )
+    await workspace_service.create_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_type="ticker",
+        title="基础卡片",
+        summary="当前仍先看主线强度。",
+        ticker_refs_json=["SZSE:300308"],
+        source_module="ticker",
+        source_ref="SZSE:300308",
+    )
+    service = StockAnalysisMessageService(
+        stock_analysis_workspace_service=workspace_service,
+        conversation_service=cast(Any, conversation_service),
+        tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
+        tooling_service=FakeToolingService(),
+        thread_memory_service=FakeThreadMemoryService(
+            {
+                "memory_id": 9,
+                "version": 3,
+                "title": "当前研究记忆",
+                "updated_at": "2026-04-19T10:00:00Z",
+                "stance": "继续观察",
+                "confidence": 0.58,
+                "time_horizon": "短线到波段",
+                "summary": "当前研究重点是等待刷新后再给强结论。",
+                "support_points_json": ["显式卡片仍有效。"],
+                "opposing_points_json": [],
+                "risk_points_json": ["旧卡片需刷新。"],
+                "key_uncertainties_json": ["最新价格动作未确认。"],
+                "invalidation_conditions_json": ["刷新后若摘要变化则失效。"],
+                "next_questions_json": ["刷新后是否仍优先？"],
+                "next_data_to_check_json": ["最新价格动作"],
+            }
+        ),
+    )
+    monkeypatch.setattr(service, "_generate_answer", _fake_answer)
+
+    result = await service.send_message(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        message="继续基于当前线程回答。",
+    )
+    history = await service.list_messages(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+    )
+
+    assert result is not None
+    assert result.used_active_memory is True
+    assert result.active_memory_id == 9
+    assert result.active_memory_version == 3
+    assert history is not None
+    assert history["items"][1]["used_active_memory"] is True
+    assert history["items"][1]["active_memory_title"] == "当前研究记忆"
 
 
 @pytest.mark.asyncio
@@ -531,6 +618,7 @@ async def test_stock_analysis_message_service_refreshes_stale_contexts_before_an
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
         refresh_service=refresh_service,
+        thread_memory_service=FakeThreadMemoryService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -578,6 +666,7 @@ async def test_stock_analysis_message_service_can_save_temporary_evidence_as_con
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
+        thread_memory_service=FakeThreadMemoryService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 

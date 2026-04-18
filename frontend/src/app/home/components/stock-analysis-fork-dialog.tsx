@@ -27,6 +27,9 @@ type StockAnalysisForkDialogProps = {
   onIncludeCompareTargetsChange: (value: boolean) => void;
   pinImportedContexts: boolean;
   onPinImportedContextsChange: (value: boolean) => void;
+  seedFromActiveMemory: boolean;
+  onSeedFromActiveMemoryChange: (value: boolean) => void;
+  hasActiveMemory: boolean;
   focusTypeOverride: string;
   onFocusTypeOverrideChange: (value: string) => void;
   onSubmit: () => void;
@@ -51,6 +54,9 @@ export function StockAnalysisForkDialog({
   onIncludeCompareTargetsChange,
   pinImportedContexts,
   onPinImportedContextsChange,
+  seedFromActiveMemory,
+  onSeedFromActiveMemoryChange,
+  hasActiveMemory,
   focusTypeOverride,
   onFocusTypeOverrideChange,
   onSubmit,
@@ -97,6 +103,23 @@ export function StockAnalysisForkDialog({
               <p className="font-medium text-sm">置顶导入的上下文卡片</p>
               <p className="text-muted-foreground text-xs">
                 让新线程优先展示这批分叉上下文。
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border p-3">
+            <Checkbox
+              checked={seedFromActiveMemory}
+              disabled={!hasActiveMemory}
+              onCheckedChange={(checked) =>
+                onSeedFromActiveMemoryChange(Boolean(checked))
+              }
+            />
+            <div>
+              <p className="font-medium text-sm">带上当前 active memory</p>
+              <p className="text-muted-foreground text-xs">
+                {hasActiveMemory
+                  ? "把当前线程研究记忆作为新线程的首份初始记忆，不复制旧历史。"
+                  : "当前线程还没有 active memory，暂不可携带。"}
               </p>
             </div>
           </div>

@@ -11,6 +11,12 @@ import { useGetHoldingLifecycleOverview } from "@/api/holding-lifecycle";
 import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
 import { useGetRiskSizingSummary } from "@/api/risk-sizing";
 import {
+  useActivateStockAnalysisThreadMemory,
+  useCaptureStockAnalysisThreadMemory,
+  useGetStockAnalysisThreadMemories,
+  useRefreshStockAnalysisThreadMemory,
+} from "@/api/stock-analysis-thread-memory";
+import {
   useCreateStockAnalysisMessage,
   useCreateStockAnalysisThread,
   useDeleteStockAnalysisContext,
@@ -32,6 +38,7 @@ import {
 import { StockAnalysisCompareTray } from "@/app/home/components/stock-analysis-compare-tray";
 import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
 import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
+import { StockAnalysisMemoryPanel } from "@/app/home/components/stock-analysis-memory-panel";
 import { StockAnalysisRefreshSummary } from "@/app/home/components/stock-analysis-refresh-summary";
 import { StockAnalysisThreadSummary } from "@/app/home/components/stock-analysis-thread-summary";
 import { useGetThemeRadarOverview } from "@/api/theme-radar";
@@ -201,6 +208,7 @@ export default function StockAnalysis() {
   const [forkSelectedContextIds, setForkSelectedContextIds] = useState<number[]>([]);
   const [includeCompareTargetsInFork, setIncludeCompareTargetsInFork] = useState(true);
   const [pinImportedContexts, setPinImportedContexts] = useState(false);
+  const [seedFromActiveMemory, setSeedFromActiveMemory] = useState(false);
   const [forkFocusTypeOverride, setForkFocusTypeOverride] = useState("inherit");
   const [lastRefreshRun, setLastRefreshRun] =
     useState<StockAnalysisRefreshRunResult | null>(null);
@@ -217,6 +225,8 @@ export default function StockAnalysis() {
     useGetStockAnalysisMessages(selectedThreadId);
   const { data: compareTargetData } =
     useGetStockAnalysisCompareTargets(selectedThreadId);
+  const { data: memoryData, isLoading: memoriesLoading } =
+    useGetStockAnalysisThreadMemories(selectedThreadId);
   const { data: tradingRuns } = useGetTradingAgentsRuns();
   const { data: holdingOverview } = useGetHoldingLifecycleOverview();
   const { data: opportunityOverview } = useGetOpportunityCandidates();
@@ -236,6 +246,9 @@ export default function StockAnalysis() {
   const refreshContext = useRefreshStockAnalysisContext();
   const importContext = useImportStockAnalysisContext();
   const createMessage = useCreateStockAnalysisMessage();
+  const captureThreadMemory = useCaptureStockAnalysisThreadMemory();
+  const activateThreadMemory = useActivateStockAnalysisThreadMemory();
+  const refreshThreadMemory = useRefreshStockAnalysisThreadMemory();
   const saveEvidence = useSaveStockAnalysisEvidence();
   const updateCompareTargets = useUpdateStockAnalysisCompareTargets();
   const forkThread = useForkStockAnalysisThread();
@@ -249,6 +262,8 @@ export default function StockAnalysis() {
   const contextItems = contexts?.items || [];
   const compareTargets =
     compareTargetData?.compare_targets || currentThread?.compare_targets_json || [];
+  const activeMemory = memoryData?.active_memory || null;
+  const threadMemories = memoryData?.items || [];
   const contextTitleMap = useMemo(
     () => new Map(contextItems.map((item) => [item.context_id, item.title])),
     [contextItems],
@@ -275,6 +290,7 @@ export default function StockAnalysis() {
     setForkSelectedContextIds([]);
     setForkDialogOpen(false);
     setForkTitle("");
+    setSeedFromActiveMemory(false);
     setLastRefreshRun(null);
     setRecentContextRefreshState({});
   }, [selectedThreadId]);
@@ -579,6 +595,7 @@ export default function StockAnalysis() {
     setForkSelectedContextIds(contextIds || []);
     setIncludeCompareTargetsInFork(true);
     setPinImportedContexts(false);
+    setSeedFromActiveMemory(false);
     setForkFocusTypeOverride("inherit");
     setForkDialogOpen(true);
   };
@@ -593,6 +610,7 @@ export default function StockAnalysis() {
           selected_context_ids: forkSelectedContextIds,
           include_compare_targets: includeCompareTargetsInFork,
           pin_imported_contexts: pinImportedContexts,
+          seed_from_active_memory: seedFromActiveMemory,
           focus_type_override:
             forkFocusTypeOverride === "inherit" ? undefined : forkFocusTypeOverride,
         },
@@ -602,6 +620,44 @@ export default function StockAnalysis() {
       toast.success("已创建分叉线程");
     } catch {
       toast.error("分叉线程失败");
+    }
+  };
+
+  const handleCaptureThreadMemory = async () => {
+    if (!currentThread) return;
+    try {
+      await captureThreadMemory.mutateAsync({
+        threadId: currentThread.thread_id,
+      });
+      toast.success("已生成当前线程研究记忆");
+    } catch {
+      toast.error("生成研究记忆失败");
+    }
+  };
+
+  const handleRefreshThreadMemory = async (memoryId: number) => {
+    if (!currentThread) return;
+    try {
+      await refreshThreadMemory.mutateAsync({
+        threadId: currentThread.thread_id,
+        memoryId,
+      });
+      toast.success("已刷新当前线程研究记忆");
+    } catch {
+      toast.error("刷新研究记忆失败");
+    }
+  };
+
+  const handleActivateThreadMemory = async (memoryId: number) => {
+    if (!currentThread) return;
+    try {
+      await activateThreadMemory.mutateAsync({
+        threadId: currentThread.thread_id,
+        memoryId,
+      });
+      toast.success("已切换当前线程研究记忆");
+    } catch {
+      toast.error("切换研究记忆失败");
     }
   };
 
@@ -1044,6 +1100,20 @@ export default function StockAnalysis() {
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
 
+                  <StockAnalysisMemoryPanel
+                    activeMemory={activeMemory}
+                    memories={threadMemories.filter(
+                      (item) => item.memory_id !== activeMemory?.memory_id,
+                    )}
+                    isLoading={memoriesLoading}
+                    onCapture={() => void handleCaptureThreadMemory()}
+                    onRefresh={(memoryId) => void handleRefreshThreadMemory(memoryId)}
+                    onActivate={(memoryId) => void handleActivateThreadMemory(memoryId)}
+                    capturePending={captureThreadMemory.isPending}
+                    refreshPending={refreshThreadMemory.isPending}
+                    activatePending={activateThreadMemory.isPending}
+                  />
+
                   <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
 
                   <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
@@ -1175,6 +1245,23 @@ export default function StockAnalysis() {
                                             .join("、")}
                                         </p>
                                       ) : null}
+                                    </div>
+                                  ) : null}
+                                  {item.used_active_memory ? (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm">
+                                      <p className="font-medium">研究记忆使用说明</p>
+                                      <p className="mt-1 text-muted-foreground">
+                                        本轮回答参考了当前线程研究记忆
+                                        {item.active_memory_title
+                                          ? `：${item.active_memory_title}`
+                                          : ""}
+                                        {item.active_memory_version
+                                          ? ` · v${item.active_memory_version}`
+                                          : ""}
+                                        {item.active_memory_updated_at
+                                          ? ` · 更新于 ${formatTime(item.active_memory_updated_at)}`
+                                          : ""}
+                                      </p>
                                     </div>
                                   ) : null}
                                   {item.tool_reason ? (
@@ -1626,6 +1713,9 @@ export default function StockAnalysis() {
         onIncludeCompareTargetsChange={setIncludeCompareTargetsInFork}
         pinImportedContexts={pinImportedContexts}
         onPinImportedContextsChange={setPinImportedContexts}
+        seedFromActiveMemory={seedFromActiveMemory}
+        onSeedFromActiveMemoryChange={setSeedFromActiveMemory}
+        hasActiveMemory={!!activeMemory}
         focusTypeOverride={forkFocusTypeOverride}
         onFocusTypeOverrideChange={setForkFocusTypeOverride}
         onSubmit={() => void handleForkThread()}

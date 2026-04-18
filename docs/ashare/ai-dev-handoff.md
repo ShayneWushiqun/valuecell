@@ -249,7 +249,8 @@
 - 阶段四第四轮已完成第三层外部解释型补数第一版、临时证据保存为长期上下文、证据来源与时效说明
 - 阶段四第五轮已完成显式对比研究、线程分叉增强、上下文刷新与时效治理
 - 阶段四第六轮已完成批量 stale refresh、刷新后重答工作流、refresh diff 摘要、研究流摘要区和外部 provider 编排收口
-- 当前阶段四仍未接自动长期记忆、自动交易、更强 planner 语义和更复杂的 SSE 工具可视化
+- 阶段四核心 MVP 已完成，阶段五第一轮也已完成显式线程研究记忆 MVP
+- 当前仍未接自动长期记忆系统、自动交易、更强 planner 语义和更复杂的 SSE 工具可视化
 
 ## 6.2 当前阶段推进建议
 
@@ -287,8 +288,16 @@
   - 已可对可定位 source_ref 的上下文卡片复用现有 builder 做单卡刷新
 - `/api/v1/stock-analysis/threads/{thread_id}/contexts/refresh-stale`
   - 已可批量刷新 stale / refresh_recommended 的上下文卡片，并返回结构化 diff 摘要
+- `/api/v1/stock-analysis/threads/{thread_id}/memories`
+  - 已可显式列出线程研究记忆、当前 active memory 和历史版本摘要
+- `/api/v1/stock-analysis/threads/{thread_id}/memories/capture`
+  - 已可基于显式上下文、compare targets、最近关键问答、refresh / evidence 摘要生成新的研究记忆快照
+- `/api/v1/stock-analysis/threads/{thread_id}/memories/{memory_id}/activate`
+  - 已可把某个历史研究记忆切为当前 active memory，且保持线程内唯一 active
+- `/api/v1/stock-analysis/threads/{thread_id}/memories/{memory_id}/refresh`
+  - 已可基于旧记忆和当前线程状态生成新版记忆，并自动切为 active
 - `/home/stock-analysis`
-  - 已从骨架页升级为可用聊天工作区，支持“发送”“补数据后再回答”“刷新过期上下文后再回答”“保存为上下文”“compare tray”“分叉线程”“研究流摘要区”和“上下文刷新”
+  - 已从骨架页升级为可用聊天工作区，支持“发送”“补数据后再回答”“刷新过期上下文后再回答”“保存为上下文”“compare tray”“分叉线程”“研究流摘要区”“研究记忆面板 / 历史版本 / 激活 / 刷新”和“上下文刷新”
 
 当前仍需留到下一轮的点：
 

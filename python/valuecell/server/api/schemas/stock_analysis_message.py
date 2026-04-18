@@ -36,6 +36,11 @@ class StockAnalysisMessageItemData(BaseModel):
     refresh_failed_context_ids: list[int] = Field(default_factory=list)
     refresh_skipped_context_ids: list[int] = Field(default_factory=list)
     refresh_changed_contexts: list[dict[str, Any]] = Field(default_factory=list)
+    used_active_memory: bool = False
+    active_memory_id: int | None = None
+    active_memory_title: str | None = None
+    active_memory_updated_at: str | None = None
+    active_memory_version: int | None = None
 
 
 class StockAnalysisMessageListData(BaseModel):
@@ -79,5 +84,10 @@ class StockAnalysisMessageCreateData(BaseModel):
     refresh_failed_context_ids: list[int] = Field(default_factory=list)
     refresh_skipped_context_ids: list[int] = Field(default_factory=list)
     refresh_changed_contexts: list[dict[str, Any]] = Field(default_factory=list)
+    used_active_memory: bool = False
+    active_memory_id: int | None = None
+    active_memory_title: str | None = None
+    active_memory_updated_at: str | None = None
+    active_memory_version: int | None = None
     user_message: StockAnalysisMessageItemData
     assistant_message: StockAnalysisMessageItemData

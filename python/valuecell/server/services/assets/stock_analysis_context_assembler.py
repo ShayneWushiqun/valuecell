@@ -9,6 +9,7 @@ class StockAnalysisContextAssembler:
         *,
         thread: dict[str, Any],
         context_cards: Sequence[dict[str, Any]],
+        active_memory: dict[str, Any] | None = None,
         user_question: str,
     ) -> dict[str, Any]:
         pinned_cards = [item for item in context_cards if bool(item.get("is_pinned"))]
@@ -71,6 +72,8 @@ class StockAnalysisContextAssembler:
                 self._build_focus_block("Themes", theme_refs),
                 "Current Context Refresh Status",
                 self._build_freshness_block(ordered_cards),
+                "Thread Active Research Memory",
+                self._build_active_memory_block(active_memory=active_memory),
                 "Current User Question",
                 user_question.strip(),
                 "Response Rules",
@@ -78,6 +81,7 @@ class StockAnalysisContextAssembler:
                     missing_context_hints=missing_context_hints,
                     comparison_mode=len(compare_targets) >= 2,
                     stale_context_ids=stale_context_ids,
+                    has_active_memory=active_memory is not None,
                 ),
             ]
         )
@@ -93,6 +97,7 @@ class StockAnalysisContextAssembler:
             "comparison_mode": len(compare_targets) >= 2,
             "stale_context_ids": stale_context_ids,
             "refresh_recommended_context_ids": refresh_recommended_context_ids,
+            "used_active_memory": active_memory is not None,
         }
 
     @staticmethod
@@ -197,6 +202,7 @@ class StockAnalysisContextAssembler:
         missing_context_hints: Sequence[str],
         comparison_mode: bool,
         stale_context_ids: Sequence[int],
+        has_active_memory: bool,
     ) -> str:
         rule_lines = [
             "- Answer only from the explicit context cards and conversation history.",
@@ -205,6 +211,10 @@ class StockAnalysisContextAssembler:
             "- Prefer structured reasoning and comparison over vague narrative.",
             "- When multiple tickers are mentioned, compare them explicitly.",
         ]
+        if has_active_memory:
+            rule_lines.append(
+                "- Active research memory is a thread-level summary only. Explicit context cards and current comparison targets override it when conflicts appear."
+            )
         if comparison_mode:
             rule_lines.append(
                 "- This thread is in explicit comparison mode. State which objects are being compared and their sources."
@@ -240,6 +250,63 @@ class StockAnalysisContextAssembler:
         if any(bool(item.get("is_stale")) for item in context_cards):
             hints.append("本轮比较对象中存在较旧上下文，建议刷新后再做强结论")
         return hints
+
+    @staticmethod
+    def _build_active_memory_block(*, active_memory: dict[str, Any] | None) -> str:
+        if active_memory is None:
+            return "No active research memory."
+        return "\n".join(
+            [
+                f"Memory ID: {active_memory.get('memory_id')}",
+                f"Version: {active_memory.get('version') or '--'}",
+                f"Title: {active_memory.get('title') or '--'}",
+                f"Updated At: {active_memory.get('updated_at') or '--'}",
+                f"Stance: {active_memory.get('stance') or '--'}",
+                f"Confidence: {active_memory.get('confidence') or '--'}",
+                f"Time Horizon: {active_memory.get('time_horizon') or '--'}",
+                f"Summary: {active_memory.get('summary') or '--'}",
+                "Support Points: "
+                + (
+                    "; ".join(list(active_memory.get("support_points_json") or [])[:4])
+                    or "--"
+                ),
+                "Opposing Points: "
+                + (
+                    "; ".join(list(active_memory.get("opposing_points_json") or [])[:3])
+                    or "--"
+                ),
+                "Risk Points: "
+                + (
+                    "; ".join(list(active_memory.get("risk_points_json") or [])[:4]) or "--"
+                ),
+                "Key Uncertainties: "
+                + (
+                    "; ".join(
+                        list(active_memory.get("key_uncertainties_json") or [])[:4]
+                    )
+                    or "--"
+                ),
+                "Invalidation Conditions: "
+                + (
+                    "; ".join(
+                        list(active_memory.get("invalidation_conditions_json") or [])[:4]
+                    )
+                    or "--"
+                ),
+                "Next Questions: "
+                + (
+                    "; ".join(list(active_memory.get("next_questions_json") or [])[:4])
+                    or "--"
+                ),
+                "Next Data To Check: "
+                + (
+                    "; ".join(
+                        list(active_memory.get("next_data_to_check_json") or [])[:4]
+                    )
+                    or "--"
+                ),
+            ]
+        )
 
     @staticmethod
     def _unique_list(values) -> list[str]:

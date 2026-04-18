@@ -71,6 +71,7 @@ def create_stock_analysis_compare_router() -> APIRouter:
                 selected_context_ids=request.selected_context_ids,
                 include_compare_targets=request.include_compare_targets,
                 pin_imported_contexts=request.pin_imported_contexts,
+                seed_from_active_memory=request.seed_from_active_memory,
                 focus_type_override=request.focus_type_override,
             )
             if data is None:

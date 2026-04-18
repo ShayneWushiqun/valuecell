@@ -94,6 +94,7 @@ type ForkThreadPayload = {
   selected_context_ids?: number[];
   include_compare_targets?: boolean;
   pin_imported_contexts?: boolean;
+  seed_from_active_memory?: boolean;
   focus_type_override?: string;
 };
 

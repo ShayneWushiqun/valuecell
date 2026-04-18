@@ -21,6 +21,10 @@ from .stock_analysis_refresh_service import (
     StockAnalysisRefreshService,
     get_stock_analysis_refresh_service,
 )
+from .stock_analysis_thread_memory_service import (
+    StockAnalysisThreadMemoryService,
+    get_stock_analysis_thread_memory_service,
+)
 from .stock_analysis_tooling_service import (
     StockAnalysisToolingResult,
     StockAnalysisToolingService,
@@ -64,6 +68,11 @@ class StockAnalysisMessageResult(BaseModel):
     refresh_failed_context_ids: list[int]
     refresh_skipped_context_ids: list[int]
     refresh_changed_contexts: list[dict[str, Any]]
+    used_active_memory: bool = False
+    active_memory_id: int | None = None
+    active_memory_title: str | None = None
+    active_memory_updated_at: str | None = None
+    active_memory_version: int | None = None
     user_message: dict[str, Any]
     assistant_message: dict[str, Any]
 
@@ -77,6 +86,7 @@ class StockAnalysisMessageService:
         tool_planner: Optional[StockAnalysisToolPlanner] = None,
         tooling_service: Optional[StockAnalysisToolingService] = None,
         refresh_service: Optional[StockAnalysisRefreshService] = None,
+        thread_memory_service: Optional[StockAnalysisThreadMemoryService] = None,
     ) -> None:
         self.stock_analysis_workspace_service = (
             stock_analysis_workspace_service or StockAnalysisWorkspaceService()
@@ -86,6 +96,9 @@ class StockAnalysisMessageService:
         self.tool_planner = tool_planner or get_stock_analysis_tool_planner()
         self.tooling_service = tooling_service or get_stock_analysis_tooling_service()
         self.refresh_service = refresh_service or get_stock_analysis_refresh_service()
+        self.thread_memory_service = (
+            thread_memory_service or get_stock_analysis_thread_memory_service()
+        )
 
     async def list_messages(
         self,
@@ -145,9 +158,14 @@ class StockAnalysisMessageService:
             thread_id=thread_id,
         )
         context_cards = list((context_result or {}).get("items") or [])
+        active_memory = await self.thread_memory_service.get_active_memory(
+            user_id=user_id,
+            thread_id=thread_id,
+        )
         assembled = self.context_assembler.assemble(
             thread=thread,
             context_cards=context_cards,
+            active_memory=active_memory,
             user_question=message,
         )
         history_items = await self.conversation_service.core_conversation_service.get_conversation_items(
@@ -274,6 +292,19 @@ class StockAnalysisMessageService:
                 list((refresh_run or {}).get("changed_contexts") or []),
                 ensure_ascii=False,
             ),
+            "used_active_memory": assembled["used_active_memory"],
+            "active_memory_id": int(active_memory.get("memory_id") or 0)
+            if active_memory
+            else 0,
+            "active_memory_title": str(active_memory.get("title") or "").strip()
+            if active_memory
+            else "",
+            "active_memory_updated_at": str(active_memory.get("updated_at") or "").strip()
+            if active_memory
+            else "",
+            "active_memory_version": int(active_memory.get("version") or 0)
+            if active_memory
+            else 0,
             "thread_id": thread_id,
         }
         assistant_item = await self.conversation_service.core_conversation_service.add_item(
@@ -317,6 +348,20 @@ class StockAnalysisMessageService:
             refresh_failed_context_ids=list((refresh_run or {}).get("failed_context_ids") or []),
             refresh_skipped_context_ids=list((refresh_run or {}).get("skipped_context_ids") or []),
             refresh_changed_contexts=list((refresh_run or {}).get("changed_contexts") or []),
+            used_active_memory=assembled["used_active_memory"],
+            active_memory_id=int(active_memory.get("memory_id") or 0)
+            if active_memory
+            else None,
+            active_memory_title=str(active_memory.get("title") or "").strip() or None
+            if active_memory
+            else None,
+            active_memory_updated_at=str(active_memory.get("updated_at") or "").strip()
+            or None
+            if active_memory
+            else None,
+            active_memory_version=int(active_memory.get("version") or 0)
+            if active_memory
+            else None,
             user_message=self._serialize_message_item(user_item),
             assistant_message=self._serialize_message_item(assistant_item),
         )
@@ -497,6 +542,11 @@ class StockAnalysisMessageService:
                 "refresh_failed_context_ids": [],
                 "refresh_skipped_context_ids": [],
                 "refresh_changed_contexts": [],
+                "used_active_memory": False,
+                "active_memory_id": None,
+                "active_memory_title": None,
+                "active_memory_updated_at": None,
+                "active_memory_version": None,
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -574,6 +624,21 @@ class StockAnalysisMessageService:
             "refresh_changed_contexts": StockAnalysisMessageService._parse_json_list(
                 metadata.get("refresh_changed_contexts_json")
             ),
+            "used_active_memory": StockAnalysisMessageService._parse_bool(
+                metadata.get("used_active_memory")
+            ),
+            "active_memory_id": StockAnalysisMessageService._parse_optional_int(
+                metadata.get("active_memory_id")
+            ),
+            "active_memory_title": str(metadata.get("active_memory_title") or "").strip()
+            or None,
+            "active_memory_updated_at": str(
+                metadata.get("active_memory_updated_at") or ""
+            ).strip()
+            or None,
+            "active_memory_version": StockAnalysisMessageService._parse_optional_int(
+                metadata.get("active_memory_version")
+            ),
         }
 
     @staticmethod
@@ -616,6 +681,19 @@ class StockAnalysisMessageService:
             return value
         text = str(value or "").strip().lower()
         return text in {"1", "true", "yes", "on"}
+
+    @staticmethod
+    def _parse_optional_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            parsed = int(text)
+        except ValueError:
+            return None
+        return parsed if parsed > 0 else None
 
 
 _stock_analysis_message_service: Optional[StockAnalysisMessageService] = None

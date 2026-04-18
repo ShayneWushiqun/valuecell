@@ -48,6 +48,11 @@ export type StockAnalysisMessage = {
   refresh_failed_context_ids: number[];
   refresh_skipped_context_ids: number[];
   refresh_changed_contexts: Array<Record<string, unknown>>;
+  used_active_memory: boolean;
+  active_memory_id?: number | null;
+  active_memory_title?: string | null;
+  active_memory_updated_at?: string | null;
+  active_memory_version?: number | null;
 };
 
 export type StockAnalysisMessageList = {
@@ -104,6 +109,11 @@ export type StockAnalysisMessageCreateResult = {
   refresh_failed_context_ids: number[];
   refresh_skipped_context_ids: number[];
   refresh_changed_contexts: Array<Record<string, unknown>>;
+  used_active_memory: boolean;
+  active_memory_id?: number | null;
+  active_memory_title?: string | null;
+  active_memory_updated_at?: string | null;
+  active_memory_version?: number | null;
   user_message: StockAnalysisMessage;
   assistant_message: StockAnalysisMessage;
 };
