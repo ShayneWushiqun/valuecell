@@ -5,6 +5,7 @@ from typing import Any, cast
 import pytest
 
 from valuecell.server.services.assets.stock_analysis_workspace_service import (
+    TEMPORARY_EVIDENCE_SAVED_CONTEXT_TYPE,
     StockAnalysisWorkspaceService,
 )
 from valuecell.server.services.tests.test_stock_analysis_thread_service import (
@@ -390,3 +391,179 @@ async def test_import_replace_keeps_unrelated_context_cards() -> None:
 
     assert len(result["contexts"]) == 2
     assert {item["context_type"] for item in result["contexts"]} == {"theme", "opportunity"}
+
+
+@pytest.mark.asyncio
+async def test_fork_thread_copies_selected_contexts_without_copying_message_history() -> None:
+    conversation_service = FakeConversationService()
+    context_repository = FakeContextRepository()
+    service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, context_repository),
+        conversation_service=cast(Any, conversation_service),
+    )
+    source_thread = await service.create_thread(
+        user_id="default_user",
+        title="半导体主线",
+        focus_type="comparison",
+        compare_targets_json=[
+            {
+                "target_type": "ticker",
+                "ref": "SHSE:603986",
+                "label": "中军",
+                "source_module": "holding",
+                "source_ref": "11",
+                "role": "primary",
+                "order": 0,
+            },
+            {
+                "target_type": "ticker",
+                "ref": "SZSE:300474",
+                "label": "跟风",
+                "source_module": "opportunity",
+                "source_ref": "SZSE:300474",
+                "role": "secondary",
+                "order": 1,
+            },
+        ],
+    )
+    first = await service.create_context_card(
+        user_id="default_user",
+        thread_id=source_thread["thread_id"],
+        context_type="holding",
+        title="中军持仓卡",
+        summary="中军票持仓观察。",
+        ticker_refs_json=["SHSE:603986"],
+        source_module="holding",
+        source_ref="11",
+    )
+    second = await service.create_context_card(
+        user_id="default_user",
+        thread_id=source_thread["thread_id"],
+        context_type="opportunity",
+        title="跟风机会卡",
+        summary="跟风候选观察。",
+        ticker_refs_json=["SZSE:300474"],
+        source_module="opportunity",
+        source_ref="SZSE:300474",
+    )
+
+    result = await service.fork_thread(
+        user_id="default_user",
+        thread_id=source_thread["thread_id"],
+        selected_context_ids=[int(first["context_id"])],
+        include_compare_targets=True,
+        pin_imported_contexts=True,
+    )
+
+    assert result is not None
+    assert result["thread"]["thread_id"] != source_thread["thread_id"]
+    assert result["thread"]["conversation_id"] != source_thread["conversation_id"]
+    assert result["thread"]["compare_targets_json"]
+    assert result["context_count"] == 1
+    assert result["contexts"][0]["context_id"] != second["context_id"]
+    assert result["contexts"][0]["title"] == "中军持仓卡"
+    assert result["contexts"][0]["is_pinned"] is True
+
+
+@pytest.mark.asyncio
+async def test_refresh_context_card_reuses_existing_builder() -> None:
+    service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        tradingagents_service=cast(Any, FakeTradingAgentsService()),
+        conversation_service=cast(Any, FakeConversationService()),
+        opportunity_pool_service=cast(Any, FakeOpportunityPoolService()),
+    )
+    thread = await service.create_thread(
+        user_id="default_user",
+        title="刷新测试",
+        focus_type="ticker",
+    )
+    card = await service.import_context(
+        user_id="default_user",
+        source_module="opportunity",
+        source_ref="SZSE:000001",
+        target_thread_id=thread["thread_id"],
+        mode="append",
+    )
+
+    refreshed = await service.refresh_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_id=int(card["context_card"]["context_id"]),
+    )
+
+    assert refreshed is not None
+    assert refreshed["context_id"] == card["context_card"]["context_id"]
+    assert refreshed["context_type"] == "opportunity"
+    assert refreshed["source_ref"] == "SZSE:000001"
+    assert refreshed["summary"]
+
+
+@pytest.mark.asyncio
+async def test_refresh_context_card_rejects_saved_temporary_evidence() -> None:
+    service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        conversation_service=cast(Any, FakeConversationService()),
+    )
+    thread = await service.create_thread(
+        user_id="default_user",
+        title="证据刷新测试",
+        focus_type="mixed",
+    )
+    created = await service.create_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_type=TEMPORARY_EVIDENCE_SAVED_CONTEXT_TYPE,
+        title="历史证据",
+        summary="某轮补数证据",
+        source_module="tooling_evidence",
+        source_ref="message:0",
+    )
+
+    assert created is not None
+    with pytest.raises(ValueError, match="不支持直接刷新"):
+        await service.refresh_context_card(
+            user_id="default_user",
+            thread_id=thread["thread_id"],
+            context_id=int(created["context_id"]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_context_cards_returns_staleness_fields() -> None:
+    service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        conversation_service=cast(Any, FakeConversationService()),
+    )
+    thread = await service.create_thread(
+        user_id="default_user",
+        title="时效测试",
+        focus_type="ticker",
+        ticker_refs_json=["SZSE:300308"],
+    )
+    created = await service.create_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_type="ticker",
+        title="老卡片",
+        summary="需要刷新。",
+        ticker_refs_json=["SZSE:300308"],
+        snapshot_payload_json={"generated_at": "2026-04-10T10:00:00+00:00"},
+        source_module="ticker",
+        source_ref="SZSE:300308",
+    )
+
+    assert created is not None
+    result = await service.list_context_cards(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+    )
+
+    assert result is not None
+    assert result["items"][0]["freshness_label"] == "建议刷新"
+    assert result["items"][0]["refresh_recommended"] is True
+    assert result["items"][0]["is_stale"] is True

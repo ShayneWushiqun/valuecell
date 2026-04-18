@@ -38,6 +38,12 @@ class AnalysisContextCardItemData(BaseModel):
     source_module: str
     source_ref: str | None = None
     staleness_hint: str | None = None
+    generated_at: datetime | None = None
+    data_time: datetime | None = None
+    freshness_label: str | None = None
+    refresh_recommended: bool = False
+    is_stale: bool = False
+    refresh_supported: bool = True
     is_pinned: bool = False
     created_at: datetime
     updated_at: datetime

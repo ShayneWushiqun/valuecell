@@ -1,3 +1,13 @@
+export type StockAnalysisCompareTarget = {
+  target_type: "ticker" | "theme";
+  ref: string;
+  label: string;
+  source_module: string;
+  source_ref: string;
+  role: "primary" | "secondary";
+  order: number;
+};
+
 export type StockAnalysisThread = {
   thread_id: number;
   user_id: string;
@@ -5,6 +15,7 @@ export type StockAnalysisThread = {
   focus_type: string;
   ticker_refs_json: string[];
   theme_refs_json: string[];
+  compare_targets_json: StockAnalysisCompareTarget[];
   conversation_id: string;
   context_count: number;
   created_at: string;
@@ -25,4 +36,19 @@ export type StockAnalysisWorkspaceOverview = {
   context_count: number;
   available: boolean;
   empty_message: string | null;
+};
+
+export type StockAnalysisCompareTargetList = {
+  thread_id: number;
+  focus_type: string;
+  compare_targets: StockAnalysisCompareTarget[];
+  compared_tickers: string[];
+  compared_themes: string[];
+  comparison_mode: boolean;
+};
+
+export type StockAnalysisThreadForkResult = {
+  thread: StockAnalysisThread;
+  contexts: import("./analysis-context-card").AnalysisContextCard[];
+  context_count: number;
 };

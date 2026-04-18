@@ -409,6 +409,92 @@ async def test_stock_analysis_message_service_need_tooling_returns_metadata(
 
 
 @pytest.mark.asyncio
+async def test_stock_analysis_message_service_returns_comparison_metadata(
+    monkeypatch,
+) -> None:
+    conversation_service = FakeConversationServiceForMessages()
+    workspace_service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        conversation_service=cast(Any, conversation_service),
+    )
+    thread = await workspace_service.create_thread(
+        user_id="default_user",
+        title="半导体对比",
+        focus_type="comparison",
+        compare_targets_json=[
+            {
+                "target_type": "ticker",
+                "ref": "SHSE:603986",
+                "label": "中军",
+                "source_module": "holding",
+                "source_ref": "11",
+                "role": "primary",
+                "order": 0,
+            },
+            {
+                "target_type": "ticker",
+                "ref": "SZSE:300474",
+                "label": "跟风",
+                "source_module": "opportunity",
+                "source_ref": "SZSE:300474",
+                "role": "secondary",
+                "order": 1,
+            },
+        ],
+    )
+    await workspace_service.create_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_type="holding",
+        title="中军持仓卡",
+        summary="中军票持仓观察。",
+        ticker_refs_json=["SHSE:603986"],
+        snapshot_payload_json={"generated_at": "2026-04-18T09:00:00+00:00"},
+        source_module="holding",
+        source_ref="11",
+        is_pinned=True,
+    )
+    await workspace_service.create_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_type="opportunity",
+        title="跟风机会卡",
+        summary="跟风候选观察。",
+        ticker_refs_json=["SZSE:300474"],
+        snapshot_payload_json={"generated_at": "2026-04-10T09:00:00+00:00"},
+        source_module="opportunity",
+        source_ref="SZSE:300474",
+    )
+    service = StockAnalysisMessageService(
+        stock_analysis_workspace_service=workspace_service,
+        conversation_service=cast(Any, conversation_service),
+        tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
+        tooling_service=FakeToolingService(),
+    )
+    monkeypatch.setattr(service, "_generate_answer", _fake_answer)
+
+    result = await service.send_message(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        message="比较中军和跟风谁更优先。",
+    )
+    assert result is not None
+    assert result.comparison_mode is True
+    assert result.compared_tickers == ["SHSE:603986", "SZSE:300474"]
+    assert result.stale_context_ids
+    assert result.refresh_recommended_context_ids
+
+    history = await service.list_messages(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+    )
+    assert history is not None
+    assert history["items"][1]["comparison_mode"] is True
+    assert history["items"][1]["compared_tickers"] == ["SHSE:603986", "SZSE:300474"]
+
+
+@pytest.mark.asyncio
 async def test_stock_analysis_message_service_can_save_temporary_evidence_as_context(
     monkeypatch,
 ) -> None:

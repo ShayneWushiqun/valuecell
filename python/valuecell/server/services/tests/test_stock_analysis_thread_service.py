@@ -18,6 +18,7 @@ class FakeThreadRecord:
     focus_type: str
     ticker_refs_json: list[str]
     theme_refs_json: list[str]
+    compare_targets_json: list[dict[str, Any]]
     conversation_id: str
     archived_at: Any = None
 
@@ -38,6 +39,7 @@ class FakeThreadRecord:
             "focus_type": self.focus_type,
             "ticker_refs_json": list(self.ticker_refs_json),
             "theme_refs_json": list(self.theme_refs_json),
+            "compare_targets_json": list(self.compare_targets_json),
             "conversation_id": self.conversation_id,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
@@ -143,6 +145,18 @@ class FakeContextRepository:
         self.next_id += 1
         self.items.append(item)
         return item
+
+    def get_context_card_by_id(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        context_id: int,
+    ):
+        for item in self.items:
+            if item.user_id == user_id and item.thread_id == thread_id and item.id == context_id:
+                return item
+        return None
 
     def update_context_card(self, *, user_id: str, thread_id: int, context_id: int, payload: dict[str, Any]):
         for item in self.items:

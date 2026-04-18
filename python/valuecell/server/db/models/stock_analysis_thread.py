@@ -17,6 +17,7 @@ class StockAnalysisThread(Base):
     focus_type = Column(String(50), nullable=False, index=True)
     ticker_refs_json = Column(JSON, nullable=False, default=list)
     theme_refs_json = Column(JSON, nullable=False, default=list)
+    compare_targets_json = Column(JSON, nullable=False, default=list)
     conversation_id = Column(String(120), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
@@ -35,6 +36,7 @@ class StockAnalysisThread(Base):
             "focus_type": self.focus_type,
             "ticker_refs_json": list(self.ticker_refs_json or []),
             "theme_refs_json": list(self.theme_refs_json or []),
+            "compare_targets_json": list(self.compare_targets_json or []),
             "conversation_id": self.conversation_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

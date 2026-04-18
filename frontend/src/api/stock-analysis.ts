@@ -12,7 +12,9 @@ import type {
   StockAnalysisMessageList,
 } from "@/types/stock-analysis-message";
 import type {
+  StockAnalysisCompareTargetList,
   StockAnalysisThread,
+  StockAnalysisThreadForkResult,
   StockAnalysisThreadList,
   StockAnalysisWorkspaceOverview,
 } from "@/types/stock-analysis-thread";
@@ -22,6 +24,7 @@ type CreateThreadPayload = {
   focus_type: string;
   ticker_refs_json?: string[];
   theme_refs_json?: string[];
+  compare_targets_json?: StockAnalysisCompareTargetList["compare_targets"];
 };
 
 type UpdateThreadPayload = {
@@ -29,6 +32,7 @@ type UpdateThreadPayload = {
   focus_type?: string;
   ticker_refs_json?: string[];
   theme_refs_json?: string[];
+  compare_targets_json?: StockAnalysisCompareTargetList["compare_targets"];
 };
 
 type CreateContextPayload = {
@@ -73,6 +77,18 @@ type SaveEvidencePayload = {
   title?: string;
 };
 
+type UpdateCompareTargetsPayload = {
+  compare_targets: StockAnalysisCompareTargetList["compare_targets"];
+};
+
+type ForkThreadPayload = {
+  title?: string;
+  selected_context_ids?: number[];
+  include_compare_targets?: boolean;
+  pin_imported_contexts?: boolean;
+  focus_type_override?: string;
+};
+
 export const useGetStockAnalysisThreads = () =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads,
@@ -111,6 +127,17 @@ export const useGetStockAnalysisMessages = (threadId?: number | null) =>
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisMessageList>>(
         `stock-analysis/threads/${threadId}/messages`,
+      ),
+    select: (response) => response.data,
+  });
+
+export const useGetStockAnalysisCompareTargets = (threadId?: number | null) =>
+  useQuery({
+    queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.compareTargets(threadId || 0),
+    enabled: !!threadId,
+    queryFn: () =>
+      apiClient.get<ApiResponse<StockAnalysisCompareTargetList>>(
+        `stock-analysis/threads/${threadId}/compare-targets`,
       ),
     select: (response) => response.data,
   });
@@ -157,6 +184,35 @@ export const useDeleteStockAnalysisThread = () => {
       queryClient.invalidateQueries({ queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads });
       queryClient.invalidateQueries({
         queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overviewBase,
+      });
+    },
+  });
+};
+
+export const useForkStockAnalysisThread = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      data,
+    }: {
+      threadId: number;
+      data: ForkThreadPayload;
+    }) =>
+      apiClient.post<ApiResponse<StockAnalysisThreadForkResult>>(
+        `stock-analysis/threads/${threadId}/fork`,
+        data,
+      ),
+    onSuccess: (response, variables) => {
+      queryClient.invalidateQueries({ queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overviewBase,
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.contexts(response.data.thread.thread_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.compareTargets(variables.threadId),
       });
     },
   });
@@ -254,6 +310,27 @@ export const useDeleteStockAnalysisContext = () => {
   });
 };
 
+export const useRefreshStockAnalysisContext = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      contextId,
+    }: {
+      threadId: number;
+      contextId: number;
+    }) =>
+      apiClient.post<ApiResponse<AnalysisContextCard>>(
+        `stock-analysis/threads/${threadId}/contexts/${contextId}/refresh`,
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.contexts(variables.threadId),
+      });
+    },
+  });
+};
+
 export const useImportStockAnalysisContext = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -291,6 +368,34 @@ export const useCreateStockAnalysisMessage = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.messages(variables.threadId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads,
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overviewBase,
+      });
+    },
+  });
+};
+
+export const useUpdateStockAnalysisCompareTargets = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      data,
+    }: {
+      threadId: number;
+      data: UpdateCompareTargetsPayload;
+    }) =>
+      apiClient.put<ApiResponse<StockAnalysisCompareTargetList>>(
+        `stock-analysis/threads/${threadId}/compare-targets`,
+        data,
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.compareTargets(variables.threadId),
       });
       queryClient.invalidateQueries({
         queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads,

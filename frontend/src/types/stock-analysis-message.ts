@@ -8,6 +8,10 @@ export type StockAnalysisMessage = {
   mode: string;
   used_context_ids: number[];
   missing_context_hints: string[];
+  compared_tickers: string[];
+  comparison_mode: boolean;
+  stale_context_ids: number[];
+  refresh_recommended_context_ids: number[];
   tool_reason?: string | null;
   tool_calls_summary: string[];
   temporary_evidence_blocks: {
@@ -51,6 +55,10 @@ export type StockAnalysisMessageCreateResult = {
   mode: string;
   used_context_ids: number[];
   missing_context_hints: string[];
+  compared_tickers: string[];
+  comparison_mode: boolean;
+  stale_context_ids: number[];
+  refresh_recommended_context_ids: number[];
   tool_reason?: string | null;
   tool_calls_summary: string[];
   temporary_evidence_blocks: {

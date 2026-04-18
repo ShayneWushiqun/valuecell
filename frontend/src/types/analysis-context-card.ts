@@ -12,6 +12,12 @@ export type AnalysisContextCard = {
   source_module: string;
   source_ref: string | null;
   staleness_hint: string | null;
+  generated_at?: string | null;
+  data_time?: string | null;
+  freshness_label?: string | null;
+  refresh_recommended: boolean;
+  is_stale: boolean;
+  refresh_supported: boolean;
   is_pinned: boolean;
   created_at: string;
   updated_at: string;

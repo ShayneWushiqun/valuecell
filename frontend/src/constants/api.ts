@@ -170,6 +170,7 @@ const STOCK_ANALYSIS_QUERY_KEYS = {
   overview: (threadId: number) => ["stock-analysis", "overview", threadId],
   contexts: (threadId: number) => ["stock-analysis", "contexts", threadId],
   messages: (threadId: number) => ["stock-analysis", "messages", threadId],
+  compareTargets: (threadId: number) => ["stock-analysis", "compare-targets", threadId],
 } as const;
 
 const SYSTEM_QUERY_KEYS = {

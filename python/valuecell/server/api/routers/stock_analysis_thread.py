@@ -47,6 +47,7 @@ def create_stock_analysis_thread_router() -> APIRouter:
                 focus_type=request.focus_type,
                 ticker_refs_json=request.ticker_refs_json,
                 theme_refs_json=request.theme_refs_json,
+                compare_targets_json=request.compare_targets_json,
             )
             return SuccessResponse.create(
                 data=StockAnalysisThreadItemData(**data),
@@ -75,6 +76,7 @@ def create_stock_analysis_thread_router() -> APIRouter:
                 focus_type=request.focus_type,
                 ticker_refs_json=request.ticker_refs_json,
                 theme_refs_json=request.theme_refs_json,
+                compare_targets_json=request.compare_targets_json,
             )
             if data is None:
                 raise HTTPException(status_code=404, detail="Thread not found")

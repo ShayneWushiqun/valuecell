@@ -92,6 +92,129 @@ def _clean_refs(values: Sequence[str] | None) -> list[str]:
     return deduped
 
 
+def _parse_datetime(value: Any) -> dt.datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    normalized = text.replace("Z", "+00:00")
+    try:
+        parsed = dt.datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=dt.UTC)
+    return parsed.astimezone(dt.UTC)
+
+
+def _normalize_compare_targets(values: Sequence[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for index, item in enumerate(values or []):
+        target_type = str(item.get("target_type") or "ticker").strip()
+        ref = str(item.get("ref") or item.get("target_ref") or "").strip()
+        if target_type not in {"ticker", "theme"} or not ref:
+            continue
+        source_module = str(item.get("source_module") or "manual").strip() or "manual"
+        dedupe_key = (target_type, ref, source_module)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        result.append(
+            {
+                "target_type": target_type,
+                "ref": ref,
+                "label": str(item.get("label") or ref).strip() or ref,
+                "source_module": source_module,
+                "source_ref": str(item.get("source_ref") or ref).strip() or ref,
+                "role": str(item.get("role") or ("primary" if index == 0 else "secondary")).strip()
+                or "secondary",
+                "order": int(item.get("order") or index),
+            }
+        )
+    return sorted(result, key=lambda item: (int(item.get("order") or 0), str(item.get("label") or "")))
+
+
+def _refs_from_compare_targets(
+    compare_targets: Sequence[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
+    ticker_refs = _clean_refs(
+        [str(item.get("ref") or "") for item in compare_targets if item.get("target_type") == "ticker"]
+    )
+    theme_refs = _clean_refs(
+        [str(item.get("ref") or "") for item in compare_targets if item.get("target_type") == "theme"]
+    )
+    return ticker_refs, theme_refs
+
+
+def _resolve_card_freshness(
+    *,
+    source_module: str,
+    snapshot_payload_json: dict[str, Any],
+    created_at: Any,
+    updated_at: Any,
+    staleness_hint: str | None,
+) -> dict[str, Any]:
+    generated_raw = (
+        str(snapshot_payload_json.get("generated_at") or "").strip()
+        or str(created_at or "").strip()
+        or str(updated_at or "").strip()
+        or None
+    )
+    data_raw = (
+        str(snapshot_payload_json.get("data_time") or "").strip()
+        or generated_raw
+    )
+    generated_dt = _parse_datetime(generated_raw)
+    data_dt = _parse_datetime(data_raw)
+    generated_at = generated_dt.isoformat() if generated_dt is not None else generated_raw
+    data_time = data_dt.isoformat() if data_dt is not None else data_raw
+    freshness_label = "时效待确认"
+    refresh_recommended = False
+    is_stale = False
+    if data_dt is not None:
+        age_days = (_utcnow() - data_dt).total_seconds() / (60 * 60 * 24)
+        if "external_news" in source_module and age_days >= 1:
+            freshness_label = "可能已过时"
+            refresh_recommended = True
+            is_stale = True
+        elif age_days <= 1:
+            freshness_label = "较新"
+        elif age_days <= 3:
+            freshness_label = "可继续参考"
+        else:
+            freshness_label = "建议刷新"
+            refresh_recommended = True
+            is_stale = True
+    if source_module == "tooling_evidence":
+        refresh_recommended = True
+        freshness_label = "建议刷新" if freshness_label == "时效待确认" else freshness_label
+    if source_module == "temporary_evidence_saved":
+        freshness_label = "可能已过时" if freshness_label == "时效待确认" else freshness_label
+        refresh_recommended = True
+        is_stale = True if freshness_label == "可能已过时" else is_stale
+    resolved_hint = staleness_hint
+    if not resolved_hint:
+        if freshness_label == "较新":
+            resolved_hint = "该上下文较新，可继续参考。"
+        elif freshness_label == "可继续参考":
+            resolved_hint = "该上下文为近 3 日数据，可继续参考。"
+        elif freshness_label == "建议刷新":
+            resolved_hint = "该上下文超过 3 日，建议刷新后再做强结论。"
+        elif freshness_label == "可能已过时":
+            resolved_hint = "该上下文明显依赖短周期或临时证据，可能已过时。"
+    return {
+        "generated_at": generated_at,
+        "data_time": data_time,
+        "freshness_label": freshness_label,
+        "refresh_recommended": refresh_recommended,
+        "is_stale": is_stale,
+        "staleness_hint": resolved_hint,
+        "refresh_supported": source_module != "tooling_evidence"
+        and source_module != "external_news_evidence"
+        and source_module != "external_confirmation_evidence",
+    }
+
+
 class StockAnalysisWorkspaceService:
     def __init__(
         self,
@@ -154,8 +277,13 @@ class StockAnalysisWorkspaceService:
         focus_type: str,
         ticker_refs_json: Sequence[str] | None = None,
         theme_refs_json: Sequence[str] | None = None,
+        compare_targets_json: Sequence[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        normalized_focus_type = self._normalize_focus_type(focus_type)
+        normalized_compare_targets = _normalize_compare_targets(compare_targets_json)
+        compare_tickers, compare_themes = _refs_from_compare_targets(normalized_compare_targets)
+        normalized_focus_type = self._normalize_focus_type(
+            "comparison" if len(normalized_compare_targets) >= 2 else focus_type
+        )
         conversation_id = generate_conversation_id()
         conversation = await self.conversation_service.conversation_manager.create_conversation(
             user_id=user_id,
@@ -172,8 +300,9 @@ class StockAnalysisWorkspaceService:
                 "user_id": user_id,
                 "title": title.strip(),
                 "focus_type": normalized_focus_type,
-                "ticker_refs_json": _clean_refs(ticker_refs_json),
-                "theme_refs_json": _clean_refs(theme_refs_json),
+                "ticker_refs_json": _clean_refs(list(ticker_refs_json or []) + compare_tickers),
+                "theme_refs_json": _clean_refs(list(theme_refs_json or []) + compare_themes),
+                "compare_targets_json": normalized_compare_targets,
                 "conversation_id": conversation_id,
             }
         )
@@ -193,6 +322,7 @@ class StockAnalysisWorkspaceService:
         focus_type: str | None = None,
         ticker_refs_json: Sequence[str] | None = None,
         theme_refs_json: Sequence[str] | None = None,
+        compare_targets_json: Sequence[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         existing = self.stock_analysis_thread_repository.get_thread_by_id(
             user_id=user_id,
@@ -201,6 +331,7 @@ class StockAnalysisWorkspaceService:
         if existing is None:
             return None
         payload: dict[str, Any] = {}
+        normalized_compare_targets: list[dict[str, Any]] | None = None
         if title is not None:
             payload["title"] = title.strip()
         if focus_type is not None:
@@ -209,6 +340,26 @@ class StockAnalysisWorkspaceService:
             payload["ticker_refs_json"] = _clean_refs(ticker_refs_json)
         if theme_refs_json is not None:
             payload["theme_refs_json"] = _clean_refs(theme_refs_json)
+        if compare_targets_json is not None:
+            normalized_compare_targets = _normalize_compare_targets(compare_targets_json)
+            compare_tickers, compare_themes = _refs_from_compare_targets(normalized_compare_targets)
+            payload["compare_targets_json"] = normalized_compare_targets
+            payload["ticker_refs_json"] = _clean_refs(
+                list(payload.get("ticker_refs_json") or existing.ticker_refs_json or [])
+                + compare_tickers
+            )
+            payload["theme_refs_json"] = _clean_refs(
+                list(payload.get("theme_refs_json") or existing.theme_refs_json or [])
+                + compare_themes
+            )
+            if focus_type is None:
+                if len(normalized_compare_targets) >= 2:
+                    payload["focus_type"] = "comparison"
+                elif existing.focus_type == "comparison":
+                    payload["focus_type"] = self._resolve_focus_type_from_refs(
+                        ticker_refs=list(payload["ticker_refs_json"]),
+                        theme_refs=list(payload["theme_refs_json"]),
+                    )
         updated = self.stock_analysis_thread_repository.update_thread(
             user_id=user_id,
             thread_id=thread_id,
@@ -260,6 +411,7 @@ class StockAnalysisWorkspaceService:
             focus_type=source_thread.focus_type,
             ticker_refs_json=list(source_thread.ticker_refs_json or []),
             theme_refs_json=list(source_thread.theme_refs_json or []),
+            compare_targets_json=list(getattr(source_thread, "compare_targets_json", []) or []),
         )
         source_contexts = self.analysis_context_card_repository.list_context_cards(
             user_id=user_id,
@@ -289,6 +441,84 @@ class StockAnalysisWorkspaceService:
         return {
             "thread": duplicated,
             "contexts": copied_contexts,
+        }
+
+    async def fork_thread(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        title: str | None = None,
+        selected_context_ids: Sequence[int] | None = None,
+        include_compare_targets: bool = True,
+        pin_imported_contexts: bool = False,
+        focus_type_override: str | None = None,
+    ) -> dict[str, Any] | None:
+        source_thread = self.stock_analysis_thread_repository.get_thread_by_id(
+            user_id=user_id,
+            thread_id=thread_id,
+        )
+        if source_thread is None:
+            return None
+        source_contexts = self.analysis_context_card_repository.list_context_cards(
+            user_id=user_id,
+            thread_id=thread_id,
+        )
+        selected_ids = {int(item) for item in list(selected_context_ids or []) if int(item) > 0}
+        copied_items = [
+            item
+            for item in source_contexts
+            if not selected_ids or int(item.id) in selected_ids
+        ]
+        compare_targets = (
+            list(getattr(source_thread, "compare_targets_json", []) or [])
+            if include_compare_targets
+            else []
+        )
+        copied_ticker_refs = _clean_refs(
+            ref
+            for item in copied_items
+            for ref in list(item.ticker_refs_json or [])
+        )
+        copied_theme_refs = _clean_refs(
+            ref
+            for item in copied_items
+            for ref in list(item.theme_refs_json or [])
+        )
+        compare_tickers, compare_themes = _refs_from_compare_targets(compare_targets)
+        forked = await self.create_thread(
+            user_id=user_id,
+            title=(title or f"{source_thread.title}（分叉）").strip(),
+            focus_type=focus_type_override or source_thread.focus_type,
+            ticker_refs_json=_clean_refs(copied_ticker_refs + compare_tickers),
+            theme_refs_json=_clean_refs(copied_theme_refs + compare_themes),
+            compare_targets_json=compare_targets,
+        )
+        copied_contexts: list[dict[str, Any]] = []
+        for item in copied_items:
+            created = self.analysis_context_card_repository.create_context_card(
+                {
+                    "thread_id": forked["thread_id"],
+                    "user_id": user_id,
+                    "context_type": item.context_type,
+                    "title": item.title,
+                    "subtitle": item.subtitle,
+                    "ticker_refs_json": list(item.ticker_refs_json or []),
+                    "theme_refs_json": list(item.theme_refs_json or []),
+                    "summary": item.summary,
+                    "snapshot_payload_json": item.snapshot_payload_json or {},
+                    "source_module": item.source_module,
+                    "source_ref": item.source_ref,
+                    "staleness_hint": item.staleness_hint,
+                    "is_pinned": pin_imported_contexts or item.is_pinned,
+                }
+            )
+            if created is not None:
+                copied_contexts.append(self._serialize_context_card(created))
+        return {
+            "thread": forked,
+            "contexts": copied_contexts,
+            "context_count": len(copied_contexts),
         }
 
     async def list_context_cards(
@@ -417,6 +647,54 @@ class StockAnalysisWorkspaceService:
             return None
         return self._serialize_context_card(updated)
 
+    async def refresh_context_card(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        context_id: int,
+    ) -> dict[str, Any] | None:
+        existing = self.analysis_context_card_repository.get_context_card_by_id(
+            user_id=user_id,
+            thread_id=thread_id,
+            context_id=context_id,
+        )
+        if existing is None:
+            return None
+        if existing.context_type == TEMPORARY_EVIDENCE_SAVED_CONTEXT_TYPE:
+            raise ValueError("该卡片来自某轮临时证据，不支持直接刷新，请重新补数或重新导入原始来源。")
+        if str(existing.source_module or "").strip() not in SUPPORTED_SOURCE_MODULES:
+            raise ValueError("该卡片来源不支持刷新。")
+        if not str(existing.source_ref or "").strip():
+            raise ValueError("该卡片缺少可定位 source_ref，无法直接刷新。")
+        refreshed_payload = await self._build_context_import_payload(
+            user_id=user_id,
+            source_module=str(existing.source_module or "").strip(),
+            source_ref=str(existing.source_ref or "").strip(),
+        )
+        updated = self.analysis_context_card_repository.update_context_card(
+            user_id=user_id,
+            thread_id=thread_id,
+            context_id=context_id,
+            payload={
+                "context_type": refreshed_payload["context_type"],
+                "title": refreshed_payload["title"],
+                "subtitle": refreshed_payload.get("subtitle"),
+                "ticker_refs_json": list(refreshed_payload.get("ticker_refs_json") or []),
+                "theme_refs_json": list(refreshed_payload.get("theme_refs_json") or []),
+                "summary": refreshed_payload["summary"],
+                "snapshot_payload_json": refreshed_payload.get("snapshot_payload_json") or {},
+                "source_module": refreshed_payload["source_module"],
+                "source_ref": refreshed_payload.get("source_ref"),
+                "staleness_hint": refreshed_payload.get("staleness_hint"),
+                "is_pinned": existing.is_pinned,
+                "updated_at": _utcnow(),
+            },
+        )
+        if updated is None:
+            return None
+        return self._serialize_context_card(updated)
+
     async def delete_context_card(
         self,
         *,
@@ -540,11 +818,31 @@ class StockAnalysisWorkspaceService:
             thread_id=thread.id,
         )
         data["context_count"] = len(contexts)
+        data["compare_targets_json"] = list(getattr(thread, "compare_targets_json", []) or [])
         return data
 
     @staticmethod
     def _serialize_context_card(card: Any) -> dict[str, Any]:
-        return card.to_dict()
+        data = card.to_dict()
+        freshness = _resolve_card_freshness(
+            source_module=str(data.get("source_module") or ""),
+            snapshot_payload_json=dict(data.get("snapshot_payload_json") or {}),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            staleness_hint=data.get("staleness_hint"),
+        )
+        data["generated_at"] = freshness["generated_at"]
+        data["data_time"] = freshness["data_time"]
+        data["freshness_label"] = freshness["freshness_label"]
+        data["refresh_recommended"] = freshness["refresh_recommended"]
+        data["is_stale"] = freshness["is_stale"]
+        data["refresh_supported"] = (
+            False
+            if data.get("context_type") == TEMPORARY_EVIDENCE_SAVED_CONTEXT_TYPE
+            else freshness["refresh_supported"]
+        )
+        data["staleness_hint"] = freshness["staleness_hint"]
+        return data
 
     @staticmethod
     def _normalize_focus_type(value: str) -> str:
@@ -1158,12 +1456,23 @@ class StockAnalysisWorkspaceService:
         theme_refs = list(context_payload.get("theme_refs_json") or [])
         if source_module == "tradingagents_run":
             return "tradingagents_followup"
+        if source_module == "holding":
+            return "holding"
+        return StockAnalysisWorkspaceService._resolve_focus_type_from_refs(
+            ticker_refs=ticker_refs,
+            theme_refs=theme_refs,
+        )
+
+    @staticmethod
+    def _resolve_focus_type_from_refs(
+        *,
+        ticker_refs: Sequence[str],
+        theme_refs: Sequence[str],
+    ) -> str:
         if ticker_refs and theme_refs:
             return "mixed"
         if theme_refs:
             return "theme"
-        if source_module == "holding":
-            return "holding"
         if ticker_refs:
             return "ticker"
         return "mixed"

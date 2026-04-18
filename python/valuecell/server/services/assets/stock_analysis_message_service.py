@@ -39,6 +39,10 @@ class StockAnalysisMessageResult(BaseModel):
     mode: str
     used_context_ids: list[int]
     missing_context_hints: list[str]
+    compared_tickers: list[str]
+    comparison_mode: bool
+    stale_context_ids: list[int]
+    refresh_recommended_context_ids: list[int]
     tool_reason: str | None = None
     tool_calls_summary: list[str]
     temporary_evidence_blocks: list[dict[str, Any]]
@@ -182,6 +186,16 @@ class StockAnalysisMessageService:
             "mode": planner_result.mode,
             "used_context_ids_json": json.dumps(assembled["used_context_ids"], ensure_ascii=False),
             "missing_context_hints_json": json.dumps(effective_missing_hints, ensure_ascii=False),
+            "compared_tickers_json": json.dumps(assembled["compared_tickers"], ensure_ascii=False),
+            "comparison_mode": assembled["comparison_mode"],
+            "stale_context_ids_json": json.dumps(
+                assembled["stale_context_ids"],
+                ensure_ascii=False,
+            ),
+            "refresh_recommended_context_ids_json": json.dumps(
+                assembled["refresh_recommended_context_ids"],
+                ensure_ascii=False,
+            ),
             "tool_reason": planner_result.tool_reason or "",
             "tool_calls_summary_json": json.dumps(
                 tooling_result.tool_call_summaries,
@@ -227,6 +241,10 @@ class StockAnalysisMessageService:
             mode=planner_result.mode,
             used_context_ids=assembled["used_context_ids"],
             missing_context_hints=effective_missing_hints,
+            compared_tickers=assembled["compared_tickers"],
+            comparison_mode=assembled["comparison_mode"],
+            stale_context_ids=assembled["stale_context_ids"],
+            refresh_recommended_context_ids=assembled["refresh_recommended_context_ids"],
             tool_reason=planner_result.tool_reason,
             tool_calls_summary=tooling_result.tool_call_summaries,
             temporary_evidence_blocks=tooling_result.temporary_evidence_blocks,
@@ -394,14 +412,18 @@ class StockAnalysisMessageService:
                 "mode": CONTEXT_ONLY_MODE,
                 "used_context_ids": [],
                 "missing_context_hints": [],
+                "compared_tickers": [],
+                "comparison_mode": False,
+                "stale_context_ids": [],
+                "refresh_recommended_context_ids": [],
                 "tool_reason": None,
                 "tool_calls_summary": [],
                 "temporary_evidence_blocks": [],
                 "unavailable_tools": [],
-            "used_internal_sources": [],
-            "used_external_sources": [],
-            "evidence_generated_at": None,
-            "evidence_staleness_hint": None,
+                "used_internal_sources": [],
+                "used_external_sources": [],
+                "evidence_generated_at": None,
+                "evidence_staleness_hint": None,
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -418,6 +440,18 @@ class StockAnalysisMessageService:
             ),
             "missing_context_hints": StockAnalysisMessageService._parse_json_list(
                 metadata.get("missing_context_hints_json")
+            ),
+            "compared_tickers": StockAnalysisMessageService._parse_json_list(
+                metadata.get("compared_tickers_json")
+            ),
+            "comparison_mode": StockAnalysisMessageService._parse_bool(
+                metadata.get("comparison_mode")
+            ),
+            "stale_context_ids": StockAnalysisMessageService._parse_json_list(
+                metadata.get("stale_context_ids_json")
+            ),
+            "refresh_recommended_context_ids": StockAnalysisMessageService._parse_json_list(
+                metadata.get("refresh_recommended_context_ids_json")
             ),
             "tool_reason": str(metadata.get("tool_reason") or "").strip() or None,
             "tool_calls_summary": StockAnalysisMessageService._parse_json_list(
@@ -476,6 +510,13 @@ class StockAnalysisMessageService:
             return parsed if isinstance(parsed, list) else []
         except json.JSONDecodeError:
             return []
+
+    @staticmethod
+    def _parse_bool(value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        text = str(value or "").strip().lower()
+        return text in {"1", "true", "yes", "on"}
 
 
 _stock_analysis_message_service: Optional[StockAnalysisMessageService] = None

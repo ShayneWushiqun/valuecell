@@ -143,4 +143,34 @@ def create_analysis_context_card_router() -> APIRouter:
                 detail=f"Error deleting analysis context card: {str(exc)}",
             ) from exc
 
+    @router.post(
+        "/threads/{thread_id}/contexts/{context_id}/refresh",
+        response_model=SuccessResponse[AnalysisContextCardItemData],
+    )
+    async def refresh_context(
+        thread_id: int,
+        context_id: int,
+    ) -> SuccessResponse[AnalysisContextCardItemData]:
+        try:
+            data = await get_stock_analysis_workspace_service().refresh_context_card(
+                user_id=DEFAULT_USER_ID,
+                thread_id=thread_id,
+                context_id=context_id,
+            )
+            if data is None:
+                raise HTTPException(status_code=404, detail="Context card not found")
+            return SuccessResponse.create(
+                data=AnalysisContextCardItemData(**data),
+                msg="Analysis context card refreshed successfully",
+            )
+        except HTTPException:
+            raise
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error refreshing analysis context card: {str(exc)}",
+            ) from exc
+
     return router

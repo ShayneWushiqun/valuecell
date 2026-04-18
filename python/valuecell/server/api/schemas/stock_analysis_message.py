@@ -15,6 +15,10 @@ class StockAnalysisMessageItemData(BaseModel):
     mode: str = "context_only"
     used_context_ids: list[int] = Field(default_factory=list)
     missing_context_hints: list[str] = Field(default_factory=list)
+    compared_tickers: list[str] = Field(default_factory=list)
+    comparison_mode: bool = False
+    stale_context_ids: list[int] = Field(default_factory=list)
+    refresh_recommended_context_ids: list[int] = Field(default_factory=list)
     tool_reason: str | None = None
     tool_calls_summary: list[str] = Field(default_factory=list)
     temporary_evidence_blocks: list[dict[str, Any]] = Field(default_factory=list)
@@ -44,6 +48,10 @@ class StockAnalysisMessageCreateData(BaseModel):
     mode: str = "context_only"
     used_context_ids: list[int] = Field(default_factory=list)
     missing_context_hints: list[str] = Field(default_factory=list)
+    compared_tickers: list[str] = Field(default_factory=list)
+    comparison_mode: bool = False
+    stale_context_ids: list[int] = Field(default_factory=list)
+    refresh_recommended_context_ids: list[int] = Field(default_factory=list)
     tool_reason: str | None = None
     tool_calls_summary: list[str] = Field(default_factory=list)
     temporary_evidence_blocks: list[dict[str, Any]] = Field(default_factory=list)

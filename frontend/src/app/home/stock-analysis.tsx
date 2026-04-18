@@ -1,5 +1,5 @@
 import BackButton from "@valuecell/button/back-button";
-import { Copy, Pin, PinOff, Plus, Send, Trash2 } from "lucide-react";
+import { Copy, Plus, Send, Trash2, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -16,14 +16,21 @@ import {
   useDeleteStockAnalysisContext,
   useDeleteStockAnalysisThread,
   useDuplicateStockAnalysisThread,
+  useForkStockAnalysisThread,
+  useGetStockAnalysisCompareTargets,
   useGetStockAnalysisContexts,
   useGetStockAnalysisMessages,
   useGetStockAnalysisWorkspaceOverview,
   useImportStockAnalysisContext,
+  useRefreshStockAnalysisContext,
   useSaveStockAnalysisEvidence,
+  useUpdateStockAnalysisCompareTargets,
   useUpdateStockAnalysisContext,
   useUpdateStockAnalysisThread,
 } from "@/api/stock-analysis";
+import { StockAnalysisCompareTray } from "@/app/home/components/stock-analysis-compare-tray";
+import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
+import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
 import { useGetThemeRadarOverview } from "@/api/theme-radar";
 import { useGetTradingAgentsRuns } from "@/api/tradingagents";
 import { useGetWatchlistCenterOverview } from "@/api/watchlist-center";
@@ -54,7 +61,11 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { StockAnalysisThread } from "@/types/stock-analysis-thread";
+import type { AnalysisContextCard } from "@/types/analysis-context-card";
+import type {
+  StockAnalysisCompareTarget,
+  StockAnalysisThread,
+} from "@/types/stock-analysis-thread";
 
 const FOCUS_OPTIONS = [
   "ticker",
@@ -88,6 +99,75 @@ const resolveFreshnessLabel = (value?: string | null) => {
   return "可能已过时";
 };
 
+const isAssistantRole = (role: string) => {
+  const normalized = role.toLowerCase();
+  return normalized.includes("assistant") || normalized.includes("agent");
+};
+
+const buildManualCompareTarget = (
+  type: "ticker" | "theme",
+  ref: string,
+): StockAnalysisCompareTarget => ({
+  target_type: type,
+  ref,
+  label: ref,
+  source_module: "manual",
+  source_ref: ref,
+  role: "secondary",
+  order: 0,
+});
+
+const buildCompareTargetFromCard = (
+  card: AnalysisContextCard,
+): StockAnalysisCompareTarget | null => {
+  if (card.source_module === "theme" && card.theme_refs_json[0]) {
+    return {
+      target_type: "theme",
+      ref: card.theme_refs_json[0],
+      label: card.theme_refs_json[0],
+      source_module: card.source_module,
+      source_ref: card.source_ref || card.theme_refs_json[0],
+      role: "secondary",
+      order: 0,
+    };
+  }
+  if (card.ticker_refs_json[0]) {
+    return {
+      target_type: "ticker",
+      ref: card.ticker_refs_json[0],
+      label: card.ticker_refs_json[0],
+      source_module: card.source_module,
+      source_ref: card.source_ref || card.ticker_refs_json[0],
+      role: "secondary",
+      order: 0,
+    };
+  }
+  if (card.theme_refs_json[0]) {
+    return {
+      target_type: "theme",
+      ref: card.theme_refs_json[0],
+      label: card.theme_refs_json[0],
+      source_module: card.source_module,
+      source_ref: card.source_ref || card.theme_refs_json[0],
+      role: "secondary",
+      order: 0,
+    };
+  }
+  return null;
+};
+
+const normalizeCompareTargetsForSave = (
+  targets: StockAnalysisCompareTarget[],
+): StockAnalysisCompareTarget[] =>
+  targets.map((target, index) => ({
+    ...target,
+    role: index === 0 ? "primary" : "secondary",
+    order: index,
+  }));
+
+const compareTargetKey = (target: StockAnalysisCompareTarget) =>
+  `${target.target_type}:${target.ref}:${target.source_module}`;
+
 export default function StockAnalysis() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedThreadId = Number(searchParams.get("threadId") || 0) || null;
@@ -107,6 +187,12 @@ export default function StockAnalysis() {
   const [renameTitle, setRenameTitle] = useState("");
   const [messageInput, setMessageInput] = useState("");
   const [editingThread, setEditingThread] = useState<StockAnalysisThread | null>(null);
+  const [forkDialogOpen, setForkDialogOpen] = useState(false);
+  const [forkTitle, setForkTitle] = useState("");
+  const [forkSelectedContextIds, setForkSelectedContextIds] = useState<number[]>([]);
+  const [includeCompareTargetsInFork, setIncludeCompareTargetsInFork] = useState(true);
+  const [pinImportedContexts, setPinImportedContexts] = useState(false);
+  const [forkFocusTypeOverride, setForkFocusTypeOverride] = useState("inherit");
   const autoImportKeyRef = useRef<string | null>(null);
 
   const { data: overview, isLoading, isError } =
@@ -115,6 +201,8 @@ export default function StockAnalysis() {
     useGetStockAnalysisContexts(selectedThreadId);
   const { data: messages, isLoading: messagesLoading } =
     useGetStockAnalysisMessages(selectedThreadId);
+  const { data: compareTargetData } =
+    useGetStockAnalysisCompareTargets(selectedThreadId);
   const { data: tradingRuns } = useGetTradingAgentsRuns();
   const { data: holdingOverview } = useGetHoldingLifecycleOverview();
   const { data: opportunityOverview } = useGetOpportunityCandidates();
@@ -131,21 +219,41 @@ export default function StockAnalysis() {
   const duplicateThread = useDuplicateStockAnalysisThread();
   const updateContext = useUpdateStockAnalysisContext();
   const deleteContext = useDeleteStockAnalysisContext();
+  const refreshContext = useRefreshStockAnalysisContext();
   const importContext = useImportStockAnalysisContext();
   const createMessage = useCreateStockAnalysisMessage();
   const saveEvidence = useSaveStockAnalysisEvidence();
+  const updateCompareTargets = useUpdateStockAnalysisCompareTargets();
+  const forkThread = useForkStockAnalysisThread();
 
   const threads = overview?.threads || [];
   const currentThread = useMemo(() => {
     if (!selectedThreadId) return overview?.current_thread || null;
     return threads.find((item) => item.thread_id === selectedThreadId) || null;
   }, [overview?.current_thread, selectedThreadId, threads]);
+  const contextItems = contexts?.items || [];
+  const compareTargets =
+    compareTargetData?.compare_targets || currentThread?.compare_targets_json || [];
+  const contextTitleMap = useMemo(
+    () => new Map(contextItems.map((item) => [item.context_id, item.title])),
+    [contextItems],
+  );
+  const compareTargetKeySet = useMemo(
+    () => new Set(compareTargets.map((target) => compareTargetKey(target))),
+    [compareTargets],
+  );
 
   useEffect(() => {
     if (!selectedThreadId && overview?.current_thread?.thread_id) {
       setSearchParams({ threadId: String(overview.current_thread.thread_id) });
     }
   }, [overview?.current_thread?.thread_id, selectedThreadId, setSearchParams]);
+
+  useEffect(() => {
+    setForkSelectedContextIds([]);
+    setForkDialogOpen(false);
+    setForkTitle("");
+  }, [selectedThreadId]);
 
   useEffect(() => {
     if (!sourceModuleParam || !sourceRefParam) return;
@@ -388,6 +496,104 @@ export default function StockAnalysis() {
     }
   };
 
+  const persistCompareTargets = async (targets: StockAnalysisCompareTarget[]) => {
+    if (!currentThread) return;
+    await updateCompareTargets.mutateAsync({
+      threadId: currentThread.thread_id,
+      data: {
+        compare_targets: normalizeCompareTargetsForSave(targets),
+      },
+    });
+  };
+
+  const handleAddCompareTarget = async (target: StockAnalysisCompareTarget) => {
+    if (!currentThread) return;
+    const exists = compareTargets.some(
+      (item) => compareTargetKey(item) === compareTargetKey(target),
+    );
+    if (exists) {
+      toast.message("该对象已在当前对比列表中");
+      return;
+    }
+    try {
+      await persistCompareTargets([...compareTargets, target]);
+      toast.success("已加入当前对比对象");
+    } catch {
+      toast.error("加入对比失败");
+    }
+  };
+
+  const handleRemoveCompareTarget = async (target: StockAnalysisCompareTarget) => {
+    if (!currentThread) return;
+    try {
+      await persistCompareTargets(
+        compareTargets.filter(
+          (item) => compareTargetKey(item) !== compareTargetKey(target),
+        ),
+      );
+      toast.success("已移出当前对比对象");
+    } catch {
+      toast.error("移出对比失败");
+    }
+  };
+
+  const handleToggleForkSelect = (contextId: number) => {
+    setForkSelectedContextIds((current) =>
+      current.includes(contextId)
+        ? current.filter((item) => item !== contextId)
+        : [...current, contextId],
+    );
+  };
+
+  const openForkDialog = (contextIds?: number[]) => {
+    if (!currentThread) return;
+    setForkTitle(
+      compareTargets.length >= 2
+        ? `${currentThread.title}（对比分叉）`
+        : `${currentThread.title}（分叉）`,
+    );
+    setForkSelectedContextIds(contextIds || []);
+    setIncludeCompareTargetsInFork(true);
+    setPinImportedContexts(false);
+    setForkFocusTypeOverride("inherit");
+    setForkDialogOpen(true);
+  };
+
+  const handleForkThread = async () => {
+    if (!currentThread) return;
+    try {
+      const response = await forkThread.mutateAsync({
+        threadId: currentThread.thread_id,
+        data: {
+          title: forkTitle.trim() || undefined,
+          selected_context_ids: forkSelectedContextIds,
+          include_compare_targets: includeCompareTargetsInFork,
+          pin_imported_contexts: pinImportedContexts,
+          focus_type_override:
+            forkFocusTypeOverride === "inherit" ? undefined : forkFocusTypeOverride,
+        },
+      });
+      setForkDialogOpen(false);
+      setSearchParams({ threadId: String(response.data.thread.thread_id) });
+      toast.success("已创建分叉线程");
+    } catch {
+      toast.error("分叉线程失败");
+    }
+  };
+
+  const handleRefreshContext = async (contextId: number) => {
+    if (!currentThread) return;
+    try {
+      await refreshContext.mutateAsync({
+        threadId: currentThread.thread_id,
+        contextId,
+      });
+      toast.success("上下文卡片已刷新");
+    } catch {
+      toast.error("刷新上下文卡片失败");
+    }
+  };
+
   const handleImportContext = async (sourceModule: string, sourceRef: string) => {
     if (!currentThread) {
       toast.error("请先选中线程");
@@ -604,16 +810,33 @@ export default function StockAnalysis() {
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {currentThread.ticker_refs_json.map((item) => (
-                        <Badge key={item} variant="outline">
+                        <Button
+                          key={item}
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void handleAddCompareTarget(buildManualCompareTarget("ticker", item))
+                          }
+                        >
                           {item}
-                        </Badge>
+                        </Button>
                       ))}
                       {currentThread.theme_refs_json.map((item) => (
-                        <Badge key={item} variant="outline">
+                        <Button
+                          key={item}
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void handleAddCompareTarget(buildManualCompareTarget("theme", item))
+                          }
+                        >
                           {item}
-                        </Badge>
+                        </Button>
                       ))}
                     </div>
+                    <p className="mt-2 text-muted-foreground text-xs">
+                      点击 ticker / theme 可直接加入当前 compare targets。
+                    </p>
                   </div>
 
                   <div className="rounded-xl border p-4">
@@ -625,6 +848,13 @@ export default function StockAnalysis() {
                       </Badge>
                     </div>
                   </div>
+
+                  <StockAnalysisCompareTray
+                    compareTargets={compareTargets}
+                    isMutating={updateCompareTargets.isPending}
+                    onFork={() => openForkDialog()}
+                    onRemove={(target) => void handleRemoveCompareTarget(target)}
+                  />
 
                   <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
                     <p className="font-medium text-sm">研究线程聊天</p>
@@ -639,30 +869,69 @@ export default function StockAnalysis() {
                             <div
                               key={item.item_id}
                               className={`rounded-xl border p-3 ${
-                                item.role === "assistant" || item.role === "agent"
+                                isAssistantRole(item.role)
                                   ? "bg-primary/5"
                                   : "bg-background"
                               }`}
                             >
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="outline">
-                                  {item.role === "assistant" || item.role === "agent"
-                                    ? "研究助手"
-                                    : "用户"}
+                                  {isAssistantRole(item.role) ? "研究助手" : "用户"}
                                 </Badge>
-                                {item.role === "assistant" || item.role === "agent" ? (
+                                {isAssistantRole(item.role) ? (
                                   <>
                                     <Badge variant="secondary">{item.answer_basis}</Badge>
                                     <Badge variant="outline">模式：{item.mode}</Badge>
                                     <Badge variant="outline">
                                       使用上下文 {item.used_context_ids.length} 张
                                     </Badge>
+                                    {item.comparison_mode ? (
+                                      <Badge variant="outline">comparison</Badge>
+                                    ) : null}
                                   </>
                                 ) : null}
                               </div>
                               <p className="mt-3 whitespace-pre-wrap text-sm">{item.content}</p>
-                              {item.role === "assistant" || item.role === "agent" ? (
+                              {isAssistantRole(item.role) ? (
                                 <div className="mt-3 space-y-3">
+                                  {item.compared_tickers.length ||
+                                  item.stale_context_ids.length ||
+                                  item.refresh_recommended_context_ids.length ? (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm">
+                                      <p className="font-medium">本轮比较与时效提示</p>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {item.compared_tickers.map((ticker) => (
+                                          <Badge key={ticker} variant="outline">
+                                            比较对象：{ticker}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                      {item.stale_context_ids.length ? (
+                                        <p className="mt-2 text-muted-foreground text-xs">
+                                          较旧对象：
+                                          {item.stale_context_ids
+                                            .map(
+                                              (contextId) =>
+                                                contextTitleMap.get(contextId) ||
+                                                `上下文 #${contextId}`,
+                                            )
+                                            .join("、")}
+                                        </p>
+                                      ) : null}
+                                      {item.refresh_recommended_context_ids.length ? (
+                                        <p className="mt-1 text-muted-foreground text-xs">
+                                          建议刷新后再聊：
+                                          {item.refresh_recommended_context_ids
+                                            .map(
+                                              (contextId) =>
+                                                contextTitleMap.get(contextId) ||
+                                                `上下文 #${contextId}`,
+                                            )
+                                            .join("、")}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
                                   {item.tool_reason ? (
                                     <div className="rounded-lg border border-dashed p-3 text-sm">
                                       <p className="font-medium">回答依据说明</p>
@@ -904,6 +1173,14 @@ export default function StockAnalysis() {
                       <div className="flex flex-wrap justify-end gap-2">
                         <Button
                           variant="outline"
+                          onClick={() => openForkDialog()}
+                          disabled={forkThread.isPending}
+                        >
+                          <Zap className="size-4" />
+                          分叉线程
+                        </Button>
+                        <Button
+                          variant="outline"
                           onClick={() => handleSendMessage(true)}
                           disabled={createMessage.isPending}
                         >
@@ -937,15 +1214,26 @@ export default function StockAnalysis() {
                     统一管理基础上下文和高级研究卡片；长期挂载仍必须显式导入。
                   </CardDescription>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setAddContextOpen(true)}
-                  disabled={!currentThread}
-                >
-                  <Plus className="size-4" />
-                  添加上下文
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openForkDialog()}
+                    disabled={!currentThread}
+                  >
+                    <Zap className="size-4" />
+                    分叉线程
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAddContextOpen(true)}
+                    disabled={!currentThread}
+                  >
+                    <Plus className="size-4" />
+                    添加上下文
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="scroll-container min-h-0 flex-1 space-y-3 overflow-y-auto">
@@ -957,96 +1245,39 @@ export default function StockAnalysis() {
                 <div className="flex min-h-48 items-center justify-center">
                   <Spinner className="size-5" />
                 </div>
-              ) : contexts?.items.length ? (
-                contexts.items.map((item) => {
-                  const snapshot = item.snapshot_payload_json as Record<string, unknown>;
-                  const cardGeneratedAt =
-                    (typeof snapshot.generated_at === "string" && snapshot.generated_at) ||
-                    (typeof snapshot.evidence_generated_at === "string" &&
-                      snapshot.evidence_generated_at) ||
-                    null;
-                  const cardDataTime =
-                    (typeof snapshot.data_time === "string" && snapshot.data_time) || null;
-                  const isExternalEvidence =
-                    item.source_module.includes("external") ||
-                    snapshot.is_external === true;
-                  const isSavedTemporaryEvidence =
-                    item.context_type === "temporary_evidence_saved" ||
-                    snapshot.from_temporary_evidence === true;
+              ) : contextItems.length ? (
+                contextItems.map((item) => {
+                  const compareTarget = buildCompareTargetFromCard(item);
+                  const inCompare = compareTarget
+                    ? compareTargetKeySet.has(compareTargetKey(compareTarget))
+                    : false;
                   return (
-                  <div key={item.context_id} className="rounded-xl border p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary">{item.context_type}</Badge>
-                        <Badge variant="outline">{item.source_module}</Badge>
-                        {isExternalEvidence ? (
-                          <Badge variant="outline">来自外部补数</Badge>
-                        ) : null}
-                        {isSavedTemporaryEvidence ? (
-                          <Badge variant="outline">来自某轮回答的临时证据</Badge>
-                        ) : null}
-                        {item.is_pinned ? <Badge variant="outline">Pinned</Badge> : null}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => handleTogglePin(item.context_id, item.is_pinned)}
-                        >
-                          {item.is_pinned ? (
-                            <PinOff className="size-4" />
-                          ) : (
-                            <Pin className="size-4" />
-                          )}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => handleDeleteContext(item.context_id)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="mt-3 font-medium text-sm">{item.title}</p>
-                    {item.subtitle ? (
-                      <p className="mt-1 text-muted-foreground text-xs">{item.subtitle}</p>
-                    ) : null}
-                    <p className="mt-3 text-sm">{item.summary}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {item.ticker_refs_json.map((ref) => (
-                        <Badge key={ref} variant="outline">
-                          {ref}
-                        </Badge>
-                      ))}
-                      {item.theme_refs_json.map((ref) => (
-                        <Badge key={ref} variant="outline">
-                          {ref}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {cardGeneratedAt ? (
-                        <Badge variant="outline">
-                          生成时间：{formatTime(cardGeneratedAt)}
-                        </Badge>
-                      ) : null}
-                      {cardDataTime ? (
-                        <Badge variant="outline">
-                          数据时间：{formatTime(cardDataTime)}
-                        </Badge>
-                      ) : null}
-                      {(cardDataTime || cardGeneratedAt) ? (
-                        <Badge variant="outline">
-                          {resolveFreshnessLabel(cardDataTime || cardGeneratedAt) || "时效待确认"}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    {item.staleness_hint ? (
-                      <p className="mt-3 text-muted-foreground text-xs">{item.staleness_hint}</p>
-                    ) : null}
-                  </div>
-                )})
+                    <StockAnalysisContextCard
+                      key={item.context_id}
+                      item={item}
+                      isSelectedForFork={forkSelectedContextIds.includes(item.context_id)}
+                      isInCompare={inCompare}
+                      onToggleSelect={handleToggleForkSelect}
+                      onTogglePin={handleTogglePin}
+                      onDelete={handleDeleteContext}
+                      onRefresh={(contextId) => void handleRefreshContext(contextId)}
+                      onAddToCompare={(card) => {
+                        const target = buildCompareTargetFromCard(card);
+                        if (!target) {
+                          toast.error("该卡片缺少可加入对比的 ticker 或 theme");
+                          return;
+                        }
+                        void handleAddCompareTarget(target);
+                      }}
+                      onRemoveFromCompare={(card) => {
+                        const target = buildCompareTargetFromCard(card);
+                        if (!target) return;
+                        void handleRemoveCompareTarget(target);
+                      }}
+                      onForkSingle={(card) => openForkDialog([card.context_id])}
+                    />
+                  );
+                })
               ) : (
                 <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
                   当前线程还没有上下文卡片。可先从 TradingAgents、机会池、观察池、持仓、题材雷达、提醒或高级研究卡片导入。
@@ -1078,6 +1309,22 @@ export default function StockAnalysis() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StockAnalysisForkDialog
+        open={forkDialogOpen}
+        onOpenChange={setForkDialogOpen}
+        title={forkTitle}
+        onTitleChange={setForkTitle}
+        selectedContextCount={forkSelectedContextIds.length}
+        includeCompareTargets={includeCompareTargetsInFork}
+        onIncludeCompareTargetsChange={setIncludeCompareTargetsInFork}
+        pinImportedContexts={pinImportedContexts}
+        onPinImportedContextsChange={setPinImportedContexts}
+        focusTypeOverride={forkFocusTypeOverride}
+        onFocusTypeOverrideChange={setForkFocusTypeOverride}
+        onSubmit={() => void handleForkThread()}
+        isSubmitting={forkThread.isPending}
+      />
 
       <Dialog open={addContextOpen} onOpenChange={setAddContextOpen}>
         <DialogContent className="max-w-3xl">

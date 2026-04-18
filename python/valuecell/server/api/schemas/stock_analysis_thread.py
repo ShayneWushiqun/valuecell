@@ -23,6 +23,7 @@ class StockAnalysisThreadItemData(BaseModel):
     focus_type: str
     ticker_refs_json: list[str] = Field(default_factory=list)
     theme_refs_json: list[str] = Field(default_factory=list)
+    compare_targets_json: list[dict[str, Any]] = Field(default_factory=list)
     conversation_id: str
     context_count: int = 0
     created_at: datetime
@@ -41,6 +42,7 @@ class StockAnalysisThreadCreateRequest(BaseModel):
     focus_type: str = "mixed"
     ticker_refs_json: list[str] = Field(default_factory=list)
     theme_refs_json: list[str] = Field(default_factory=list)
+    compare_targets_json: list[dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("focus_type")
     @classmethod
@@ -55,6 +57,7 @@ class StockAnalysisThreadUpdateRequest(BaseModel):
     focus_type: str | None = None
     ticker_refs_json: list[str] | None = None
     theme_refs_json: list[str] | None = None
+    compare_targets_json: list[dict[str, Any]] | None = None
 
     @field_validator("focus_type")
     @classmethod

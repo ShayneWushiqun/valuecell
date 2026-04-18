@@ -45,11 +45,19 @@
   - assistant 临时证据保存为长期上下文卡片
   - 上下文卡片来源 / 时间 / 时效说明
   - provider unavailable 原因显式返回
+- 第五轮：
+  - `compare_targets_json`
+  - `StockAnalysisCompareService`
+  - `GET /api/v1/stock-analysis/threads/{thread_id}/compare-targets`
+  - `PUT /api/v1/stock-analysis/threads/{thread_id}/compare-targets`
+  - `POST /api/v1/stock-analysis/threads/{thread_id}/fork`
+  - `POST /api/v1/stock-analysis/threads/{thread_id}/contexts/{context_id}/refresh`
+  - compare tray、线程分叉交互、时效 badge 与刷新提示
 
 阶段四当前未实现：
 
 - 更复杂的第三层 provider 编排与可视化
-- 复杂流式可视化
+- 更复杂的 SSE 工具过程可视化
 
 ## 2. 设计原则
 
@@ -169,6 +177,7 @@
 - `focus_type`
 - `ticker_refs_json`
 - `theme_refs_json`
+- `compare_targets_json`
 - `conversation_id`
 - `created_at`
 - `updated_at`
@@ -314,6 +323,8 @@
   - 当前已有判断
   - 当前冲突点
   - 当前缺口点
+  - 当前比较对象
+  - 当前较旧上下文与刷新建议
 
 ### 7.3 `StockAnalysisToolPlanner`
 
@@ -364,6 +375,24 @@
   - `used_internal_sources`
   - `evidence_generated_at`
   - `evidence_staleness_hint`
+
+当前第五轮继续扩展为：
+
+- comparison 线程 prompt 明确拼出 compare targets、来源与时效状态
+- assistant metadata 继续返回：
+  - `compared_tickers`
+  - `comparison_mode`
+  - `stale_context_ids`
+  - `refresh_recommended_context_ids`
+
+### 7.5 `StockAnalysisCompareService`
+
+第五轮新增 compare service，负责：
+
+- 读取线程 compare targets
+- 规范化 compare target 结构
+- 更新 compare targets 后同步线程 focus / refs
+- 向前端稳定返回比较对象、来源、主次角色和排序
 
 ## 8. 建议新增 API
 
