@@ -17,6 +17,10 @@ from .stock_analysis_tool_planner import (
     StockAnalysisToolPlanner,
     get_stock_analysis_tool_planner,
 )
+from .stock_analysis_refresh_service import (
+    StockAnalysisRefreshService,
+    get_stock_analysis_refresh_service,
+)
 from .stock_analysis_tooling_service import (
     StockAnalysisToolingResult,
     StockAnalysisToolingService,
@@ -49,8 +53,17 @@ class StockAnalysisMessageResult(BaseModel):
     unavailable_tools: list[dict[str, Any]]
     used_internal_sources: list[str]
     used_external_sources: list[str]
+    provider_attempts: list[dict[str, Any]]
+    provider_used: list[str]
+    provider_fallback_chain: list[str]
     evidence_generated_at: str | None = None
     evidence_staleness_hint: str | None = None
+    refreshed_before_answer: bool = False
+    refresh_run_summary: str | None = None
+    refreshed_context_ids: list[int]
+    refresh_failed_context_ids: list[int]
+    refresh_skipped_context_ids: list[int]
+    refresh_changed_contexts: list[dict[str, Any]]
     user_message: dict[str, Any]
     assistant_message: dict[str, Any]
 
@@ -63,6 +76,7 @@ class StockAnalysisMessageService:
         context_assembler: Optional[StockAnalysisContextAssembler] = None,
         tool_planner: Optional[StockAnalysisToolPlanner] = None,
         tooling_service: Optional[StockAnalysisToolingService] = None,
+        refresh_service: Optional[StockAnalysisRefreshService] = None,
     ) -> None:
         self.stock_analysis_workspace_service = (
             stock_analysis_workspace_service or StockAnalysisWorkspaceService()
@@ -71,6 +85,7 @@ class StockAnalysisMessageService:
         self.context_assembler = context_assembler or StockAnalysisContextAssembler()
         self.tool_planner = tool_planner or get_stock_analysis_tool_planner()
         self.tooling_service = tooling_service or get_stock_analysis_tooling_service()
+        self.refresh_service = refresh_service or get_stock_analysis_refresh_service()
 
     async def list_messages(
         self,
@@ -108,6 +123,7 @@ class StockAnalysisMessageService:
         thread_id: int,
         message: str,
         force_tooling: bool = False,
+        refresh_before_answer: bool = False,
     ) -> StockAnalysisMessageResult | None:
         thread_obj = self.stock_analysis_workspace_service.stock_analysis_thread_repository.get_thread_by_id(
             user_id=user_id,
@@ -115,6 +131,14 @@ class StockAnalysisMessageService:
         )
         if thread_obj is None:
             return None
+        refresh_run = None
+        if refresh_before_answer:
+            refresh_run = await self.refresh_service.refresh_stale_contexts(
+                user_id=user_id,
+                thread_id=thread_id,
+                include_supported_only=True,
+                pin_refreshed_cards=False,
+            )
         thread = self.stock_analysis_workspace_service._serialize_thread(thread_obj)
         context_result = await self.stock_analysis_workspace_service.list_context_cards(
             user_id=user_id,
@@ -169,6 +193,7 @@ class StockAnalysisMessageService:
                 "answer_basis": "当前上下文",
                 "mode": planner_result.mode,
                 "force_tooling": force_tooling,
+                "refresh_before_answer": refresh_before_answer,
                 "thread_id": thread_id,
             },
         )
@@ -217,8 +242,38 @@ class StockAnalysisMessageService:
                 tooling_result.used_external_sources,
                 ensure_ascii=False,
             ),
+            "provider_attempts_json": json.dumps(
+                tooling_result.provider_attempts,
+                ensure_ascii=False,
+            ),
+            "provider_used_json": json.dumps(
+                tooling_result.provider_used,
+                ensure_ascii=False,
+            ),
+            "provider_fallback_chain_json": json.dumps(
+                tooling_result.provider_fallback_chain,
+                ensure_ascii=False,
+            ),
             "evidence_generated_at": tooling_result.evidence_generated_at or "",
             "evidence_staleness_hint": tooling_result.evidence_staleness_hint or "",
+            "refreshed_before_answer": refresh_before_answer,
+            "refresh_run_summary": str((refresh_run or {}).get("summary") or "").strip(),
+            "refreshed_context_ids_json": json.dumps(
+                list((refresh_run or {}).get("refreshed_context_ids") or []),
+                ensure_ascii=False,
+            ),
+            "refresh_failed_context_ids_json": json.dumps(
+                list((refresh_run or {}).get("failed_context_ids") or []),
+                ensure_ascii=False,
+            ),
+            "refresh_skipped_context_ids_json": json.dumps(
+                list((refresh_run or {}).get("skipped_context_ids") or []),
+                ensure_ascii=False,
+            ),
+            "refresh_changed_contexts_json": json.dumps(
+                list((refresh_run or {}).get("changed_contexts") or []),
+                ensure_ascii=False,
+            ),
             "thread_id": thread_id,
         }
         assistant_item = await self.conversation_service.core_conversation_service.add_item(
@@ -251,8 +306,17 @@ class StockAnalysisMessageService:
             unavailable_tools=tooling_result.unavailable_tools,
             used_internal_sources=tooling_result.used_internal_sources,
             used_external_sources=tooling_result.used_external_sources,
+            provider_attempts=tooling_result.provider_attempts,
+            provider_used=tooling_result.provider_used,
+            provider_fallback_chain=tooling_result.provider_fallback_chain,
             evidence_generated_at=tooling_result.evidence_generated_at,
             evidence_staleness_hint=tooling_result.evidence_staleness_hint,
+            refreshed_before_answer=refresh_before_answer,
+            refresh_run_summary=(refresh_run or {}).get("summary"),
+            refreshed_context_ids=list((refresh_run or {}).get("refreshed_context_ids") or []),
+            refresh_failed_context_ids=list((refresh_run or {}).get("failed_context_ids") or []),
+            refresh_skipped_context_ids=list((refresh_run or {}).get("skipped_context_ids") or []),
+            refresh_changed_contexts=list((refresh_run or {}).get("changed_contexts") or []),
             user_message=self._serialize_message_item(user_item),
             assistant_message=self._serialize_message_item(assistant_item),
         )
@@ -422,8 +486,17 @@ class StockAnalysisMessageService:
                 "unavailable_tools": [],
                 "used_internal_sources": [],
                 "used_external_sources": [],
+                "provider_attempts": [],
+                "provider_used": [],
+                "provider_fallback_chain": [],
                 "evidence_generated_at": None,
                 "evidence_staleness_hint": None,
+                "refreshed_before_answer": False,
+                "refresh_run_summary": None,
+                "refreshed_context_ids": [],
+                "refresh_failed_context_ids": [],
+                "refresh_skipped_context_ids": [],
+                "refresh_changed_contexts": [],
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -469,12 +542,38 @@ class StockAnalysisMessageService:
             "used_external_sources": StockAnalysisMessageService._parse_json_list(
                 metadata.get("used_external_sources_json")
             ),
+            "provider_attempts": StockAnalysisMessageService._parse_json_list(
+                metadata.get("provider_attempts_json")
+            ),
+            "provider_used": StockAnalysisMessageService._parse_json_list(
+                metadata.get("provider_used_json")
+            ),
+            "provider_fallback_chain": StockAnalysisMessageService._parse_json_list(
+                metadata.get("provider_fallback_chain_json")
+            ),
             "evidence_generated_at": str(metadata.get("evidence_generated_at") or "").strip()
             or None,
             "evidence_staleness_hint": str(
                 metadata.get("evidence_staleness_hint") or ""
             ).strip()
             or None,
+            "refreshed_before_answer": StockAnalysisMessageService._parse_bool(
+                metadata.get("refreshed_before_answer")
+            ),
+            "refresh_run_summary": str(metadata.get("refresh_run_summary") or "").strip()
+            or None,
+            "refreshed_context_ids": StockAnalysisMessageService._parse_json_list(
+                metadata.get("refreshed_context_ids_json")
+            ),
+            "refresh_failed_context_ids": StockAnalysisMessageService._parse_json_list(
+                metadata.get("refresh_failed_context_ids_json")
+            ),
+            "refresh_skipped_context_ids": StockAnalysisMessageService._parse_json_list(
+                metadata.get("refresh_skipped_context_ids_json")
+            ),
+            "refresh_changed_contexts": StockAnalysisMessageService._parse_json_list(
+                metadata.get("refresh_changed_contexts_json")
+            ),
         }
 
     @staticmethod

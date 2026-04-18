@@ -74,6 +74,7 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
     assert result["stale_context_ids"] == [11]
     assert "AI算力题材摘要" in result["prompt_context"]
     assert "Comparison Targets" in result["prompt_context"]
+    assert "Current Context Refresh Status" in result["prompt_context"]
     assert "source=holding" in result["prompt_context"]
     assert "已删除卡片" not in result["prompt_context"]
     assert "比较中际旭创和平安银行" in result["prompt_context"]

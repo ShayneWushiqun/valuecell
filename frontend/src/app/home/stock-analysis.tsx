@@ -1,5 +1,5 @@
 import BackButton from "@valuecell/button/back-button";
-import { Copy, Plus, Send, Trash2, Zap } from "lucide-react";
+import { Copy, Plus, RefreshCw, Send, Trash2, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import {
   useGetStockAnalysisWorkspaceOverview,
   useImportStockAnalysisContext,
   useRefreshStockAnalysisContext,
+  useRefreshStaleStockAnalysisContexts,
   useSaveStockAnalysisEvidence,
   useUpdateStockAnalysisCompareTargets,
   useUpdateStockAnalysisContext,
@@ -31,6 +32,8 @@ import {
 import { StockAnalysisCompareTray } from "@/app/home/components/stock-analysis-compare-tray";
 import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
 import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
+import { StockAnalysisRefreshSummary } from "@/app/home/components/stock-analysis-refresh-summary";
+import { StockAnalysisThreadSummary } from "@/app/home/components/stock-analysis-thread-summary";
 import { useGetThemeRadarOverview } from "@/api/theme-radar";
 import { useGetTradingAgentsRuns } from "@/api/tradingagents";
 import { useGetWatchlistCenterOverview } from "@/api/watchlist-center";
@@ -61,7 +64,10 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { AnalysisContextCard } from "@/types/analysis-context-card";
+import type {
+  AnalysisContextCard,
+  StockAnalysisRefreshRunResult,
+} from "@/types/analysis-context-card";
 import type {
   StockAnalysisCompareTarget,
   StockAnalysisThread,
@@ -186,6 +192,9 @@ export default function StockAnalysis() {
   );
   const [renameTitle, setRenameTitle] = useState("");
   const [messageInput, setMessageInput] = useState("");
+  const [pendingMessageAction, setPendingMessageAction] = useState<
+    "send" | "tooling" | "refresh" | null
+  >(null);
   const [editingThread, setEditingThread] = useState<StockAnalysisThread | null>(null);
   const [forkDialogOpen, setForkDialogOpen] = useState(false);
   const [forkTitle, setForkTitle] = useState("");
@@ -193,6 +202,11 @@ export default function StockAnalysis() {
   const [includeCompareTargetsInFork, setIncludeCompareTargetsInFork] = useState(true);
   const [pinImportedContexts, setPinImportedContexts] = useState(false);
   const [forkFocusTypeOverride, setForkFocusTypeOverride] = useState("inherit");
+  const [lastRefreshRun, setLastRefreshRun] =
+    useState<StockAnalysisRefreshRunResult | null>(null);
+  const [recentContextRefreshState, setRecentContextRefreshState] = useState<
+    Record<number, { status: "refreshed" | "skipped" | "failed"; reason?: string | null }>
+  >({});
   const autoImportKeyRef = useRef<string | null>(null);
 
   const { data: overview, isLoading, isError } =
@@ -225,6 +239,7 @@ export default function StockAnalysis() {
   const saveEvidence = useSaveStockAnalysisEvidence();
   const updateCompareTargets = useUpdateStockAnalysisCompareTargets();
   const forkThread = useForkStockAnalysisThread();
+  const refreshStaleContexts = useRefreshStaleStockAnalysisContexts();
 
   const threads = overview?.threads || [];
   const currentThread = useMemo(() => {
@@ -242,6 +257,13 @@ export default function StockAnalysis() {
     () => new Set(compareTargets.map((target) => compareTargetKey(target))),
     [compareTargets],
   );
+  const staleContextCount = contextItems.filter((item) => item.is_stale).length;
+  const refreshRecommendedCount = contextItems.filter(
+    (item) => item.refresh_recommended,
+  ).length;
+  const savedEvidenceCount = contextItems.filter(
+    (item) => item.context_type === "temporary_evidence_saved",
+  ).length;
 
   useEffect(() => {
     if (!selectedThreadId && overview?.current_thread?.thread_id) {
@@ -253,6 +275,8 @@ export default function StockAnalysis() {
     setForkSelectedContextIds([]);
     setForkDialogOpen(false);
     setForkTitle("");
+    setLastRefreshRun(null);
+    setRecentContextRefreshState({});
   }, [selectedThreadId]);
 
   useEffect(() => {
@@ -581,16 +605,89 @@ export default function StockAnalysis() {
     }
   };
 
+  const applyRecentRefreshState = (refreshRun: StockAnalysisRefreshRunResult) => {
+    setLastRefreshRun(refreshRun);
+    setRecentContextRefreshState(
+      Object.fromEntries(
+        refreshRun.items.map((item) => [
+          item.context_id,
+          {
+            status: item.status,
+            reason: item.reason,
+          },
+        ]),
+      ),
+    );
+  };
+
   const handleRefreshContext = async (contextId: number) => {
     if (!currentThread) return;
     try {
-      await refreshContext.mutateAsync({
+      const response = await refreshContext.mutateAsync({
         threadId: currentThread.thread_id,
         contextId,
+      });
+      const refreshed = response.data;
+      applyRecentRefreshState({
+        thread_id: currentThread.thread_id,
+        refreshed_count: 1,
+        skipped_count: 0,
+        failed_count: 0,
+        items: [
+          {
+            context_id: contextId,
+            title: refreshed.title,
+            source_module: refreshed.source_module,
+            refresh_supported: refreshed.refresh_supported,
+            status: "refreshed",
+            reason: "单卡刷新成功",
+            before_freshness_label: null,
+            after_freshness_label: refreshed.freshness_label,
+            changed_fields: ["generated_at"],
+            new_generated_at: refreshed.generated_at,
+            new_data_time: refreshed.data_time,
+          },
+        ],
+        summary: `已刷新 1 张上下文卡片：${refreshed.title}`,
+        generated_at: new Date().toISOString(),
+        refreshed_context_ids: [contextId],
+        skipped_context_ids: [],
+        failed_context_ids: [],
+        changed_contexts: [
+          {
+            context_id: contextId,
+            title: refreshed.title,
+            changed_fields: ["generated_at"],
+            after_freshness_label: refreshed.freshness_label,
+          },
+        ],
       });
       toast.success("上下文卡片已刷新");
     } catch {
       toast.error("刷新上下文卡片失败");
+    }
+  };
+
+  const handleRefreshStaleContexts = async () => {
+    if (!currentThread) return null;
+    try {
+      const response = await refreshStaleContexts.mutateAsync({
+        threadId: currentThread.thread_id,
+        data: {
+          include_supported_only: true,
+          pin_refreshed_cards: false,
+        },
+      });
+      applyRecentRefreshState(response.data);
+      if (response.data.failed_count) {
+        toast.warning(response.data.summary);
+      } else {
+        toast.success(response.data.summary);
+      }
+      return response.data;
+    } catch {
+      toast.error("批量刷新过期上下文失败");
+      return null;
     }
   };
 
@@ -613,7 +710,13 @@ export default function StockAnalysis() {
     }
   };
 
-  const handleSendMessage = async (forceTooling = false) => {
+  const handleSendMessage = async ({
+    forceTooling = false,
+    refreshBeforeAnswer = false,
+  }: {
+    forceTooling?: boolean;
+    refreshBeforeAnswer?: boolean;
+  } = {}) => {
     if (!currentThread) {
       toast.error("请先选中线程");
       return;
@@ -622,14 +725,90 @@ export default function StockAnalysis() {
       toast.error("请输入研究问题");
       return;
     }
+    setPendingMessageAction(
+      refreshBeforeAnswer ? "refresh" : forceTooling ? "tooling" : "send",
+    );
     try {
-      await createMessage.mutateAsync({
+      const response = await createMessage.mutateAsync({
         threadId: currentThread.thread_id,
-        data: { message: messageInput.trim(), force_tooling: forceTooling },
+        data: {
+          message: messageInput.trim(),
+          force_tooling: forceTooling,
+          refresh_before_answer: refreshBeforeAnswer,
+        },
       });
+      if (refreshBeforeAnswer && response.data.refresh_run_summary) {
+        applyRecentRefreshState({
+          thread_id: currentThread.thread_id,
+          refreshed_count: response.data.refreshed_context_ids.length,
+          skipped_count: response.data.refresh_skipped_context_ids.length,
+          failed_count: response.data.refresh_failed_context_ids.length,
+          items: [
+            ...response.data.refreshed_context_ids.map((contextId) => ({
+              context_id: contextId,
+              title: contextTitleMap.get(contextId) || `上下文 #${contextId}`,
+              source_module: "",
+              refresh_supported: true,
+              status: "refreshed" as const,
+              reason: "回答前批量刷新成功",
+              before_freshness_label: null,
+              after_freshness_label: null,
+              changed_fields: [],
+              new_generated_at: null,
+              new_data_time: null,
+            })),
+            ...response.data.refresh_skipped_context_ids.map((contextId) => ({
+              context_id: contextId,
+              title: contextTitleMap.get(contextId) || `上下文 #${contextId}`,
+              source_module: "",
+              refresh_supported: false,
+              status: "skipped" as const,
+              reason: "回答前批量刷新跳过",
+              before_freshness_label: null,
+              after_freshness_label: null,
+              changed_fields: [],
+              new_generated_at: null,
+              new_data_time: null,
+            })),
+            ...response.data.refresh_failed_context_ids.map((contextId) => ({
+              context_id: contextId,
+              title: contextTitleMap.get(contextId) || `上下文 #${contextId}`,
+              source_module: "",
+              refresh_supported: true,
+              status: "failed" as const,
+              reason: "回答前批量刷新失败",
+              before_freshness_label: null,
+              after_freshness_label: null,
+              changed_fields: [],
+              new_generated_at: null,
+              new_data_time: null,
+            })),
+          ],
+          summary: response.data.refresh_run_summary,
+          generated_at: new Date().toISOString(),
+          refreshed_context_ids: response.data.refreshed_context_ids,
+          skipped_context_ids: response.data.refresh_skipped_context_ids,
+          failed_context_ids: response.data.refresh_failed_context_ids,
+          changed_contexts: response.data.refresh_changed_contexts.map((item) => ({
+            context_id: Number(item.context_id || 0),
+            title:
+              typeof item.title === "string"
+                ? item.title
+                : contextTitleMap.get(Number(item.context_id || 0)) ||
+                  `上下文 #${String(item.context_id || "")}`,
+            changed_fields: Array.isArray(item.changed_fields) ? item.changed_fields : [],
+            after_freshness_label:
+              typeof item.after_freshness_label === "string"
+                ? item.after_freshness_label
+                : null,
+          })),
+        });
+      }
       setMessageInput("");
     } catch {
       toast.error("发送消息失败");
+    } finally {
+      setPendingMessageAction(null);
     }
   };
 
@@ -856,6 +1035,17 @@ export default function StockAnalysis() {
                     onRemove={(target) => void handleRemoveCompareTarget(target)}
                   />
 
+                  <StockAnalysisThreadSummary
+                    compareTargetCount={compareTargets.length}
+                    staleCount={staleContextCount}
+                    refreshRecommendedCount={refreshRecommendedCount}
+                    savedEvidenceCount={savedEvidenceCount}
+                    lastRefreshAt={lastRefreshRun?.generated_at || null}
+                    lastRefreshSummary={lastRefreshRun?.summary || null}
+                  />
+
+                  <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
+
                   <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
                     <p className="font-medium text-sm">研究线程聊天</p>
                     <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
@@ -922,6 +1112,61 @@ export default function StockAnalysis() {
                                         <p className="mt-1 text-muted-foreground text-xs">
                                           建议刷新后再聊：
                                           {item.refresh_recommended_context_ids
+                                            .map(
+                                              (contextId) =>
+                                                contextTitleMap.get(contextId) ||
+                                                `上下文 #${contextId}`,
+                                            )
+                                            .join("、")}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                  {item.refreshed_before_answer ? (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm">
+                                      <p className="font-medium">回答前刷新结果</p>
+                                      <p className="mt-1 text-muted-foreground">
+                                        {item.refresh_run_summary ||
+                                          `本轮回答前已刷新 ${item.refreshed_context_ids.length} 张上下文。`}
+                                      </p>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {item.refresh_changed_contexts.map((context) => {
+                                          const title =
+                                            typeof context.title === "string"
+                                              ? context.title
+                                              : `上下文 #${String(context.context_id || "")}`;
+                                          const changedFields = Array.isArray(
+                                            context.changed_fields,
+                                          )
+                                            ? context.changed_fields.join(", ")
+                                            : "";
+                                          return (
+                                            <Badge
+                                              key={`${title}-${changedFields}`}
+                                              variant="outline"
+                                              className="whitespace-normal"
+                                            >
+                                              {title}: {changedFields || "no material change"}
+                                            </Badge>
+                                          );
+                                        })}
+                                      </div>
+                                      {item.refresh_failed_context_ids.length ? (
+                                        <p className="mt-2 text-muted-foreground text-xs">
+                                          刷新失败：
+                                          {item.refresh_failed_context_ids
+                                            .map(
+                                              (contextId) =>
+                                                contextTitleMap.get(contextId) ||
+                                                `上下文 #${contextId}`,
+                                            )
+                                            .join("、")}
+                                        </p>
+                                      ) : null}
+                                      {item.refresh_skipped_context_ids.length ? (
+                                        <p className="mt-1 text-muted-foreground text-xs">
+                                          被跳过：
+                                          {item.refresh_skipped_context_ids
                                             .map(
                                               (contextId) =>
                                                 contextTitleMap.get(contextId) ||
@@ -1004,6 +1249,39 @@ export default function StockAnalysis() {
                                                   ))}
                                                 </div>
                                               </div>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
+                                        {item.provider_attempts.length ? (
+                                          <div className="space-y-2">
+                                            <p className="font-medium text-foreground">
+                                              外部 provider 编排
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                              {item.provider_attempts.map((attempt, index) => (
+                                                <Badge
+                                                  key={`${index}-${String(attempt.provider)}`}
+                                                  variant="outline"
+                                                  className="whitespace-normal"
+                                                >
+                                                  {String(attempt.tool)} / {String(attempt.provider)} /{" "}
+                                                  {String(attempt.status)}
+                                                  {attempt.reason
+                                                    ? `: ${String(attempt.reason)}`
+                                                    : ""}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                            {item.provider_used.length ? (
+                                              <p className="text-xs">
+                                                成功 provider：{item.provider_used.join(" -> ")}
+                                              </p>
+                                            ) : null}
+                                            {item.provider_fallback_chain.length ? (
+                                              <p className="text-xs">
+                                                fallback chain：
+                                                {item.provider_fallback_chain.join(" -> ")}
+                                              </p>
                                             ) : null}
                                           </div>
                                         ) : null}
@@ -1157,18 +1435,22 @@ export default function StockAnalysis() {
                         )}
                         {createMessage.isPending ? (
                           <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
-                            正在基于当前上下文生成回答...
+                            {pendingMessageAction === "refresh"
+                              ? "正在刷新过期上下文并重新生成回答..."
+                              : pendingMessageAction === "tooling"
+                                ? "正在补数据并生成回答..."
+                                : "正在基于当前上下文生成回答..."}
                           </div>
                         ) : null}
                       </div>
                       <Textarea
                         value={messageInput}
                         onChange={(event) => setMessageInput(event.target.value)}
-                        placeholder="例如：先比较当前线程里这几只票的优先级；如果需要最新状态，再点“补数据后再回答”。"
+                        placeholder="例如：先比较当前线程里这几只票的优先级；若长期上下文偏旧，可点“刷新过期上下文后再回答”。"
                         className="min-h-24"
                       />
                       <p className="text-muted-foreground text-xs">
-                        默认先基于当前上下文回答；若你明确需要最新价格、市场、题材或风险补充，可使用“补数据后再回答”。
+                        `发送` 只基于当前上下文；`补数据后再回答` 会拉临时证据；`刷新过期上下文后再回答` 会先更新长期上下文。
                       </p>
                       <div className="flex flex-wrap justify-end gap-2">
                         <Button
@@ -1181,17 +1463,31 @@ export default function StockAnalysis() {
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => handleSendMessage(true)}
+                          onClick={() => void handleSendMessage({ forceTooling: true })}
                           disabled={createMessage.isPending}
                         >
-                          {createMessage.isPending ? "补数中..." : "补数据后再回答"}
+                          {pendingMessageAction === "tooling" && createMessage.isPending
+                            ? "补数中..."
+                            : "补数据后再回答"}
                         </Button>
                         <Button
-                          onClick={() => handleSendMessage(false)}
+                          variant="outline"
+                          onClick={() => void handleSendMessage({ refreshBeforeAnswer: true })}
+                          disabled={createMessage.isPending || refreshStaleContexts.isPending}
+                        >
+                          <RefreshCw className="size-4" />
+                          {pendingMessageAction === "refresh" && createMessage.isPending
+                            ? "刷新并重答中..."
+                            : "刷新过期上下文后再回答"}
+                        </Button>
+                        <Button
+                          onClick={() => void handleSendMessage()}
                           disabled={createMessage.isPending}
                         >
                           <Send className="size-4" />
-                          {createMessage.isPending ? "生成中..." : "发送"}
+                          {pendingMessageAction === "send" && createMessage.isPending
+                            ? "生成中..."
+                            : "发送"}
                         </Button>
                       </div>
                     </div>
@@ -1215,6 +1511,15 @@ export default function StockAnalysis() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleRefreshStaleContexts()}
+                    disabled={!currentThread || refreshStaleContexts.isPending}
+                  >
+                    <RefreshCw className="size-4" />
+                    {refreshStaleContexts.isPending ? "刷新中..." : "刷新过期上下文"}
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -1257,6 +1562,7 @@ export default function StockAnalysis() {
                       item={item}
                       isSelectedForFork={forkSelectedContextIds.includes(item.context_id)}
                       isInCompare={inCompare}
+                      recentRefreshState={recentContextRefreshState[item.context_id] || null}
                       onToggleSelect={handleToggleForkSelect}
                       onTogglePin={handleTogglePin}
                       onDelete={handleDeleteContext}

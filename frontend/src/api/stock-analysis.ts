@@ -4,6 +4,7 @@ import { type ApiResponse, apiClient } from "@/lib/api-client";
 import type {
   AnalysisContextCard,
   AnalysisContextCardList,
+  StockAnalysisRefreshRunResult,
   StockAnalysisContextImportResult,
 } from "@/types/analysis-context-card";
 import type {
@@ -69,12 +70,19 @@ type ImportContextPayload = {
 type CreateMessagePayload = {
   message: string;
   force_tooling?: boolean;
+  refresh_before_answer?: boolean;
 };
 
 type SaveEvidencePayload = {
   evidence_index: number;
   pin?: boolean;
   title?: string;
+};
+
+type RefreshStaleContextsPayload = {
+  context_ids?: number[];
+  include_supported_only?: boolean;
+  pin_refreshed_cards?: boolean;
 };
 
 type UpdateCompareTargetsPayload = {
@@ -326,6 +334,34 @@ export const useRefreshStockAnalysisContext = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.contexts(variables.threadId),
+      });
+    },
+  });
+};
+
+export const useRefreshStaleStockAnalysisContexts = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      data,
+    }: {
+      threadId: number;
+      data: RefreshStaleContextsPayload;
+    }) =>
+      apiClient.post<ApiResponse<StockAnalysisRefreshRunResult>>(
+        `stock-analysis/threads/${threadId}/contexts/refresh-stale`,
+        data,
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.contexts(variables.threadId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overview(variables.threadId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overviewBase,
       });
     },
   });

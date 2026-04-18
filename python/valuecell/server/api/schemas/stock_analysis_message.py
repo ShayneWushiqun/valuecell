@@ -25,8 +25,17 @@ class StockAnalysisMessageItemData(BaseModel):
     unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
     used_internal_sources: list[str] = Field(default_factory=list)
     used_external_sources: list[str] = Field(default_factory=list)
+    provider_attempts: list[dict[str, Any]] = Field(default_factory=list)
+    provider_used: list[str] = Field(default_factory=list)
+    provider_fallback_chain: list[str] = Field(default_factory=list)
     evidence_generated_at: str | None = None
     evidence_staleness_hint: str | None = None
+    refreshed_before_answer: bool = False
+    refresh_run_summary: str | None = None
+    refreshed_context_ids: list[int] = Field(default_factory=list)
+    refresh_failed_context_ids: list[int] = Field(default_factory=list)
+    refresh_skipped_context_ids: list[int] = Field(default_factory=list)
+    refresh_changed_contexts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class StockAnalysisMessageListData(BaseModel):
@@ -39,6 +48,7 @@ class StockAnalysisMessageListData(BaseModel):
 class StockAnalysisMessageCreateRequest(BaseModel):
     message: str
     force_tooling: bool = False
+    refresh_before_answer: bool = False
 
 
 class StockAnalysisMessageCreateData(BaseModel):
@@ -58,7 +68,16 @@ class StockAnalysisMessageCreateData(BaseModel):
     unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
     used_internal_sources: list[str] = Field(default_factory=list)
     used_external_sources: list[str] = Field(default_factory=list)
+    provider_attempts: list[dict[str, Any]] = Field(default_factory=list)
+    provider_used: list[str] = Field(default_factory=list)
+    provider_fallback_chain: list[str] = Field(default_factory=list)
     evidence_generated_at: str | None = None
     evidence_staleness_hint: str | None = None
+    refreshed_before_answer: bool = False
+    refresh_run_summary: str | None = None
+    refreshed_context_ids: list[int] = Field(default_factory=list)
+    refresh_failed_context_ids: list[int] = Field(default_factory=list)
+    refresh_skipped_context_ids: list[int] = Field(default_factory=list)
+    refresh_changed_contexts: list[dict[str, Any]] = Field(default_factory=list)
     user_message: StockAnalysisMessageItemData
     assistant_message: StockAnalysisMessageItemData

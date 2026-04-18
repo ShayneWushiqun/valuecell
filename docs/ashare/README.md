@@ -503,7 +503,7 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - [阶段四需求文档](./phase-4-prd.md)
 - [阶段四技术方案](./phase-4-tech-design.md)
 
-当前阶段四第五轮已完成到：
+当前阶段四第六轮已完成到：
 
 - 已完成第三层外部解释型补数第一版，优先尝试外部新闻摘要与外部确认型行情补充
 - 已完成临时证据显式保存为长期上下文卡片
@@ -512,7 +512,10 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - 已完成显式对比研究，线程层可维护 compare targets，并在 prompt 与 assistant metadata 中说明比较对象
 - 已完成线程分叉增强，支持按所选上下文卡片和 compare targets 派生新线程，且不复制旧聊天历史
 - 已完成上下文卡片单卡刷新、时效 badge、刷新建议与较旧上下文提示
-- 当前仍未接自动交易、自动长期记忆、更强外部 provider 编排和更复杂的 SSE 工具可视化
+- 已完成批量 stale refresh、刷新结果 diff 摘要和“刷新后重答”工作流
+- 已完成研究流摘要区，可汇总 compare targets、stale contexts、最近刷新摘要和长期证据数量
+- 已完成外部 provider 编排再收口，能说明 provider attempts、成功 provider 和 fallback chain
+- 当前仍未接自动交易、自动长期记忆、更强 planner 语义和更复杂的 SSE 工具可视化
 
 ## 7. 推荐执行顺序
 

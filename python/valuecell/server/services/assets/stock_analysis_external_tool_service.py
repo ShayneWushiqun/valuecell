@@ -19,6 +19,9 @@ class StockAnalysisExternalToolResult(BaseModel):
     temporary_evidence_blocks: list[dict[str, Any]] = Field(default_factory=list)
     unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
     used_external_sources: list[str] = Field(default_factory=list)
+    provider_attempts: list[dict[str, Any]] = Field(default_factory=list)
+    provider_used: list[str] = Field(default_factory=list)
+    provider_fallback_chain: list[str] = Field(default_factory=list)
     evidence_generated_at: str | None = None
     evidence_staleness_hint: str | None = None
 
@@ -67,6 +70,13 @@ class StockAnalysisExternalToolService:
         theme_refs: Sequence[str],
     ) -> None:
         if not ticker_refs and not theme_refs:
+            self._record_provider_attempt(
+                result=result,
+                tool="recent_news",
+                provider="AShareDataProvider",
+                status="skipped",
+                reason="线程缺少 ticker 或 theme refs，无法发起新闻补数。",
+            )
             result.unavailable_tools.append(
                 {
                     "tool": "AShareDataProvider.get_recent_news",
@@ -80,6 +90,14 @@ class StockAnalysisExternalToolService:
             try:
                 items = list(self.ashare_provider.get_recent_news(ticker, limit=3) or [])
             except Exception as exc:  # pragma: no cover - defensive
+                self._record_provider_attempt(
+                    result=result,
+                    tool="recent_news",
+                    provider="AShareDataProvider",
+                    status="failed",
+                    reason=f"新闻 provider 异常: {exc}",
+                    target=ticker,
+                )
                 result.unavailable_tools.append(
                     {
                         "tool": "AShareDataProvider.get_recent_news",
@@ -89,6 +107,14 @@ class StockAnalysisExternalToolService:
                 )
                 continue
             if not items:
+                self._record_provider_attempt(
+                    result=result,
+                    tool="recent_news",
+                    provider="AShareDataProvider",
+                    status="failed",
+                    reason="未返回可用新闻摘要。",
+                    target=ticker,
+                )
                 result.unavailable_tools.append(
                     {
                         "tool": "AShareDataProvider.get_recent_news",
@@ -104,7 +130,23 @@ class StockAnalysisExternalToolService:
                 if str(item.get("title") or "").strip()
             )
             if not summary:
+                self._record_provider_attempt(
+                    result=result,
+                    tool="recent_news",
+                    provider="AShareDataProvider",
+                    status="failed",
+                    reason="新闻数据缺少可读摘要。",
+                    target=ticker,
+                )
                 continue
+            self._record_provider_attempt(
+                result=result,
+                tool="recent_news",
+                provider="AShareDataProvider",
+                status="success",
+                reason="已返回可用新闻摘要。",
+                target=ticker,
+            )
             summaries.append(f"{ticker}: {summary}")
             news_blocks.append(
                 {
@@ -139,6 +181,13 @@ class StockAnalysisExternalToolService:
         ticker_refs: Sequence[str],
     ) -> None:
         if not ticker_refs:
+            self._record_provider_attempt(
+                result=result,
+                tool="recent_external_confirmation",
+                provider="YFinanceAdapter",
+                status="skipped",
+                reason="线程缺少 ticker refs，无法执行外部确认。",
+            )
             result.unavailable_tools.append(
                 {
                     "tool": "external_confirmation_provider",
@@ -149,16 +198,49 @@ class StockAnalysisExternalToolService:
         summaries: list[str] = []
         confirmation_blocks: list[dict[str, Any]] = []
         for ticker in list(ticker_refs)[:2]:
+            self._append_provider_fallback(
+                result=result,
+                provider="YFinanceAdapter",
+            )
             confirmation = self._fetch_yfinance_confirmation(
                 ticker=ticker,
                 generated_at=result.evidence_generated_at,
             )
             if confirmation is None:
+                self._record_provider_attempt(
+                    result=result,
+                    tool="recent_external_confirmation",
+                    provider="YFinanceAdapter",
+                    status="failed",
+                    reason="未返回可用结果。",
+                    target=ticker,
+                )
+                self._append_provider_fallback(
+                    result=result,
+                    provider="ShortCycleDataService",
+                )
                 confirmation = self._fetch_short_cycle_confirmation(
                     ticker=ticker,
                     generated_at=result.evidence_generated_at,
                 )
+            else:
+                self._record_provider_attempt(
+                    result=result,
+                    tool="recent_external_confirmation",
+                    provider="YFinanceAdapter",
+                    status="success",
+                    reason="返回近 5 日日线确认结果。",
+                    target=ticker,
+                )
             if confirmation is None:
+                self._record_provider_attempt(
+                    result=result,
+                    tool="recent_external_confirmation",
+                    provider="ShortCycleDataService",
+                    status="failed",
+                    reason="未返回可用结果。",
+                    target=ticker,
+                )
                 result.unavailable_tools.append(
                     {
                         "tool": "external_confirmation_provider",
@@ -167,6 +249,15 @@ class StockAnalysisExternalToolService:
                     }
                 )
                 continue
+            if confirmation.get("source_label") == "ShortCycleDataService":
+                self._record_provider_attempt(
+                    result=result,
+                    tool="recent_external_confirmation",
+                    provider="ShortCycleDataService",
+                    status="success",
+                    reason="以短周期数据完成外部确认。",
+                    target=ticker,
+                )
             summaries.append(confirmation["summary"])
             confirmation_blocks.append(confirmation)
         if confirmation_blocks:
@@ -295,6 +386,41 @@ class StockAnalysisExternalToolService:
         result.temporary_evidence_blocks.extend(blocks)
         if source not in result.used_external_sources:
             result.used_external_sources.append(source)
+
+    @staticmethod
+    def _record_provider_attempt(
+        *,
+        result: StockAnalysisExternalToolResult,
+        tool: str,
+        provider: str,
+        status: str,
+        reason: str,
+        target: str | None = None,
+    ) -> None:
+        result.provider_attempts.append(
+            {
+                "tool": tool,
+                "provider": provider,
+                "status": status,
+                "reason": reason,
+                "target": target,
+            }
+        )
+        if status == "success" and provider not in result.provider_used:
+            result.provider_used.append(provider)
+        StockAnalysisExternalToolService._append_provider_fallback(
+            result=result,
+            provider=provider,
+        )
+
+    @staticmethod
+    def _append_provider_fallback(
+        *,
+        result: StockAnalysisExternalToolResult,
+        provider: str,
+    ) -> None:
+        if provider not in result.provider_fallback_chain:
+            result.provider_fallback_chain.append(provider)
 
     @staticmethod
     def _resolve_yfinance_adapter() -> YFinanceAdapter | None:

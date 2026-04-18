@@ -10,6 +10,9 @@ from valuecell.core.types import NotifyResponseEvent, Role
 from valuecell.server.services.assets.stock_analysis_message_service import (
     StockAnalysisMessageService,
 )
+from valuecell.server.services.assets.stock_analysis_refresh_service import (
+    StockAnalysisRefreshService,
+)
 from valuecell.server.services.assets.stock_analysis_tool_planner import (
     CONTEXT_ONLY_MODE,
     NEED_TOOLING_MODE,
@@ -492,6 +495,65 @@ async def test_stock_analysis_message_service_returns_comparison_metadata(
     assert history is not None
     assert history["items"][1]["comparison_mode"] is True
     assert history["items"][1]["compared_tickers"] == ["SHSE:603986", "SZSE:300474"]
+
+
+@pytest.mark.asyncio
+async def test_stock_analysis_message_service_refreshes_stale_contexts_before_answer(
+    monkeypatch,
+) -> None:
+    conversation_service = FakeConversationServiceForMessages()
+    workspace_service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        conversation_service=cast(Any, conversation_service),
+    )
+    refresh_service = StockAnalysisRefreshService(workspace_service)
+    thread = await workspace_service.create_thread(
+        user_id="default_user",
+        title="刷新后重答",
+        focus_type="ticker",
+        ticker_refs_json=["SZSE:300308"],
+    )
+    await workspace_service.create_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_type="ticker",
+        title="旧上下文",
+        summary="旧摘要",
+        ticker_refs_json=["SZSE:300308"],
+        snapshot_payload_json={"generated_at": "2026-04-10T09:00:00+00:00"},
+        source_module="ticker",
+        source_ref="SZSE:300308",
+    )
+    service = StockAnalysisMessageService(
+        stock_analysis_workspace_service=workspace_service,
+        conversation_service=cast(Any, conversation_service),
+        tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
+        tooling_service=FakeToolingService(),
+        refresh_service=refresh_service,
+    )
+    monkeypatch.setattr(service, "_generate_answer", _fake_answer)
+
+    result = await service.send_message(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        message="请刷新后重新回答。",
+        refresh_before_answer=True,
+    )
+
+    assert result is not None
+    assert result.refreshed_before_answer is True
+    assert result.refresh_run_summary is not None
+    assert result.refreshed_context_ids
+    assert result.refresh_changed_contexts
+
+    history = await service.list_messages(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+    )
+    assert history is not None
+    assert history["items"][1]["refreshed_before_answer"] is True
+    assert history["items"][1]["refresh_run_summary"] is not None
 
 
 @pytest.mark.asyncio

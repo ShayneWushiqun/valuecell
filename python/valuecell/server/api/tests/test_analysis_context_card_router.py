@@ -97,10 +97,50 @@ class FakeWorkspaceService:
             "updated_at": "2026-04-18T10:05:00Z",
         }
 
+    async def refresh_stale_contexts(self, **_: str):
+        return {
+            "thread_id": 1,
+            "refreshed_count": 1,
+            "skipped_count": 1,
+            "failed_count": 0,
+            "items": [
+                {
+                    "context_id": 1,
+                    "title": "刷新后的上下文摘要",
+                    "source_module": "tradingagents_run",
+                    "refresh_supported": True,
+                    "status": "refreshed",
+                    "reason": "刷新成功",
+                    "before_freshness_label": "建议刷新",
+                    "after_freshness_label": "较新",
+                    "changed_fields": ["freshness_label", "summary"],
+                    "new_generated_at": "2026-04-18T10:05:00Z",
+                    "new_data_time": "2026-04-18T10:05:00Z",
+                }
+            ],
+            "summary": "建议更新的上下文共 2 张，已刷新 1 张，其中 1 张有变化，跳过 1 张，失败 0 张。",
+            "generated_at": "2026-04-18T10:05:00Z",
+            "refreshed_context_ids": [1],
+            "skipped_context_ids": [2],
+            "failed_context_ids": [],
+            "changed_contexts": [
+                {
+                    "context_id": 1,
+                    "title": "刷新后的上下文摘要",
+                    "changed_fields": ["freshness_label", "summary"],
+                    "after_freshness_label": "较新",
+                }
+            ],
+        }
+
 
 def test_analysis_context_card_router_crud(monkeypatch) -> None:
     monkeypatch.setattr(
         "valuecell.server.api.routers.analysis_context_card.get_stock_analysis_workspace_service",
+        lambda: FakeWorkspaceService(),
+    )
+    monkeypatch.setattr(
+        "valuecell.server.api.routers.analysis_context_card.get_stock_analysis_refresh_service",
         lambda: FakeWorkspaceService(),
     )
     app = FastAPI()
@@ -125,6 +165,13 @@ def test_analysis_context_card_router_crud(monkeypatch) -> None:
     ).status_code == 200
     assert (
         client.post("/api/v1/stock-analysis/threads/1/contexts/1/refresh").status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/v1/stock-analysis/threads/1/contexts/refresh-stale",
+            json={"include_supported_only": True, "pin_refreshed_cards": False},
+        ).status_code
         == 200
     )
     assert client.delete("/api/v1/stock-analysis/threads/1/contexts/1").status_code == 200

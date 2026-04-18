@@ -53,10 +53,17 @@
   - `POST /api/v1/stock-analysis/threads/{thread_id}/fork`
   - `POST /api/v1/stock-analysis/threads/{thread_id}/contexts/{context_id}/refresh`
   - compare tray、线程分叉交互、时效 badge 与刷新提示
+- 第六轮：
+  - `StockAnalysisRefreshService`
+  - `POST /api/v1/stock-analysis/threads/{thread_id}/contexts/refresh-stale`
+  - refresh diff 摘要
+  - refresh-before-answer 组合工作流
+  - 研究流摘要区
+  - 外部 provider attempts / fallback chain
 
 阶段四当前未实现：
 
-- 更复杂的第三层 provider 编排与可视化
+- 更强 planner 语义
 - 更复杂的 SSE 工具过程可视化
 
 ## 2. 设计原则
@@ -385,6 +392,20 @@
   - `stale_context_ids`
   - `refresh_recommended_context_ids`
 
+当前第六轮继续扩展为：
+
+- 可在提问前先执行 `refresh-stale`
+- assistant metadata 继续返回：
+  - `refresh_run_summary`
+  - `refreshed_context_ids`
+  - `refresh_failed_context_ids`
+  - `refresh_skipped_context_ids`
+  - `refreshed_before_answer`
+  - `refresh_changed_contexts`
+  - `provider_attempts`
+  - `provider_used`
+  - `provider_fallback_chain`
+
 ### 7.5 `StockAnalysisCompareService`
 
 第五轮新增 compare service，负责：
@@ -393,6 +414,19 @@
 - 规范化 compare target 结构
 - 更新 compare targets 后同步线程 focus / refs
 - 向前端稳定返回比较对象、来源、主次角色和排序
+
+### 7.6 `StockAnalysisRefreshService`
+
+第六轮新增 refresh service，负责：
+
+- 批量筛选 stale / refresh_recommended contexts
+- 复用单卡 refresh 路径
+- 输出结构化 refresh summary
+- 生成轻量 diff 摘要：
+  - freshness label 变化
+  - generated_at / data_time 变化
+  - summary 是否变化
+  - refs 是否变化
 
 ## 8. 建议新增 API
 

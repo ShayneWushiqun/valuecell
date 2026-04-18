@@ -37,8 +37,17 @@ export type StockAnalysisMessage = {
   }[];
   used_internal_sources: string[];
   used_external_sources: string[];
+  provider_attempts: Array<Record<string, unknown>>;
+  provider_used: string[];
+  provider_fallback_chain: string[];
   evidence_generated_at?: string | null;
   evidence_staleness_hint?: string | null;
+  refreshed_before_answer: boolean;
+  refresh_run_summary?: string | null;
+  refreshed_context_ids: number[];
+  refresh_failed_context_ids: number[];
+  refresh_skipped_context_ids: number[];
+  refresh_changed_contexts: Array<Record<string, unknown>>;
 };
 
 export type StockAnalysisMessageList = {
@@ -84,8 +93,17 @@ export type StockAnalysisMessageCreateResult = {
   }[];
   used_internal_sources: string[];
   used_external_sources: string[];
+  provider_attempts: Array<Record<string, unknown>>;
+  provider_used: string[];
+  provider_fallback_chain: string[];
   evidence_generated_at?: string | null;
   evidence_staleness_hint?: string | null;
+  refreshed_before_answer: boolean;
+  refresh_run_summary?: string | null;
+  refreshed_context_ids: number[];
+  refresh_failed_context_ids: number[];
+  refresh_skipped_context_ids: number[];
+  refresh_changed_contexts: Array<Record<string, unknown>>;
   user_message: StockAnalysisMessage;
   assistant_message: StockAnalysisMessage;
 };

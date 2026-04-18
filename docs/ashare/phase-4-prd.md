@@ -27,7 +27,7 @@
 
 ## 2.1 当前落地状态
 
-阶段四目前已经完成四轮交付：
+阶段四目前已经完成六轮交付：
 
 - 第一轮：
   - 工作区骨架
@@ -54,9 +54,10 @@
 
 当前仍未落地：
 
-- 更复杂的第三层外部解释型补数编排
 - 自动长期记忆
 - 自动交易
+- 更强 planner 语义
+- 更复杂的 SSE 工具过程可视化
 
 ## 2.2 第五轮完成状态
 
@@ -72,6 +73,12 @@
   - 支持单卡刷新
   - context card 统一返回 `generated_at / data_time / freshness_label / refresh_recommended / is_stale`
   - assistant message 可提示本轮比较对象中哪些上下文较旧、哪些建议刷新
+- 第六轮：
+  - 批量 stale refresh
+  - 刷新后重答工作流
+  - refresh diff 摘要
+  - 线程研究流摘要区
+  - 外部 provider attempts / fallback chain 收口
 
 ## 3. 产品核心问题
 
@@ -257,6 +264,31 @@
   - 当前比较对象
   - 哪些对象较旧
   - 是否建议刷新后再做强结论
+
+### 6.10 批量 refresh 与刷新后重答
+
+第六轮继续补齐：
+
+- 支持按线程批量刷新 stale / refresh_recommended contexts
+- 支持返回结构化 refresh summary，而不是只有 success/fail
+- 支持“刷新过期上下文后再回答”组合工作流
+- assistant metadata 会带出：
+  - `refresh_run_summary`
+  - `refreshed_context_ids`
+  - `refresh_failed_context_ids`
+  - `refresh_skipped_context_ids`
+  - `refreshed_before_answer`
+  - `refresh_changed_contexts`
+
+### 6.11 研究流摘要区
+
+第六轮在当前线程主区补充轻量摘要区，用于快速展示：
+
+- compare targets 数
+- stale contexts 数
+- refresh recommended 数
+- 最近一次批量刷新时间和摘要
+- 当前线程中已保存的长期证据数量
 
 ### 6.8 快捷提问模板
 

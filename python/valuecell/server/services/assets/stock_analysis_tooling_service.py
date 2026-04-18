@@ -38,6 +38,9 @@ class StockAnalysisToolingResult(BaseModel):
     unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
     used_internal_sources: list[str] = Field(default_factory=list)
     used_external_sources: list[str] = Field(default_factory=list)
+    provider_attempts: list[dict[str, Any]] = Field(default_factory=list)
+    provider_used: list[str] = Field(default_factory=list)
+    provider_fallback_chain: list[str] = Field(default_factory=list)
     evidence_generated_at: str | None = None
     evidence_staleness_hint: str | None = None
 
@@ -488,6 +491,13 @@ class StockAnalysisToolingService:
         result.tool_call_summaries.extend(external_result.tool_call_summaries)
         result.temporary_evidence_blocks.extend(external_result.temporary_evidence_blocks)
         result.unavailable_tools.extend(external_result.unavailable_tools)
+        result.provider_attempts.extend(external_result.provider_attempts)
+        for provider in external_result.provider_used:
+            if provider not in result.provider_used:
+                result.provider_used.append(provider)
+        for provider in external_result.provider_fallback_chain:
+            if provider not in result.provider_fallback_chain:
+                result.provider_fallback_chain.append(provider)
         for source in external_result.used_external_sources:
             if source not in result.used_external_sources:
                 result.used_external_sources.append(source)

@@ -69,7 +69,7 @@ class StockAnalysisContextAssembler:
                 self._build_focus_block("Tickers", ticker_refs),
                 "Theme Focus",
                 self._build_focus_block("Themes", theme_refs),
-                "Freshness Status",
+                "Current Context Refresh Status",
                 self._build_freshness_block(ordered_cards),
                 "Current User Question",
                 user_question.strip(),
@@ -160,6 +160,11 @@ class StockAnalysisContextAssembler:
             item for item in cards if bool(item.get("refresh_recommended"))
         ]
         lines = [
+            (
+                "Current refresh state: some contexts should be refreshed before strong conclusions."
+                if stale_cards or refresh_cards
+                else "Current refresh state: explicit contexts are relatively fresh."
+            ),
             (
                 "Stale contexts: "
                 + ", ".join(

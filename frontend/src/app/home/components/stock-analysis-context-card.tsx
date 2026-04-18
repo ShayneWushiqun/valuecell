@@ -8,6 +8,10 @@ type StockAnalysisContextCardProps = {
   item: AnalysisContextCard;
   isSelectedForFork: boolean;
   isInCompare: boolean;
+  recentRefreshState?: {
+    status: "refreshed" | "skipped" | "failed";
+    reason?: string | null;
+  } | null;
   onToggleSelect: (contextId: number) => void;
   onTogglePin: (contextId: number, isPinned: boolean) => void;
   onDelete: (contextId: number) => void;
@@ -28,6 +32,7 @@ export function StockAnalysisContextCard({
   item,
   isSelectedForFork,
   isInCompare,
+  recentRefreshState,
   onToggleSelect,
   onTogglePin,
   onDelete,
@@ -52,6 +57,15 @@ export function StockAnalysisContextCard({
               <Badge variant="outline">建议刷新</Badge>
             ) : null}
             {item.is_pinned ? <Badge variant="outline">Pinned</Badge> : null}
+            {recentRefreshState?.status === "refreshed" ? (
+              <Badge variant="outline">刚刷新</Badge>
+            ) : null}
+            {recentRefreshState?.status === "failed" ? (
+              <Badge variant="destructive">最近批量刷新失败</Badge>
+            ) : null}
+            {recentRefreshState?.status === "skipped" ? (
+              <Badge variant="outline">最近批量刷新跳过</Badge>
+            ) : null}
           </div>
           <div>
             <p className="font-medium text-sm">{item.title}</p>
@@ -94,6 +108,9 @@ export function StockAnalysisContextCard({
       </div>
       {item.staleness_hint ? (
         <p className="mt-3 text-muted-foreground text-xs">{item.staleness_hint}</p>
+      ) : null}
+      {recentRefreshState?.reason ? (
+        <p className="mt-2 text-muted-foreground text-xs">{recentRefreshState.reason}</p>
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button

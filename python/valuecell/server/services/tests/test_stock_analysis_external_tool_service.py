@@ -90,6 +90,9 @@ def test_stock_analysis_external_tool_service_collects_news_and_external_confirm
     )
 
     assert result.used_external_sources
+    assert result.provider_attempts
+    assert result.provider_used
+    assert "YFinanceAdapter" in result.provider_fallback_chain
     assert len(result.temporary_evidence_blocks) >= 2
     assert any(block["type"] == "recent_news" for block in result.temporary_evidence_blocks)
     assert any(
@@ -113,5 +116,7 @@ def test_stock_analysis_external_tool_service_gracefully_degrades_when_providers
 
     assert result.temporary_evidence_blocks == []
     assert result.unavailable_tools
+    assert result.provider_attempts
+    assert any(item["provider"] == "ShortCycleDataService" for item in result.provider_attempts)
     assert any(item["tool"] == "AShareDataProvider.get_recent_news" for item in result.unavailable_tools)
     assert any(item["tool"] == "external_confirmation_provider" for item in result.unavailable_tools)

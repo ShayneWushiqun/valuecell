@@ -4,12 +4,19 @@ from ...services.assets.stock_analysis_workspace_service import (
     DEFAULT_USER_ID,
     get_stock_analysis_workspace_service,
 )
+from ...services.assets.stock_analysis_refresh_service import (
+    get_stock_analysis_refresh_service,
+)
 from ..schemas import SuccessResponse
 from ..schemas.analysis_context_card import (
     AnalysisContextCardCreateRequest,
     AnalysisContextCardItemData,
     AnalysisContextCardListData,
     AnalysisContextCardUpdateRequest,
+)
+from ..schemas.stock_analysis_refresh import (
+    StockAnalysisRefreshRunData,
+    StockAnalysisRefreshRunRequest,
 )
 
 
@@ -171,6 +178,38 @@ def create_analysis_context_card_router() -> APIRouter:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error refreshing analysis context card: {str(exc)}",
+            ) from exc
+
+    @router.post(
+        "/threads/{thread_id}/contexts/refresh-stale",
+        response_model=SuccessResponse[StockAnalysisRefreshRunData],
+    )
+    async def refresh_stale_contexts(
+        thread_id: int,
+        request: StockAnalysisRefreshRunRequest,
+    ) -> SuccessResponse[StockAnalysisRefreshRunData]:
+        try:
+            data = await get_stock_analysis_refresh_service().refresh_stale_contexts(
+                user_id=DEFAULT_USER_ID,
+                thread_id=thread_id,
+                context_ids=request.context_ids,
+                include_supported_only=request.include_supported_only,
+                pin_refreshed_cards=request.pin_refreshed_cards,
+            )
+            if data is None:
+                raise HTTPException(status_code=404, detail="Thread not found")
+            return SuccessResponse.create(
+                data=StockAnalysisRefreshRunData(**data),
+                msg="Stale analysis contexts refreshed successfully",
+            )
+        except HTTPException:
+            raise
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error refreshing stale analysis contexts: {str(exc)}",
             ) from exc
 
     return router

@@ -499,6 +499,7 @@ async def test_refresh_context_card_reuses_existing_builder() -> None:
     assert refreshed["context_type"] == "opportunity"
     assert refreshed["source_ref"] == "SZSE:000001"
     assert refreshed["summary"]
+    assert refreshed["freshness_label"] == "较新"
 
 
 @pytest.mark.asyncio
