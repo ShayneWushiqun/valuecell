@@ -241,23 +241,43 @@
 
 但要注意：
 
-- 上述能力当前主要是后端服务层
-- 现在已经补上首页上下文聚合服务和首页工作台第一屏
-- 阶段四第一轮现已完成工作区骨架、研究线程 CRUD、上下文卡片 CRUD 和 TradingAgents 接入口
-- 当前阶段四仍未接真正聊天执行、自动补数据、多模块 context import 和外部工具调用策略
+- 上述能力当前主要是结构化服务层 + 工作台页面
+- 现在已经补上首页上下文聚合服务、首页工作台第一屏，以及股票分析研究线程工作区
+- 阶段四第一轮已完成工作区骨架、研究线程 CRUD、上下文卡片 CRUD 和 TradingAgents 接入口
+- 阶段四第二轮已完成多模块 context import、context assembler、研究线程消息历史与 `context_only` 聊天 MVP
+- 当前阶段四仍未接自动补数据、外部工具调用策略和独立 tool planner
 
 ## 6.2 当前阶段推进建议
 
 如果当前开发已经完成阶段三的大部分结构化闭环，后续优先级建议调整为：
 
-1. 先收口阶段三剩余的结果回看、有效性和风控分仓能力
-2. 再进入阶段四，实现统一的股票分析聊天工作区
+1. 先继续增强阶段三的结果回看、有效性和风控分仓能力
+2. 再在阶段四现有 context_only 工作区上继续补外部工具层和研究卡片类型
 3. 阶段四要优先复用：
    - `conversation`
    - `agent_stream`
    - `TradingAgents`
    - `持仓 / 机会池 / 观察池 / 题材雷达 / 提醒 / 决策上下文`
-4. 阶段四不要直接变成“到处塞聊天框”，而应统一收敛为线程式研究工作区
+4. 阶段四不要直接变成“到处塞聊天框”，而应继续统一收敛为线程式研究工作区
+
+## 6.3 阶段四当前实现状态
+
+当前代码已经具备：
+
+- `stock_analysis_thread` 与 `analysis_context_card` 两个核心模型
+- `StockAnalysisWorkspaceService` 统一管理线程 CRUD、卡片 CRUD 和多模块 context import
+- `StockAnalysisContextAssembler` 负责把当前线程卡片装配成稳定 prompt context
+- `StockAnalysisMessageService` 负责按 `thread.conversation_id` 读取历史、写入消息并执行 `context_only` 回答
+- `/api/v1/stock-analysis/threads/{thread_id}/messages`
+  - 已可在同一线程中多轮继续聊
+- `/home/stock-analysis`
+  - 已从骨架页升级为可用聊天工作区，顶部明确展示“回答依据：当前上下文”
+
+当前仍需留到下一轮的点：
+
+- 外部工具补数与 `need_tooling` 语义
+- 决策上下文 / 结果回看等高级卡片接入
+- 更细的流式可视化和工具调用说明
 - 已新增 `/api/v1/homepage/context` 作为前端消费入口
 - 聊天和通用 Agent 已降级到页面次要区域
 - `HomepageContextService` 当前应只做聚合，不再承载自选观察和题材候选的具体规则

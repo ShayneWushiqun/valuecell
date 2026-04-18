@@ -7,6 +7,10 @@ import type {
   StockAnalysisContextImportResult,
 } from "@/types/analysis-context-card";
 import type {
+  StockAnalysisMessageCreateResult,
+  StockAnalysisMessageList,
+} from "@/types/stock-analysis-message";
+import type {
   StockAnalysisThread,
   StockAnalysisThreadList,
   StockAnalysisWorkspaceOverview,
@@ -57,6 +61,10 @@ type ImportContextPayload = {
   mode?: "append" | "replace";
 };
 
+type CreateMessagePayload = {
+  message: string;
+};
+
 export const useGetStockAnalysisThreads = () =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads,
@@ -84,6 +92,17 @@ export const useGetStockAnalysisContexts = (threadId?: number | null) =>
     queryFn: () =>
       apiClient.get<ApiResponse<AnalysisContextCardList>>(
         `stock-analysis/threads/${threadId}/contexts`,
+      ),
+    select: (response) => response.data,
+  });
+
+export const useGetStockAnalysisMessages = (threadId?: number | null) =>
+  useQuery({
+    queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.messages(threadId || 0),
+    enabled: !!threadId,
+    queryFn: () =>
+      apiClient.get<ApiResponse<StockAnalysisMessageList>>(
+        `stock-analysis/threads/${threadId}/messages`,
       ),
     select: (response) => response.data,
   });
@@ -242,6 +261,34 @@ export const useImportStockAnalysisContext = () => {
       });
       queryClient.invalidateQueries({
         queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.contexts(response.data.thread.thread_id),
+      });
+    },
+  });
+};
+
+export const useCreateStockAnalysisMessage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      data,
+    }: {
+      threadId: number;
+      data: CreateMessagePayload;
+    }) =>
+      apiClient.post<ApiResponse<StockAnalysisMessageCreateResult>>(
+        `stock-analysis/threads/${threadId}/messages`,
+        data,
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.messages(variables.threadId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads,
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overviewBase,
       });
     },
   });

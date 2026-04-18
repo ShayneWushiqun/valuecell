@@ -7,7 +7,15 @@ from pydantic import BaseModel, Field, field_validator
 from .stock_analysis_thread import StockAnalysisThreadItemData
 
 
-ALLOWED_CONTEXT_TYPES = {"tradingagents_run"}
+ALLOWED_CONTEXT_TYPES = {
+    "tradingagents_run",
+    "holding",
+    "opportunity",
+    "watchlist",
+    "theme",
+    "alert",
+    "ticker",
+}
 ALLOWED_CONTEXT_MODES = {"append", "replace"}
 
 

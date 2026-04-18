@@ -65,6 +65,9 @@ export default function ThemeRadar() {
           <Button asChild variant="outline">
             <Link to="/home/opportunities">去机会池</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/stock-analysis">新建分析线程</Link>
+          </Button>
         </div>
       </div>
 

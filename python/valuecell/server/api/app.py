@@ -52,6 +52,7 @@ from .routers.watchlist import create_watchlist_router
 from .routers.watchlist_center import create_watchlist_center_router
 from .routers.short_cycle_context_event import create_short_cycle_context_event_router
 from .routers.stock_analysis_thread import create_stock_analysis_thread_router
+from .routers.stock_analysis_message import create_stock_analysis_message_router
 from .schemas import AppInfoData, SuccessResponse
 
 
@@ -278,6 +279,7 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_decision_context_window_router(), prefix=API_PREFIX)
     app.include_router(create_stock_analysis_thread_router(), prefix=API_PREFIX)
     app.include_router(create_analysis_context_card_router(), prefix=API_PREFIX)
+    app.include_router(create_stock_analysis_message_router(), prefix=API_PREFIX)
     app.include_router(create_theme_radar_router(), prefix=API_PREFIX)
     app.include_router(create_watchlist_center_router(), prefix=API_PREFIX)
     app.include_router(create_risk_sizing_router(), prefix=API_PREFIX)

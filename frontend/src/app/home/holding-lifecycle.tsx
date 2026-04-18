@@ -129,6 +129,9 @@ export default function HoldingLifecycle() {
           <Button asChild variant="outline">
             <Link to="/home/daily-review">去复盘中心</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/stock-analysis">新建分析线程</Link>
+          </Button>
         </div>
       </div>
 
@@ -218,6 +221,13 @@ export default function HoldingLifecycle() {
                           </Button>
                           <Button asChild size="sm" variant="outline">
                             <Link to="/home/daily-review">去复盘记录</Link>
+                          </Button>
+                          <Button asChild size="sm" variant="outline">
+                            <Link
+                              to={`/home/stock-analysis?sourceModule=holding&sourceRef=${item.holding_id}&createThread=1`}
+                            >
+                              以当前持仓新建线程
+                            </Link>
                           </Button>
                         </div>
                       </div>

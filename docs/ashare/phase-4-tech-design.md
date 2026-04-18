@@ -14,6 +14,32 @@
 - 按需调用外部工具
 - 与现有 TradingAgents、机会池、持仓、题材雷达和提醒中心联动
 
+## 1.1 当前实现阶段
+
+阶段四当前已完成：
+
+- 第一轮：
+  - `stock_analysis_thread`
+  - `analysis_context_card`
+  - `StockAnalysisWorkspaceService`
+  - TradingAgents run 导入
+  - `/home/stock-analysis` 三栏骨架
+- 第二轮：
+  - 统一 `context-import` 扩展到 `holding / opportunity / watchlist / theme / alert / ticker`
+  - `StockAnalysisContextAssembler`
+  - `StockAnalysisMessageService`
+  - `GET /api/v1/stock-analysis/threads/{thread_id}/messages`
+  - `POST /api/v1/stock-analysis/threads/{thread_id}/messages`
+  - 线程历史跟随 `conversation_id` 回看
+  - 前端工作区聊天区与多页面研究线程入口
+
+阶段四当前未实现：
+
+- 外部工具补数
+- `need_tooling` / `user_forced_tooling`
+- 独立 `StockAnalysisToolPlanner`
+- 复杂流式可视化
+
 ## 2. 设计原则
 
 ### 2.1 不重做聊天基础设施
@@ -103,6 +129,13 @@
 - 决定是否需要补数据
 - 决定调用哪一层工具
 - 把最终上下文交给底层流式 Agent
+
+当前第二轮的落地方式先做保守收口：
+
+- 不做 tool planner
+- 不触发外部工具
+- 只做 `context_only`
+- 通过 `StockAnalysisMessageService` 直接复用 conversation 基础设施和稳定 agent 能力
 
 ### 3.5 流式执行层
 
@@ -248,6 +281,15 @@
 - 工具层选择
 - 调用底层流式执行入口
 
+当前实现已收口为：
+
+- 线程管理
+- 上下文卡片管理
+- 多模块 context import
+- 工作区 overview 聚合
+
+消息执行已独立到 `StockAnalysisMessageService`，避免把工作区编排层和聊天执行层混在一起。
+
 ### 7.2 `StockAnalysisContextAssembler`
 
 建议把上下文装配拆成独立模块，避免 `StockAnalysisWorkspaceService` 变成超大 service。
@@ -282,6 +324,18 @@
 - 调用 tool planner
 - 调用底层流式入口
 - 记录本轮消息的依据说明和工具调用说明
+
+当前第二轮已实现：
+
+- 根据 `thread_id` 查找 `conversation_id`
+- 读取线程当前上下文卡片
+- 调用 `StockAnalysisContextAssembler` 生成分段 prompt context
+- 读取并返回当前线程消息历史
+- 写入 user / assistant message
+- 在 metadata 中返回：
+  - `answer_basis = context_only`
+  - `used_context_ids`
+  - `missing_context_hints`
 
 ## 8. 建议新增 API
 

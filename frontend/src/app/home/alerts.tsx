@@ -86,6 +86,9 @@ export default function Alerts() {
           <Button asChild variant="outline">
             <Link to="/home/opportunities">返回机会池</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/home/stock-analysis">新建分析线程</Link>
+          </Button>
           <Button
             variant="outline"
             onClick={() => refreshAlerts.mutate()}
@@ -209,6 +212,13 @@ export default function Alerts() {
                     }}
                   >
                     忽略
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to={`/home/stock-analysis?sourceModule=alert&sourceRef=${encodeURIComponent(`${alert.ticker}|${alert.alert_type}`)}&createThread=1`}
+                    >
+                      以当前提醒新建线程
+                    </Link>
                   </Button>
                 </div>
               </div>

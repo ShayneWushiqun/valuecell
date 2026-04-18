@@ -17,11 +17,31 @@ from ...db.repositories.analysis_context_card_repository import (
 from ...db.repositories.stock_analysis_thread_repository import (
     StockAnalysisThreadRepository,
 )
+from .decision_alert_service import DecisionAlertService
+from .exit_risk_center_service import ExitRiskCenterService
+from .holding_lifecycle_service import HoldingLifecycleService
+from .opportunity_pool_service import OpportunityPoolService
+from .theme_radar_service import ThemeRadarService
+from .watchlist_center_service import WatchlistCenterService
 
 DEFAULT_USER_ID = "default_user"
 STOCK_ANALYSIS_AGENT_NAME = "StockAnalysisWorkspace"
 TRADINGAGENTS_CONTEXT_TYPE = "tradingagents_run"
-SUPPORTED_SOURCE_MODULES = {"tradingagents_run"}
+HOLDING_CONTEXT_TYPE = "holding"
+OPPORTUNITY_CONTEXT_TYPE = "opportunity"
+WATCHLIST_CONTEXT_TYPE = "watchlist"
+THEME_CONTEXT_TYPE = "theme"
+ALERT_CONTEXT_TYPE = "alert"
+TICKER_CONTEXT_TYPE = "ticker"
+SUPPORTED_SOURCE_MODULES = {
+    "tradingagents_run",
+    "holding",
+    "opportunity",
+    "watchlist",
+    "theme",
+    "alert",
+    "ticker",
+}
 SUPPORTED_FOCUS_TYPES = {
     "ticker",
     "theme",
@@ -30,7 +50,15 @@ SUPPORTED_FOCUS_TYPES = {
     "tradingagents_followup",
     "mixed",
 }
-SUPPORTED_CONTEXT_TYPES = {TRADINGAGENTS_CONTEXT_TYPE}
+SUPPORTED_CONTEXT_TYPES = {
+    TRADINGAGENTS_CONTEXT_TYPE,
+    HOLDING_CONTEXT_TYPE,
+    OPPORTUNITY_CONTEXT_TYPE,
+    WATCHLIST_CONTEXT_TYPE,
+    THEME_CONTEXT_TYPE,
+    ALERT_CONTEXT_TYPE,
+    TICKER_CONTEXT_TYPE,
+}
 
 
 def _utcnow() -> dt.datetime:
@@ -53,6 +81,12 @@ class StockAnalysisWorkspaceService:
         analysis_context_card_repository: Optional[AnalysisContextCardRepository] = None,
         tradingagents_service: Optional[TradingAgentsService] = None,
         conversation_service: Optional[ServerConversationService] = None,
+        holding_lifecycle_service: Optional[HoldingLifecycleService] = None,
+        exit_risk_center_service: Optional[ExitRiskCenterService] = None,
+        opportunity_pool_service: Optional[OpportunityPoolService] = None,
+        watchlist_center_service: Optional[WatchlistCenterService] = None,
+        theme_radar_service: Optional[ThemeRadarService] = None,
+        decision_alert_service: Optional[DecisionAlertService] = None,
     ) -> None:
         self.stock_analysis_thread_repository = (
             stock_analysis_thread_repository or StockAnalysisThreadRepository()
@@ -62,6 +96,14 @@ class StockAnalysisWorkspaceService:
         )
         self.tradingagents_service = tradingagents_service or TradingAgentsService()
         self.conversation_service = conversation_service or ServerConversationService()
+        self.holding_lifecycle_service = (
+            holding_lifecycle_service or HoldingLifecycleService()
+        )
+        self.exit_risk_center_service = exit_risk_center_service or ExitRiskCenterService()
+        self.opportunity_pool_service = opportunity_pool_service or OpportunityPoolService()
+        self.watchlist_center_service = watchlist_center_service or WatchlistCenterService()
+        self.theme_radar_service = theme_radar_service or ThemeRadarService()
+        self.decision_alert_service = decision_alert_service or DecisionAlertService()
 
     async def list_threads(self, *, user_id: str) -> dict[str, Any]:
         threads = self.stock_analysis_thread_repository.list_threads(user_id=user_id)
@@ -267,12 +309,28 @@ class StockAnalysisWorkspaceService:
         normalized_context_type = self._normalize_context_type(context_type)
         normalized_mode = self._normalize_context_mode(mode)
         if normalized_mode == "replace":
-            self.analysis_context_card_repository.delete_context_cards_by_filter(
-                user_id=user_id,
-                thread_id=thread_id,
-                context_type=normalized_context_type,
-                source_module=source_module,
-            )
+            if source_ref:
+                deleted_count = self.analysis_context_card_repository.delete_context_cards_by_filter(
+                    user_id=user_id,
+                    thread_id=thread_id,
+                    context_type=normalized_context_type,
+                    source_module=source_module,
+                    source_ref=source_ref,
+                )
+                if deleted_count == 0:
+                    self.analysis_context_card_repository.delete_context_cards_by_filter(
+                        user_id=user_id,
+                        thread_id=thread_id,
+                        context_type=normalized_context_type,
+                        source_module=source_module,
+                    )
+            else:
+                self.analysis_context_card_repository.delete_context_cards_by_filter(
+                    user_id=user_id,
+                    thread_id=thread_id,
+                    context_type=normalized_context_type,
+                    source_module=source_module,
+                )
         created = self.analysis_context_card_repository.create_context_card(
             {
                 "thread_id": thread_id,
@@ -352,19 +410,22 @@ class StockAnalysisWorkspaceService:
     ) -> dict[str, Any]:
         normalized_source_module = str(source_module or "").strip()
         if normalized_source_module not in SUPPORTED_SOURCE_MODULES:
-            raise ValueError("Only tradingagents_run context import is supported in this phase")
-        run_data = await self.tradingagents_service.get_run(source_ref)
-        if run_data is None:
-            raise ValueError("TradingAgents run not found")
+            raise ValueError("Unsupported stock analysis context source")
+
+        context_payload = await self._build_context_import_payload(
+            user_id=user_id,
+            source_module=normalized_source_module,
+            source_ref=source_ref,
+        )
 
         thread: dict[str, Any] | None = None
         if create_new_thread:
             thread = await self.create_thread(
                 user_id=user_id,
-                title=f"追问：{run_data.symbol} TradingAgents 分析",
-                focus_type="tradingagents_followup",
-                ticker_refs_json=[run_data.symbol],
-                theme_refs_json=[],
+                title=self._build_thread_title_from_context(context_payload),
+                focus_type=self._resolve_focus_type_from_context(context_payload),
+                ticker_refs_json=list(context_payload.get("ticker_refs_json") or []),
+                theme_refs_json=list(context_payload.get("theme_refs_json") or []),
             )
             target_thread_id = int(thread["thread_id"])
         elif target_thread_id is not None:
@@ -375,8 +436,6 @@ class StockAnalysisWorkspaceService:
             thread = self._serialize_thread(thread_obj) if thread_obj else None
         if target_thread_id is None or thread is None:
             raise ValueError("A target thread is required for context import")
-
-        context_payload = self._build_tradingagents_context_payload(run_data.model_dump())
         context_card = await self.create_context_card(
             user_id=user_id,
             thread_id=target_thread_id,
@@ -522,6 +581,381 @@ class StockAnalysisWorkspaceService:
             "staleness_hint": f"请结合 run 时间 {subtitle_timestamp or '--'} 判断该卡片是否仍然新鲜。",
             "is_pinned": True,
         }
+
+    async def _build_context_import_payload(
+        self,
+        *,
+        user_id: str,
+        source_module: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        if source_module == "tradingagents_run":
+            run_data = await self.tradingagents_service.get_run(source_ref)
+            if run_data is None:
+                raise ValueError("TradingAgents run not found")
+            return self._build_tradingagents_context_payload(run_data.model_dump())
+        if source_module == "holding":
+            return self._build_holding_context_payload(user_id=user_id, source_ref=source_ref)
+        if source_module == "opportunity":
+            return self._build_opportunity_context_payload(
+                user_id=user_id,
+                source_ref=source_ref,
+            )
+        if source_module == "watchlist":
+            return self._build_watchlist_context_payload(
+                user_id=user_id,
+                source_ref=source_ref,
+            )
+        if source_module == "theme":
+            return self._build_theme_context_payload(user_id=user_id, source_ref=source_ref)
+        if source_module == "alert":
+            return self._build_alert_context_payload(user_id=user_id, source_ref=source_ref)
+        if source_module == "ticker":
+            return self._build_ticker_context_payload(source_ref=source_ref)
+        raise ValueError("Unsupported stock analysis context source")
+
+    def _build_holding_context_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        lifecycle_overview = self.holding_lifecycle_service.get_overview(user_id)
+        exit_risk_overview = self.exit_risk_center_service.get_overview(user_id)
+        item = self._find_by_keys(
+            lifecycle_overview.get("items") or [],
+            source_ref,
+            keys=("holding_id", "ticker"),
+        )
+        if item is None:
+            raise ValueError("Holding context source not found")
+        risk_item = self._find_by_keys(
+            self._merge_exit_risk_groups(exit_risk_overview),
+            str(item.get("ticker") or ""),
+            keys=("ticker",),
+        )
+        display_name = str(item.get("display_name") or item.get("ticker") or "")
+        lifecycle_stage = str(item.get("lifecycle_stage") or "待观察")
+        action = str(item.get("action") or "持有观察")
+        reasons = [
+            text
+            for text in [
+                str((risk_item or {}).get("risk_type") or "").strip(),
+                str((risk_item or {}).get("liquidity_warning") or "").strip(),
+            ]
+            if text
+        ][:2]
+        summary = (
+            f"{display_name} 当前处于 {lifecycle_stage}，主动作偏 {action}。"
+            f"{' 风险要点：' + '；'.join(reasons) if reasons else ''}"
+        )
+        return {
+            "context_type": HOLDING_CONTEXT_TYPE,
+            "title": f"{display_name} 持仓处理摘要",
+            "subtitle": f"{lifecycle_stage} · {action}",
+            "ticker_refs_json": [str(item.get('ticker') or '')],
+            "theme_refs_json": [str(item.get("theme_name") or "").strip()]
+            if str(item.get("theme_name") or "").strip()
+            else [],
+            "summary": summary,
+            "snapshot_payload_json": {
+                "ticker": item.get("ticker"),
+                "display_name": display_name,
+                "lifecycle_stage": lifecycle_stage,
+                "action": action,
+                "role_label": item.get("role_label"),
+                "risk_points": reasons,
+            },
+            "source_module": "holding",
+            "source_ref": str(item.get("holding_id") or item.get("ticker") or ""),
+            "staleness_hint": "若持仓阶段或风险中心发生变化，请刷新后重新导入。",
+            "is_pinned": False,
+        }
+
+    def _build_opportunity_context_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        opportunity_result = self.opportunity_pool_service.get_opportunity_candidates(user_id)
+        item = self._find_by_keys(
+            opportunity_result.get("items") or [],
+            source_ref,
+            keys=("ticker",),
+        )
+        if item is None:
+            raise ValueError("Opportunity context source not found")
+        display_name = str(item.get("display_name") or item.get("ticker") or "")
+        topic_name = str(item.get("topic_name") or "").strip()
+        candidate_state = str(item.get("candidate_state") or "普通观察")
+        action_hint = str(item.get("action_hint") or "").strip()
+        reason_bits = [
+            text
+            for text in [
+                candidate_state,
+                action_hint,
+                str(item.get("tradeability_state") or "").strip(),
+            ]
+            if text
+        ]
+        summary = f"{display_name} 当前题材为 {topic_name or '未分类'}，{'；'.join(reason_bits[:3])}。"
+        return {
+            "context_type": OPPORTUNITY_CONTEXT_TYPE,
+            "title": f"{display_name} 机会池摘要",
+            "subtitle": f"{topic_name or '未分类'} · {candidate_state}",
+            "ticker_refs_json": [str(item.get('ticker') or '')],
+            "theme_refs_json": [topic_name] if topic_name else [],
+            "summary": summary,
+            "snapshot_payload_json": {
+                "ticker": item.get("ticker"),
+                "display_name": display_name,
+                "topic_name": topic_name,
+                "candidate_state": candidate_state,
+                "action_hint": action_hint,
+                "role_label": item.get("role_label"),
+            },
+            "source_module": "opportunity",
+            "source_ref": str(item.get("ticker") or ""),
+            "staleness_hint": "机会池阶段变化较快，建议结合当日状态复核。",
+            "is_pinned": False,
+        }
+
+    def _build_watchlist_context_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        watchlist_result = self.watchlist_center_service.get_overview(user_id)
+        item = self._find_by_keys(
+            watchlist_result.get("items") or [],
+            source_ref,
+            keys=("ticker",),
+        )
+        if item is None:
+            raise ValueError("Watchlist context source not found")
+        display_name = str(item.get("display_name") or item.get("ticker") or "")
+        status = str(item.get("status") or "普通观察")
+        reason = str(item.get("reason") or "").strip()
+        tradeability_state = str(item.get("tradeability_state") or "").strip()
+        expectation_gap = str(item.get("expectation_gap_level") or "").strip()
+        summary = (
+            f"{display_name} 当前观察状态为 {status}。"
+            f"{reason or '暂无额外理由。'}"
+            f"{' 可交易性：' + tradeability_state if tradeability_state else ''}"
+            f"{'，预期差：' + expectation_gap if expectation_gap else ''}"
+        )
+        theme_name = str(item.get("theme_name") or "").strip()
+        return {
+            "context_type": WATCHLIST_CONTEXT_TYPE,
+            "title": f"{display_name} 观察池摘要",
+            "subtitle": f"{status} · {tradeability_state or '待确认'}",
+            "ticker_refs_json": [str(item.get('ticker') or '')],
+            "theme_refs_json": [theme_name] if theme_name else [],
+            "summary": summary,
+            "snapshot_payload_json": {
+                "ticker": item.get("ticker"),
+                "display_name": display_name,
+                "status": status,
+                "reason": reason,
+                "tradeability_state": tradeability_state,
+                "expectation_gap_level": expectation_gap,
+                "quick_note": item.get("quick_note"),
+            },
+            "source_module": "watchlist",
+            "source_ref": str(item.get("ticker") or ""),
+            "staleness_hint": "观察池标签与优先级可能日级变化，建议结合当前页面状态复核。",
+            "is_pinned": False,
+        }
+
+    def _build_theme_context_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        theme_result = self.theme_radar_service.get_overview(user_id)
+        item = self._find_by_keys(
+            theme_result.get("items") or [],
+            source_ref,
+            keys=("theme_code", "theme_name"),
+        )
+        if item is None:
+            raise ValueError("Theme context source not found")
+        theme_name = str(item.get("theme_name") or source_ref)
+        state = str(item.get("theme_state") or "分歧")
+        participation_hint = str(item.get("participation_hint") or "").strip()
+        representative_tickers = [
+            str(ticker).strip()
+            for ticker in list(item.get("representative_tickers") or [])[:4]
+            if str(ticker).strip()
+        ]
+        risk_tags = [str(tag).strip() for tag in list(item.get("risk_tags") or []) if str(tag).strip()]
+        summary = (
+            f"{theme_name} 当前状态为 {state}。"
+            f"{str(item.get('observation_summary') or '').strip()}"
+            f"{' 风险提示：' + '；'.join(risk_tags[:2]) if risk_tags else ''}"
+        )
+        return {
+            "context_type": THEME_CONTEXT_TYPE,
+            "title": f"{theme_name} 题材摘要",
+            "subtitle": f"{state} · 代表股 {representative_tickers[0] if representative_tickers else '--'}",
+            "ticker_refs_json": representative_tickers,
+            "theme_refs_json": [theme_name],
+            "summary": summary,
+            "snapshot_payload_json": {
+                "theme_code": item.get("theme_code"),
+                "theme_name": theme_name,
+                "theme_state": state,
+                "representative_tickers": representative_tickers,
+                "participation_hint": participation_hint,
+                "risk_tags": risk_tags[:3],
+            },
+            "source_module": "theme",
+            "source_ref": str(item.get("theme_code") or theme_name),
+            "staleness_hint": "题材状态与参与边界可能快速变化，建议结合当前题材雷达复核。",
+            "is_pinned": False,
+        }
+
+    def _build_alert_context_payload(
+        self,
+        *,
+        user_id: str,
+        source_ref: str,
+    ) -> dict[str, Any]:
+        alert_result = self.decision_alert_service.get_decision_alert_summary(user_id)
+        normalized_ref = str(source_ref or "").strip()
+        alert_items = list(alert_result.get("items") or [])
+        item = next(
+            (
+                entry
+                for entry in alert_items
+                if normalized_ref
+                in {
+                    str(entry.get("ticker") or "").strip(),
+                    f"{str(entry.get('ticker') or '').strip()}|{str(entry.get('alert_type') or '').strip()}",
+                }
+            ),
+            None,
+        )
+        if item is None:
+            raise ValueError("Alert context source not found")
+        display_name = str(item.get("display_name") or item.get("ticker") or "")
+        alert_type = str(item.get("alert_type") or "提醒")
+        body = str(item.get("body") or "").strip()
+        next_action = str(item.get("next_action") or "").strip()
+        reasons = [str(text).strip() for text in list(item.get("reasons") or []) if str(text).strip()]
+        summary = (
+            f"{display_name} 当前提醒类型为 {alert_type}。"
+            f"{body}{' 下一步：' + next_action if next_action else ''}"
+        )
+        topic_name = str(item.get("topic_name") or "").strip()
+        return {
+            "context_type": ALERT_CONTEXT_TYPE,
+            "title": f"{display_name} 提醒摘要",
+            "subtitle": f"{alert_type} · {item.get('priority') or 'normal'}",
+            "ticker_refs_json": [str(item.get('ticker') or '')] if str(item.get("ticker") or "").strip() else [],
+            "theme_refs_json": [topic_name] if topic_name else [],
+            "summary": summary,
+            "snapshot_payload_json": {
+                "ticker": item.get("ticker"),
+                "display_name": display_name,
+                "alert_type": alert_type,
+                "body": body,
+                "next_action": next_action,
+                "reasons": reasons[:3],
+            },
+            "source_module": "alert",
+            "source_ref": f"{str(item.get('ticker') or '').strip()}|{alert_type}",
+            "staleness_hint": "提醒依赖当前时点状态，建议在新一轮判断前复核是否仍有效。",
+            "is_pinned": False,
+        }
+
+    def _build_ticker_context_payload(self, *, source_ref: str) -> dict[str, Any]:
+        ticker = str(source_ref or "").strip()
+        if not ticker:
+            raise ValueError("Ticker context source is empty")
+        return {
+            "context_type": TICKER_CONTEXT_TYPE,
+            "title": f"{ticker} 基础观察卡",
+            "subtitle": "轻量 ticker context",
+            "ticker_refs_json": [ticker],
+            "theme_refs_json": [],
+            "summary": f"当前仅挂入 {ticker} 的轻量 ticker context，若需更完整研究，请继续导入持仓、机会池、观察池或题材上下文。",
+            "snapshot_payload_json": {"ticker": ticker},
+            "source_module": "ticker",
+            "source_ref": ticker,
+            "staleness_hint": "该卡片不含自动补数，仅用于建立最轻量研究锚点。",
+            "is_pinned": False,
+        }
+
+    @staticmethod
+    def _build_thread_title_from_context(context_payload: dict[str, Any]) -> str:
+        ticker_refs = list(context_payload.get("ticker_refs_json") or [])
+        theme_refs = list(context_payload.get("theme_refs_json") or [])
+        source_module = str(context_payload.get("source_module") or "")
+        if source_module == "tradingagents_run" and ticker_refs:
+            return f"追问：{ticker_refs[0]} TradingAgents 分析"
+        if source_module == "theme" and theme_refs:
+            return f"追问：{theme_refs[0]} 题材研究"
+        if ticker_refs:
+            return f"追问：{ticker_refs[0]} 研究线程"
+        if theme_refs:
+            return f"追问：{theme_refs[0]} 研究线程"
+        return "新建股票分析线程"
+
+    @staticmethod
+    def _resolve_focus_type_from_context(context_payload: dict[str, Any]) -> str:
+        source_module = str(context_payload.get("source_module") or "")
+        ticker_refs = list(context_payload.get("ticker_refs_json") or [])
+        theme_refs = list(context_payload.get("theme_refs_json") or [])
+        if source_module == "tradingagents_run":
+            return "tradingagents_followup"
+        if ticker_refs and theme_refs:
+            return "mixed"
+        if theme_refs:
+            return "theme"
+        if source_module == "holding":
+            return "holding"
+        if ticker_refs:
+            return "ticker"
+        return "mixed"
+
+    @staticmethod
+    def _find_by_keys(
+        items: Sequence[dict[str, Any]],
+        source_ref: str,
+        *,
+        keys: Sequence[str],
+    ) -> dict[str, Any] | None:
+        normalized_ref = str(source_ref or "").strip()
+        for item in items:
+            for key in keys:
+                value = str(item.get(key) or "").strip()
+                if value and value == normalized_ref:
+                    return item
+        return None
+
+    @staticmethod
+    def _merge_exit_risk_groups(overview: dict[str, Any]) -> list[dict[str, Any]]:
+        merged: list[dict[str, Any]] = []
+        for key in (
+            "high_priority_items",
+            "profit_protection_items",
+            "discipline_stop_items",
+            "watch_items",
+        ):
+            for item in list(overview.get(key) or []):
+                ticker = str(item.get("ticker") or "")
+                action = str(item.get("action") or "")
+                if not any(
+                    str(existing.get("ticker") or "") == ticker
+                    and str(existing.get("action") or "") == action
+                    for existing in merged
+                ):
+                    merged.append(item)
+        return merged
 
 
 _stock_analysis_workspace_service: Optional[StockAnalysisWorkspaceService] = None
