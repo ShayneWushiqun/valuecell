@@ -128,16 +128,27 @@ class FakeToolingService:
             tool_call_summaries=["AssetService.get_historical_prices: 补最近 5 日日线价格"],
             temporary_evidence_blocks=[
                 {
+                    "evidence_id": "price:1",
                     "type": "latest_price_action",
                     "title": "行情补充",
                     "summary": "补最近 5 日日线价格",
                     "temporary": True,
+                    "source_module": "tooling_evidence",
+                    "source_label": "AssetService.get_historical_prices",
+                    "is_external": False,
+                    "generated_at": "2026-04-18T10:00:00+00:00",
+                    "data_time": "2026-04-18",
+                    "staleness_hint": "价格补充按最近交易日确认。",
+                    "ticker_refs_json": ["SZSE:300308"],
+                    "theme_refs_json": [],
                 }
             ],
             evidence_summary="本轮已补充临时行情证据。",
             unavailable_tools=[],
             used_internal_sources=[],
             used_external_sources=[],
+            evidence_generated_at="2026-04-18T10:00:00+00:00",
+            evidence_staleness_hint="临时证据可能已过时。",
         )
 
 
@@ -191,6 +202,7 @@ async def test_stock_analysis_message_service_reads_thread_conversation_and_pers
     assert result is not None
     assert result.conversation_id == thread["conversation_id"]
     assert result.answer_basis == "当前上下文"
+    assert result.evidence_generated_at is None
     assert history is not None
     assert history["count"] == 2
     assert history["items"][0]["role"] in {str(Role.USER), "user"}
@@ -394,3 +406,58 @@ async def test_stock_analysis_message_service_need_tooling_returns_metadata(
     assert result.mode == NEED_TOOLING_MODE
     assert "latest_price_action" in result.missing_context_hints
     assert result.temporary_evidence_blocks
+
+
+@pytest.mark.asyncio
+async def test_stock_analysis_message_service_can_save_temporary_evidence_as_context(
+    monkeypatch,
+) -> None:
+    conversation_service = FakeConversationServiceForMessages()
+    context_repository = FakeContextRepository()
+    workspace_service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, context_repository),
+        conversation_service=cast(Any, conversation_service),
+    )
+    thread = await workspace_service.create_thread(
+        user_id="default_user",
+        title="保存证据",
+        focus_type="ticker",
+        ticker_refs_json=["SZSE:300308"],
+    )
+    service = StockAnalysisMessageService(
+        stock_analysis_workspace_service=workspace_service,
+        conversation_service=cast(Any, conversation_service),
+        tool_planner=FakePlanner(NEED_TOOLING_MODE),
+        tooling_service=FakeToolingService(),
+    )
+    monkeypatch.setattr(service, "_generate_answer", _fake_answer)
+
+    result = await service.send_message(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        message="请补充最新价格后再看。",
+    )
+    assert result is not None
+
+    saved_card = await service.save_temporary_evidence_as_context(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        message_id=result.assistant_message["item_id"],
+        evidence_index=0,
+        pin=True,
+        custom_title="保存后的行情证据",
+    )
+    history = await service.list_messages(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+    )
+
+    assert saved_card is not None
+    assert saved_card["context_type"] == "temporary_evidence_saved"
+    assert saved_card["title"] == "保存后的行情证据"
+    assert saved_card["source_module"] == "tooling_evidence"
+    assert saved_card["is_pinned"] is True
+    assert saved_card["ticker_refs_json"] == ["SZSE:300308"]
+    assert history is not None
+    assert history["count"] == 2

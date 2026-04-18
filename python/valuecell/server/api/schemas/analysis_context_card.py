@@ -19,6 +19,7 @@ ALLOWED_CONTEXT_TYPES = {
     "decision_outcome_review",
     "risk_sizing",
     "decision_effectiveness",
+    "temporary_evidence_saved",
 }
 ALLOWED_CONTEXT_MODES = {"append", "replace"}
 

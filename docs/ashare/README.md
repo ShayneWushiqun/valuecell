@@ -148,10 +148,13 @@ ValueCell 当前已经具备以下基础能力：
 - 第一层内部结构化补充 + 第二层日线行情补充
 - 回答依据说明区、工具调用说明区、临时证据补充区
 - `decision_context_window / decision_outcome_review / risk_sizing / decision_effectiveness` 高级研究卡片导入
+- 第三层外部解释型补数第一版：外部新闻摘要与外部确认型行情补充
+- 用户可将某条 `temporary_evidence_block` 显式保存为长期上下文卡片
+- 证据来源、生成时间、数据时间和时效提示已显式展示
 
 当前仍未开始的是：
 
-- 稳定的第三层新闻 / YFinance / 外部解释型补充
+- 更复杂的第三层外部解释型补充编排
 - 自动长期记忆
 - 复杂 SSE 可视化
 
@@ -500,14 +503,13 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - [阶段四需求文档](./phase-4-prd.md)
 - [阶段四技术方案](./phase-4-tech-design.md)
 
-当前阶段四第三轮已完成到：
+当前阶段四第四轮已完成到：
 
-- 已完成 `/home/stock-analysis` 工作区默认 `context_only` 回答与按需补数双模式
-- 已完成 `StockAnalysisToolPlanner`，能判定 `context_only / need_tooling / user_forced_tooling`
-- 已完成工具补数层，优先使用内部结构化服务，再补 `AssetService.get_historical_prices(interval="1d")`
-- 已完成回答依据说明区、工具调用说明区和临时证据区
-- 已完成高级研究卡片导入：`decision_context_window / decision_outcome_review / risk_sizing / decision_effectiveness`
-- 当前仍未接自动交易、自动长期记忆和稳定第三层外部新闻解释工具
+- 已完成第三层外部解释型补数第一版，优先尝试外部新闻摘要与外部确认型行情补充
+- 已完成临时证据显式保存为长期上下文卡片
+- 已完成右栏上下文卡片的来源 / 时间 / 时效说明增强
+- 已完成 assistant 消息中的证据来源、生成时间、时效提示和 provider unavailable 原因展示
+- 当前仍未接自动交易、自动长期记忆和更复杂的 SSE 工具可视化
 
 ## 7. 推荐执行顺序
 

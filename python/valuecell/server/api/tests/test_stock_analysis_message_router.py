@@ -28,6 +28,10 @@ class FakeMessageService:
                     "tool_calls_summary": [],
                     "temporary_evidence_blocks": [],
                     "unavailable_tools": [],
+                    "used_internal_sources": [],
+                    "used_external_sources": [],
+                    "evidence_generated_at": None,
+                    "evidence_staleness_hint": None,
                 }
             ],
             "count": 1,
@@ -57,13 +61,25 @@ class FakeMessageService:
             tool_calls_summary=["AssetService.get_historical_prices: 补最近 5 日日线价格"],
             temporary_evidence_blocks=[
                 {
+                    "evidence_id": "price:1",
                     "type": "latest_price_action",
                     "title": "行情补充",
                     "summary": "补最近 5 日日线价格",
                     "temporary": True,
+                    "source_module": "tooling_evidence",
+                    "source_label": "AssetService.get_historical_prices",
+                    "generated_at": "2026-04-18T10:00:00+00:00",
+                    "data_time": "2026-04-18",
+                    "staleness_hint": "当日补数。",
+                    "ticker_refs_json": ["SZSE:300308"],
+                    "theme_refs_json": [],
                 }
             ],
             unavailable_tools=[],
+            used_internal_sources=[],
+            used_external_sources=[],
+            evidence_generated_at="2026-04-18T10:00:00+00:00",
+            evidence_staleness_hint="临时证据可能已过时。",
             user_message={
                 "item_id": "item_1",
                 "role": "user",
@@ -78,6 +94,10 @@ class FakeMessageService:
                 "tool_calls_summary": [],
                 "temporary_evidence_blocks": [],
                 "unavailable_tools": [],
+                "used_internal_sources": [],
+                "used_external_sources": [],
+                "evidence_generated_at": None,
+                "evidence_staleness_hint": None,
             },
             assistant_message={
                 "item_id": "item_2",
@@ -93,13 +113,25 @@ class FakeMessageService:
                 "tool_calls_summary": ["AssetService.get_historical_prices: 补最近 5 日日线价格"],
                 "temporary_evidence_blocks": [
                     {
+                        "evidence_id": "price:1",
                         "type": "latest_price_action",
                         "title": "行情补充",
                         "summary": "补最近 5 日日线价格",
                         "temporary": True,
+                        "source_module": "tooling_evidence",
+                        "source_label": "AssetService.get_historical_prices",
+                        "generated_at": "2026-04-18T10:00:00+00:00",
+                        "data_time": "2026-04-18",
+                        "staleness_hint": "当日补数。",
+                        "ticker_refs_json": ["SZSE:300308"],
+                        "theme_refs_json": [],
                     }
                 ],
                 "unavailable_tools": [],
+                "used_internal_sources": [],
+                "used_external_sources": [],
+                "evidence_generated_at": "2026-04-18T10:00:00+00:00",
+                "evidence_staleness_hint": "临时证据可能已过时。",
             },
         )
 

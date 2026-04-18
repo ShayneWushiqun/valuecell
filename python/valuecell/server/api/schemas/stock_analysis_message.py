@@ -19,6 +19,10 @@ class StockAnalysisMessageItemData(BaseModel):
     tool_calls_summary: list[str] = Field(default_factory=list)
     temporary_evidence_blocks: list[dict[str, Any]] = Field(default_factory=list)
     unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
+    used_internal_sources: list[str] = Field(default_factory=list)
+    used_external_sources: list[str] = Field(default_factory=list)
+    evidence_generated_at: str | None = None
+    evidence_staleness_hint: str | None = None
 
 
 class StockAnalysisMessageListData(BaseModel):
@@ -44,5 +48,9 @@ class StockAnalysisMessageCreateData(BaseModel):
     tool_calls_summary: list[str] = Field(default_factory=list)
     temporary_evidence_blocks: list[dict[str, Any]] = Field(default_factory=list)
     unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
+    used_internal_sources: list[str] = Field(default_factory=list)
+    used_external_sources: list[str] = Field(default_factory=list)
+    evidence_generated_at: str | None = None
+    evidence_staleness_hint: str | None = None
     user_message: StockAnalysisMessageItemData
     assistant_message: StockAnalysisMessageItemData

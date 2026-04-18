@@ -20,6 +20,7 @@ import {
   useGetStockAnalysisMessages,
   useGetStockAnalysisWorkspaceOverview,
   useImportStockAnalysisContext,
+  useSaveStockAnalysisEvidence,
   useUpdateStockAnalysisContext,
   useUpdateStockAnalysisThread,
 } from "@/api/stock-analysis";
@@ -76,6 +77,17 @@ const formatTime = (value: string) => {
   return date.toLocaleString("zh-CN");
 };
 
+const resolveFreshnessLabel = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const diffMs = Date.now() - date.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  if (diffDays < 1) return "当日补数";
+  if (diffDays <= 3) return "近 3 日";
+  return "可能已过时";
+};
+
 export default function StockAnalysis() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedThreadId = Number(searchParams.get("threadId") || 0) || null;
@@ -121,6 +133,7 @@ export default function StockAnalysis() {
   const deleteContext = useDeleteStockAnalysisContext();
   const importContext = useImportStockAnalysisContext();
   const createMessage = useCreateStockAnalysisMessage();
+  const saveEvidence = useSaveStockAnalysisEvidence();
 
   const threads = overview?.threads || [];
   const currentThread = useMemo(() => {
@@ -414,6 +427,27 @@ export default function StockAnalysis() {
     }
   };
 
+  const handleSaveEvidence = async (
+    messageId: string,
+    evidenceIndex: number,
+    title?: string,
+  ) => {
+    if (!currentThread) {
+      toast.error("请先选中线程");
+      return;
+    }
+    try {
+      await saveEvidence.mutateAsync({
+        threadId: currentThread.thread_id,
+        messageId,
+        data: { evidence_index: evidenceIndex, title, pin: false },
+      });
+      toast.success("临时证据已保存为上下文卡片");
+    } catch {
+      toast.error("保存临时证据失败");
+    }
+  };
+
   return (
     <div className="flex h-full flex-col gap-6 bg-card px-8 py-6">
       <BackButton />
@@ -663,6 +697,72 @@ export default function StockAnalysis() {
                                             </div>
                                           </div>
                                         ) : null}
+                                        {item.used_internal_sources.length ||
+                                        item.used_external_sources.length ? (
+                                          <div className="space-y-2">
+                                            {item.used_internal_sources.length ? (
+                                              <div>
+                                                <p className="font-medium text-foreground">
+                                                  内部来源
+                                                </p>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                  {item.used_internal_sources.map((source) => (
+                                                    <Badge
+                                                      key={source}
+                                                      variant="outline"
+                                                      className="whitespace-normal"
+                                                    >
+                                                      {source}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            ) : null}
+                                            {item.used_external_sources.length ? (
+                                              <div>
+                                                <p className="font-medium text-foreground">
+                                                  外部来源
+                                                </p>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                  {item.used_external_sources.map((source) => (
+                                                    <Badge
+                                                      key={source}
+                                                      variant="outline"
+                                                      className="whitespace-normal"
+                                                    >
+                                                      {source}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
+                                        {item.evidence_generated_at || item.evidence_staleness_hint ? (
+                                          <div className="space-y-2">
+                                            <p className="font-medium text-foreground">
+                                              证据时间与时效
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                              {item.evidence_generated_at ? (
+                                                <Badge variant="outline">
+                                                  生成时间：{formatTime(item.evidence_generated_at)}
+                                                </Badge>
+                                              ) : null}
+                                              {item.evidence_generated_at ? (
+                                                <Badge variant="outline">
+                                                  {resolveFreshnessLabel(item.evidence_generated_at) ||
+                                                    "时效待确认"}
+                                                </Badge>
+                                              ) : null}
+                                            </div>
+                                            {item.evidence_staleness_hint ? (
+                                              <p className="text-xs">
+                                                {item.evidence_staleness_hint}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
                                         {item.unavailable_tools.length ? (
                                           <div>
                                             <p className="font-medium text-foreground">
@@ -687,9 +787,9 @@ export default function StockAnalysis() {
                                               临时证据补充
                                             </p>
                                             <div className="mt-2 space-y-2">
-                                              {item.temporary_evidence_blocks.map((block) => (
+                                              {item.temporary_evidence_blocks.map((block, evidenceIndex) => (
                                                 <div
-                                                  key={`${block.title}-${block.summary}`}
+                                                  key={block.evidence_id || `${block.title}-${block.summary}`}
                                                   className="rounded-lg border border-dashed p-3"
                                                 >
                                                   <div className="flex flex-wrap items-center gap-2">
@@ -701,8 +801,62 @@ export default function StockAnalysis() {
                                                         ? "temporary=true"
                                                         : "temporary=false"}
                                                     </Badge>
+                                                    {block.source_label ? (
+                                                      <Badge variant="outline">
+                                                        来源：{block.source_label}
+                                                      </Badge>
+                                                    ) : null}
+                                                    {block.is_external ? (
+                                                      <Badge variant="outline">外部补数</Badge>
+                                                    ) : (
+                                                      <Badge variant="outline">内部/行情补数</Badge>
+                                                    )}
+                                                    {block.data_time ? (
+                                                      <Badge variant="outline">
+                                                        数据时间：{formatTime(block.data_time)}
+                                                      </Badge>
+                                                    ) : null}
+                                                    {block.data_time ? (
+                                                      <Badge variant="outline">
+                                                        {resolveFreshnessLabel(block.data_time) ||
+                                                          "时效待确认"}
+                                                      </Badge>
+                                                    ) : null}
                                                   </div>
                                                   <p className="mt-1">{block.summary}</p>
+                                                  {block.staleness_hint ? (
+                                                    <p className="mt-2 text-muted-foreground text-xs">
+                                                      {block.staleness_hint}
+                                                    </p>
+                                                  ) : null}
+                                                  <div className="mt-3 flex flex-wrap gap-2">
+                                                    {(block.ticker_refs_json || []).map((ref) => (
+                                                      <Badge key={ref} variant="outline">
+                                                        {ref}
+                                                      </Badge>
+                                                    ))}
+                                                    {(block.theme_refs_json || []).map((ref) => (
+                                                      <Badge key={ref} variant="outline">
+                                                        {ref}
+                                                      </Badge>
+                                                    ))}
+                                                  </div>
+                                                  <div className="mt-3 flex flex-wrap gap-2">
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      disabled={saveEvidence.isPending}
+                                                      onClick={() =>
+                                                        void handleSaveEvidence(
+                                                          item.item_id,
+                                                          evidenceIndex,
+                                                          block.title,
+                                                        )
+                                                      }
+                                                    >
+                                                      保存为上下文
+                                                    </Button>
+                                                  </div>
                                                 </div>
                                               ))}
                                             </div>
@@ -804,11 +958,33 @@ export default function StockAnalysis() {
                   <Spinner className="size-5" />
                 </div>
               ) : contexts?.items.length ? (
-                contexts.items.map((item) => (
+                contexts.items.map((item) => {
+                  const snapshot = item.snapshot_payload_json as Record<string, unknown>;
+                  const cardGeneratedAt =
+                    (typeof snapshot.generated_at === "string" && snapshot.generated_at) ||
+                    (typeof snapshot.evidence_generated_at === "string" &&
+                      snapshot.evidence_generated_at) ||
+                    null;
+                  const cardDataTime =
+                    (typeof snapshot.data_time === "string" && snapshot.data_time) || null;
+                  const isExternalEvidence =
+                    item.source_module.includes("external") ||
+                    snapshot.is_external === true;
+                  const isSavedTemporaryEvidence =
+                    item.context_type === "temporary_evidence_saved" ||
+                    snapshot.from_temporary_evidence === true;
+                  return (
                   <div key={item.context_id} className="rounded-xl border p-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="secondary">{item.context_type}</Badge>
+                        <Badge variant="outline">{item.source_module}</Badge>
+                        {isExternalEvidence ? (
+                          <Badge variant="outline">来自外部补数</Badge>
+                        ) : null}
+                        {isSavedTemporaryEvidence ? (
+                          <Badge variant="outline">来自某轮回答的临时证据</Badge>
+                        ) : null}
                         {item.is_pinned ? <Badge variant="outline">Pinned</Badge> : null}
                       </div>
                       <div className="flex gap-2">
@@ -849,11 +1025,28 @@ export default function StockAnalysis() {
                         </Badge>
                       ))}
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {cardGeneratedAt ? (
+                        <Badge variant="outline">
+                          生成时间：{formatTime(cardGeneratedAt)}
+                        </Badge>
+                      ) : null}
+                      {cardDataTime ? (
+                        <Badge variant="outline">
+                          数据时间：{formatTime(cardDataTime)}
+                        </Badge>
+                      ) : null}
+                      {(cardDataTime || cardGeneratedAt) ? (
+                        <Badge variant="outline">
+                          {resolveFreshnessLabel(cardDataTime || cardGeneratedAt) || "时效待确认"}
+                        </Badge>
+                      ) : null}
+                    </div>
                     {item.staleness_hint ? (
                       <p className="mt-3 text-muted-foreground text-xs">{item.staleness_hint}</p>
                     ) : null}
                   </div>
-                ))
+                )})
               ) : (
                 <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
                   当前线程还没有上下文卡片。可先从 TradingAgents、机会池、观察池、持仓、题材雷达、提醒或高级研究卡片导入。

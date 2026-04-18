@@ -26,6 +26,7 @@ from .stock_analysis_workspace_service import (
     DEFAULT_USER_ID,
     STOCK_ANALYSIS_AGENT_NAME,
     StockAnalysisWorkspaceService,
+    TEMPORARY_EVIDENCE_SAVED_CONTEXT_TYPE,
 )
 
 MESSAGE_LIMIT = 100
@@ -42,6 +43,10 @@ class StockAnalysisMessageResult(BaseModel):
     tool_calls_summary: list[str]
     temporary_evidence_blocks: list[dict[str, Any]]
     unavailable_tools: list[dict[str, Any]]
+    used_internal_sources: list[str]
+    used_external_sources: list[str]
+    evidence_generated_at: str | None = None
+    evidence_staleness_hint: str | None = None
     user_message: dict[str, Any]
     assistant_message: dict[str, Any]
 
@@ -190,6 +195,16 @@ class StockAnalysisMessageService:
                 tooling_result.unavailable_tools,
                 ensure_ascii=False,
             ),
+            "used_internal_sources_json": json.dumps(
+                tooling_result.used_internal_sources,
+                ensure_ascii=False,
+            ),
+            "used_external_sources_json": json.dumps(
+                tooling_result.used_external_sources,
+                ensure_ascii=False,
+            ),
+            "evidence_generated_at": tooling_result.evidence_generated_at or "",
+            "evidence_staleness_hint": tooling_result.evidence_staleness_hint or "",
             "thread_id": thread_id,
         }
         assistant_item = await self.conversation_service.core_conversation_service.add_item(
@@ -216,9 +231,89 @@ class StockAnalysisMessageService:
             tool_calls_summary=tooling_result.tool_call_summaries,
             temporary_evidence_blocks=tooling_result.temporary_evidence_blocks,
             unavailable_tools=tooling_result.unavailable_tools,
+            used_internal_sources=tooling_result.used_internal_sources,
+            used_external_sources=tooling_result.used_external_sources,
+            evidence_generated_at=tooling_result.evidence_generated_at,
+            evidence_staleness_hint=tooling_result.evidence_staleness_hint,
             user_message=self._serialize_message_item(user_item),
             assistant_message=self._serialize_message_item(assistant_item),
         )
+
+    async def save_temporary_evidence_as_context(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        message_id: str,
+        evidence_index: int,
+        pin: bool = False,
+        custom_title: str | None = None,
+    ) -> dict[str, Any] | None:
+        thread_obj = self.stock_analysis_workspace_service.stock_analysis_thread_repository.get_thread_by_id(
+            user_id=user_id,
+            thread_id=thread_id,
+        )
+        if thread_obj is None:
+            return None
+        history_items = await self.conversation_service.core_conversation_service.get_conversation_items(
+            conversation_id=thread_obj.conversation_id,
+            limit=MESSAGE_LIMIT,
+        )
+        target_item = next(
+            (
+                item
+                for item in history_items
+                if getattr(item, "item_id", "") == message_id
+                and str(getattr(item, "event", "")) == str(NotifyResponseEvent.MESSAGE)
+            ),
+            None,
+        )
+        if target_item is None:
+            return None
+        serialized_item = self._serialize_message_item(target_item)
+        role_value = str(serialized_item.get("role") or "").lower()
+        if not any(token in role_value for token in ("agent", "assistant")):
+            return None
+        evidence_blocks = list(serialized_item.get("temporary_evidence_blocks") or [])
+        if evidence_index < 0 or evidence_index >= len(evidence_blocks):
+            return None
+        evidence_block = dict(evidence_blocks[evidence_index] or {})
+        created = await self.stock_analysis_workspace_service.create_context_card(
+            user_id=user_id,
+            thread_id=thread_id,
+            context_type=TEMPORARY_EVIDENCE_SAVED_CONTEXT_TYPE,
+            title=(custom_title or evidence_block.get("title") or "临时证据").strip(),
+            subtitle=self._build_saved_evidence_subtitle(evidence_block),
+            ticker_refs_json=evidence_block.get("ticker_refs_json") or [],
+            theme_refs_json=evidence_block.get("theme_refs_json") or [],
+            summary=str(evidence_block.get("summary") or "").strip() or "临时证据摘要",
+            snapshot_payload_json={
+                "origin_message_id": message_id,
+                "origin_evidence_index": evidence_index,
+                "from_temporary_evidence": True,
+                "evidence_type": evidence_block.get("type"),
+                "source_label": evidence_block.get("source_label"),
+                "source_module": evidence_block.get("source_module"),
+                "is_external": bool(evidence_block.get("is_external")),
+                "generated_at": evidence_block.get("generated_at")
+                or serialized_item.get("evidence_generated_at"),
+                "data_time": evidence_block.get("data_time")
+                or serialized_item.get("evidence_generated_at"),
+                "evidence_staleness_hint": evidence_block.get("staleness_hint")
+                or serialized_item.get("evidence_staleness_hint"),
+                "payload": evidence_block.get("payload") or {},
+            },
+            source_module=str(evidence_block.get("source_module") or "tooling_evidence"),
+            source_ref=f"{message_id}:{evidence_index}",
+            staleness_hint=(
+                str(evidence_block.get("staleness_hint") or "").strip()
+                or str(serialized_item.get("evidence_staleness_hint") or "").strip()
+                or "该证据来自历史回答的临时补数，可能已过时。"
+            ),
+            is_pinned=pin,
+            mode="replace",
+        )
+        return created
 
     async def _generate_answer(
         self,
@@ -303,6 +398,10 @@ class StockAnalysisMessageService:
                 "tool_calls_summary": [],
                 "temporary_evidence_blocks": [],
                 "unavailable_tools": [],
+            "used_internal_sources": [],
+            "used_external_sources": [],
+            "evidence_generated_at": None,
+            "evidence_staleness_hint": None,
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -330,7 +429,26 @@ class StockAnalysisMessageService:
             "unavailable_tools": StockAnalysisMessageService._parse_json_list(
                 metadata.get("unavailable_tools_json")
             ),
+            "used_internal_sources": StockAnalysisMessageService._parse_json_list(
+                metadata.get("used_internal_sources_json")
+            ),
+            "used_external_sources": StockAnalysisMessageService._parse_json_list(
+                metadata.get("used_external_sources_json")
+            ),
+            "evidence_generated_at": str(metadata.get("evidence_generated_at") or "").strip()
+            or None,
+            "evidence_staleness_hint": str(
+                metadata.get("evidence_staleness_hint") or ""
+            ).strip()
+            or None,
         }
+
+    @staticmethod
+    def _build_saved_evidence_subtitle(evidence_block: dict[str, Any]) -> str | None:
+        source_label = str(evidence_block.get("source_label") or "").strip()
+        data_time = str(evidence_block.get("data_time") or evidence_block.get("generated_at") or "").strip()
+        subtitle_parts = [part for part in (source_label, data_time) if part]
+        return " · ".join(subtitle_parts) if subtitle_parts else None
 
     @staticmethod
     def _parse_payload(raw_payload: str) -> dict[str, Any]:

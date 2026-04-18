@@ -7,6 +7,7 @@ import type {
   StockAnalysisContextImportResult,
 } from "@/types/analysis-context-card";
 import type {
+  StockAnalysisEvidenceSaveResult,
   StockAnalysisMessageCreateResult,
   StockAnalysisMessageList,
 } from "@/types/stock-analysis-message";
@@ -64,6 +65,12 @@ type ImportContextPayload = {
 type CreateMessagePayload = {
   message: string;
   force_tooling?: boolean;
+};
+
+type SaveEvidencePayload = {
+  evidence_index: number;
+  pin?: boolean;
+  title?: string;
 };
 
 export const useGetStockAnalysisThreads = () =>
@@ -287,6 +294,33 @@ export const useCreateStockAnalysisMessage = () => {
       });
       queryClient.invalidateQueries({
         queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads,
+      });
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overviewBase,
+      });
+    },
+  });
+};
+
+export const useSaveStockAnalysisEvidence = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      messageId,
+      data,
+    }: {
+      threadId: number;
+      messageId: string;
+      data: SaveEvidencePayload;
+    }) =>
+      apiClient.post<ApiResponse<StockAnalysisEvidenceSaveResult>>(
+        `stock-analysis/threads/${threadId}/messages/${messageId}/save-evidence`,
+        data,
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.contexts(variables.threadId),
       });
       queryClient.invalidateQueries({
         queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overviewBase,

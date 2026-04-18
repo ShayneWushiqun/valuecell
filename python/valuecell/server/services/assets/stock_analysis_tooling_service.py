@@ -15,6 +15,10 @@ from .holding_lifecycle_service import HoldingLifecycleService
 from .homepage_context_service import HomepageContextService
 from .opportunity_pool_service import OpportunityPoolService
 from .risk_sizing_service import RiskSizingService
+from .stock_analysis_external_tool_service import (
+    StockAnalysisExternalToolService,
+    get_stock_analysis_external_tool_service,
+)
 from .stock_analysis_tool_planner import (
     EXTERNAL_TOOL_LAYER,
     INTERNAL_TOOL_LAYER,
@@ -34,6 +38,8 @@ class StockAnalysisToolingResult(BaseModel):
     unavailable_tools: list[dict[str, Any]] = Field(default_factory=list)
     used_internal_sources: list[str] = Field(default_factory=list)
     used_external_sources: list[str] = Field(default_factory=list)
+    evidence_generated_at: str | None = None
+    evidence_staleness_hint: str | None = None
 
 
 class StockAnalysisToolingService:
@@ -51,6 +57,7 @@ class StockAnalysisToolingService:
         watchlist_center_service: Optional[WatchlistCenterService] = None,
         decision_alert_persistence_service: Optional[DecisionAlertPersistenceService] = None,
         asset_service: Optional[AssetService] = None,
+        external_tool_service: Optional[StockAnalysisExternalToolService] = None,
     ) -> None:
         self.decision_context_window_service = (
             decision_context_window_service or DecisionContextWindowService()
@@ -80,6 +87,9 @@ class StockAnalysisToolingService:
             decision_alert_persistence_service or DecisionAlertPersistenceService()
         )
         self.asset_service = asset_service or AssetService()
+        self.external_tool_service = (
+            external_tool_service or get_stock_analysis_external_tool_service()
+        )
 
     def collect_evidence(
         self,
@@ -92,7 +102,10 @@ class StockAnalysisToolingService:
         theme_refs: Sequence[str],
     ) -> StockAnalysisToolingResult:
         del context_cards
-        result = StockAnalysisToolingResult()
+        result = StockAnalysisToolingResult(
+            evidence_generated_at=dt.datetime.now(dt.UTC).isoformat(),
+            evidence_staleness_hint="临时证据仅用于本轮回答，可能已随交易日变化。",
+        )
         if planner_result.mode == "context_only":
             return result
 
@@ -111,9 +124,11 @@ class StockAnalysisToolingService:
                 ticker_refs=ticker_refs,
             )
         if EXTERNAL_TOOL_LAYER in planner_result.tool_layers_to_use:
-            self._register_unavailable_external_tools(
+            self._collect_external_sources(
                 result=result,
                 planner_result=planner_result,
+                ticker_refs=ticker_refs,
+                theme_refs=theme_refs,
             )
         result.answer_basis = self._build_answer_basis(result=result)
         result.evidence_summary = self._build_evidence_summary(
@@ -151,6 +166,11 @@ class StockAnalysisToolingService:
                         "risk_control": homepage_context.get("risk_control"),
                     },
                     "temporary": True,
+                    "source_module": "tooling_evidence",
+                    "ticker_refs_json": [],
+                    "theme_refs_json": [],
+                    "data_time": result.evidence_generated_at,
+                    "staleness_hint": "市场状态按日级更新，盘中可能继续变化。",
                 },
             )
         if "latest_theme_status" in hints and theme_refs:
@@ -179,6 +199,11 @@ class StockAnalysisToolingService:
                         "summary": summary,
                         "payload": {"items": matched},
                         "temporary": True,
+                        "source_module": "tooling_evidence",
+                        "ticker_refs_json": [],
+                        "theme_refs_json": list(theme_refs)[:3],
+                        "data_time": result.evidence_generated_at,
+                        "staleness_hint": "题材状态偏短周期，建议结合最新盘面观察。",
                     },
                 )
         if "latest_holding_risk" in hints:
@@ -209,6 +234,11 @@ class StockAnalysisToolingService:
                         "risk_items": risk_matched,
                     },
                     "temporary": True,
+                        "source_module": "tooling_evidence",
+                        "ticker_refs_json": list(ticker_refs)[:3],
+                        "theme_refs_json": [],
+                        "data_time": result.evidence_generated_at,
+                        "staleness_hint": "持仓风险结论会随价格和提醒变化而调整。",
                 },
             )
         if "latest_alert_change" in hints:
@@ -231,6 +261,11 @@ class StockAnalysisToolingService:
                     "summary": summary,
                     "payload": {"items": alert_items, "unread_count": alerts.get("unread_count")},
                     "temporary": True,
+                        "source_module": "tooling_evidence",
+                        "ticker_refs_json": list(ticker_refs)[:4],
+                        "theme_refs_json": [],
+                        "data_time": result.evidence_generated_at,
+                        "staleness_hint": "提醒变化通常以当日有效为主。",
                 },
             )
         if "insufficient_comparison_basis" in hints:
@@ -282,6 +317,11 @@ class StockAnalysisToolingService:
                         },
                     },
                     "temporary": True,
+                    "source_module": "tooling_evidence",
+                    "ticker_refs_json": list(ticker_refs)[:3],
+                    "theme_refs_json": [],
+                    "data_time": result.evidence_generated_at,
+                    "staleness_hint": "比较依据包含历史复盘与当前摘要，需区分时点。",
                 },
             )
         if not result.tool_calls:
@@ -318,6 +358,11 @@ class StockAnalysisToolingService:
                         )[:2],
                     },
                     "temporary": True,
+                    "source_module": "tooling_evidence",
+                    "ticker_refs_json": list(ticker_refs)[:2],
+                    "theme_refs_json": [],
+                    "data_time": result.evidence_generated_at,
+                    "staleness_hint": "观察池和机会池状态为短周期参考。",
                 },
             )
 
@@ -387,6 +432,15 @@ class StockAnalysisToolingService:
                         "recent_prices": recent,
                     },
                     "temporary": True,
+                    "source_module": "tooling_evidence",
+                    "ticker_refs_json": [ticker],
+                    "theme_refs_json": [],
+                    "data_time": str(
+                        recent[-1].get("timestamp")
+                        or recent[-1].get("date")
+                        or result.evidence_generated_at
+                    ),
+                    "staleness_hint": "日线价格补充按最近交易日确认，盘中状态可能不同。",
                 }
             )
         if summaries:
@@ -402,6 +456,11 @@ class StockAnalysisToolingService:
                     "summary": "；".join(summaries),
                     "payload": {"items": blocks},
                     "temporary": True,
+                    "source_module": "tooling_evidence",
+                    "ticker_refs_json": list(ticker_refs)[:3],
+                    "theme_refs_json": [],
+                    "data_time": result.evidence_generated_at,
+                    "staleness_hint": "行情补充偏日级确认，需留意是否已跨交易日。",
                 },
             )
         elif "latest_price_action" in planner_result.missing_context_hints:
@@ -412,27 +471,30 @@ class StockAnalysisToolingService:
                 }
             )
 
-    def _register_unavailable_external_tools(
+    def _collect_external_sources(
         self,
         *,
         result: StockAnalysisToolingResult,
         planner_result: StockAnalysisToolPlannerResult,
+        ticker_refs: Sequence[str],
+        theme_refs: Sequence[str],
     ) -> None:
-        for hint in planner_result.missing_context_hints:
-            if hint == "recent_news":
-                result.unavailable_tools.append(
-                    {
-                        "tool": "external_news_provider",
-                        "reason": "本轮未接稳定新闻 provider，已优雅降级为仅提示不可用。",
-                    }
-                )
-            if hint == "recent_external_confirmation":
-                result.unavailable_tools.append(
-                    {
-                        "tool": "external_confirmation_provider",
-                        "reason": "本轮未接稳定外部确认 provider，已优雅降级为仅提示不可用。",
-                    }
-                )
+        external_result = self.external_tool_service.collect_external_evidence(
+            missing_context_hints=planner_result.missing_context_hints,
+            ticker_refs=ticker_refs,
+            theme_refs=theme_refs,
+        )
+        result.tool_calls.extend(external_result.tool_calls)
+        result.tool_call_summaries.extend(external_result.tool_call_summaries)
+        result.temporary_evidence_blocks.extend(external_result.temporary_evidence_blocks)
+        result.unavailable_tools.extend(external_result.unavailable_tools)
+        for source in external_result.used_external_sources:
+            if source not in result.used_external_sources:
+                result.used_external_sources.append(source)
+        if external_result.evidence_generated_at:
+            result.evidence_generated_at = external_result.evidence_generated_at
+        if external_result.evidence_staleness_hint:
+            result.evidence_staleness_hint = external_result.evidence_staleness_hint
 
     @staticmethod
     def _append_tool_result(
@@ -452,7 +514,26 @@ class StockAnalysisToolingService:
             }
         )
         result.tool_call_summaries.append(f"{source}: {summary}")
-        result.temporary_evidence_blocks.append(block)
+        normalized_block = {
+            "evidence_id": block.get("evidence_id")
+            or f"evidence_{len(result.temporary_evidence_blocks)}",
+            "type": block.get("type") or "tooling_evidence",
+            "title": block.get("title") or source,
+            "summary": block.get("summary") or summary,
+            "temporary": bool(block.get("temporary", True)),
+            "payload": block.get("payload") or {},
+            "source_module": block.get("source_module") or "tooling_evidence",
+            "source_label": block.get("source_label") or source,
+            "is_external": bool(block.get("is_external", layer == "external")),
+            "generated_at": block.get("generated_at") or result.evidence_generated_at,
+            "data_time": block.get("data_time") or result.evidence_generated_at,
+            "staleness_hint": block.get("staleness_hint")
+            or result.evidence_staleness_hint
+            or "临时证据可能已过时，请结合当前显式上下文判断。",
+            "ticker_refs_json": list(block.get("ticker_refs_json") or []),
+            "theme_refs_json": list(block.get("theme_refs_json") or []),
+        }
+        result.temporary_evidence_blocks.append(normalized_block)
         if layer == "internal":
             if source not in result.used_internal_sources:
                 result.used_internal_sources.append(source)

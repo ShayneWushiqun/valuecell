@@ -11,10 +11,19 @@ export type StockAnalysisMessage = {
   tool_reason?: string | null;
   tool_calls_summary: string[];
   temporary_evidence_blocks: {
+    evidence_id?: string;
     type: string;
     title: string;
     summary: string;
     temporary: boolean;
+    source_module?: string;
+    source_label?: string;
+    is_external?: boolean;
+    generated_at?: string | null;
+    data_time?: string | null;
+    staleness_hint?: string | null;
+    ticker_refs_json?: string[];
+    theme_refs_json?: string[];
     payload?: Record<string, unknown>;
   }[];
   unavailable_tools: {
@@ -22,6 +31,10 @@ export type StockAnalysisMessage = {
     reason: string;
     ticker?: string;
   }[];
+  used_internal_sources: string[];
+  used_external_sources: string[];
+  evidence_generated_at?: string | null;
+  evidence_staleness_hint?: string | null;
 };
 
 export type StockAnalysisMessageList = {
@@ -41,10 +54,19 @@ export type StockAnalysisMessageCreateResult = {
   tool_reason?: string | null;
   tool_calls_summary: string[];
   temporary_evidence_blocks: {
+    evidence_id?: string;
     type: string;
     title: string;
     summary: string;
     temporary: boolean;
+    source_module?: string;
+    source_label?: string;
+    is_external?: boolean;
+    generated_at?: string | null;
+    data_time?: string | null;
+    staleness_hint?: string | null;
+    ticker_refs_json?: string[];
+    theme_refs_json?: string[];
     payload?: Record<string, unknown>;
   }[];
   unavailable_tools: {
@@ -52,6 +74,17 @@ export type StockAnalysisMessageCreateResult = {
     reason: string;
     ticker?: string;
   }[];
+  used_internal_sources: string[];
+  used_external_sources: string[];
+  evidence_generated_at?: string | null;
+  evidence_staleness_hint?: string | null;
   user_message: StockAnalysisMessage;
   assistant_message: StockAnalysisMessage;
+};
+
+export type StockAnalysisEvidenceSaveResult = {
+  thread_id: number;
+  message_id: string;
+  evidence_index: number;
+  context_card: import("./analysis-context-card").AnalysisContextCard;
 };

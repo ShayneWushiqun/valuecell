@@ -39,10 +39,16 @@
   - 第一层内部结构化工具补充与第二层日线行情补充
   - 回答依据说明区、工具调用说明区、临时证据块
   - 高级研究卡片导入：`decision_context_window / decision_outcome_review / risk_sizing / decision_effectiveness`
+- 第四轮：
+  - `StockAnalysisExternalToolService`
+  - 第三层外部新闻摘要与外部确认型行情补数
+  - assistant 临时证据保存为长期上下文卡片
+  - 上下文卡片来源 / 时间 / 时效说明
+  - provider unavailable 原因显式返回
 
 阶段四当前未实现：
 
-- 稳定的第三层新闻 / YFinance / 外部解释型补充
+- 更复杂的第三层 provider 编排与可视化
 - 复杂流式可视化
 
 ## 2. 设计原则
@@ -347,6 +353,17 @@
   - `tool_reason`
   - `tool_calls_summary`
   - `temporary_evidence_blocks`
+
+当前第四轮继续扩展为：
+
+- `StockAnalysisToolingService` 在命中 `recent_news / recent_external_confirmation` 时优先调用 `StockAnalysisExternalToolService`
+- `StockAnalysisExternalToolService` 优先尝试稳定 provider，失败时把原因写入 `unavailable_tools`
+- `StockAnalysisMessageService` 新增保存临时证据为长期上下文卡片的能力
+- assistant message metadata 继续扩展：
+  - `used_external_sources`
+  - `used_internal_sources`
+  - `evidence_generated_at`
+  - `evidence_staleness_hint`
 
 ## 8. 建议新增 API
 
