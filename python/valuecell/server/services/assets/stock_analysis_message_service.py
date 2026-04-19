@@ -25,6 +25,10 @@ from .stock_analysis_question_router_service import (
     StockAnalysisQuestionRouterService,
     get_stock_analysis_question_router_service,
 )
+from .stock_analysis_adaptive_planning_service import (
+    StockAnalysisAdaptivePlanningService,
+    get_stock_analysis_adaptive_planning_service,
+)
 from .stock_analysis_execution_planner_service import (
     StockAnalysisExecutionPlannerService,
     get_stock_analysis_execution_planner_service,
@@ -108,14 +112,24 @@ class StockAnalysisMessageResult(BaseModel):
     recommended_next_action: str | None = None
     followup_candidates: list[str]
     suggested_task_titles: list[str]
+    adaptive_planning_profile: str | None = None
+    adaptive_planning_reasoning: str | None = None
+    preferred_evidence_order: list[str]
+    planning_adjustments: list[str]
+    process_confidence_hint: str | None = None
     execution_plan_summary: str | None = None
+    evidence_plan_summary: str | None = None
     executed_steps: list[dict[str, Any]]
     skipped_steps: list[dict[str, Any]]
     failed_steps: list[dict[str, Any]]
     related_task_ids: list[int]
     task_update_suggestions: list[dict[str, Any]]
     validation_summary: dict[str, Any]
+    evidence_conflict_summary: dict[str, Any]
     thesis_change_hint: str | None = None
+    thesis_confidence_hint: str | None = None
+    provider_stop_reason: str | None = None
+    provider_skipped_reason: str | None = None
     focus_tickers: list[str]
     focus_themes: list[str]
     user_message: dict[str, Any]
@@ -132,6 +146,9 @@ class StockAnalysisMessageService:
         tooling_service: Optional[StockAnalysisToolingService] = None,
         refresh_service: Optional[StockAnalysisRefreshService] = None,
         question_router_service: Optional[StockAnalysisQuestionRouterService] = None,
+        adaptive_planning_service: Optional[
+            StockAnalysisAdaptivePlanningService
+        ] = None,
         execution_planner_service: Optional[
             StockAnalysisExecutionPlannerService
         ] = None,
@@ -151,6 +168,9 @@ class StockAnalysisMessageService:
         self.refresh_service = refresh_service or get_stock_analysis_refresh_service()
         self.question_router_service = (
             question_router_service or get_stock_analysis_question_router_service()
+        )
+        self.adaptive_planning_service = (
+            adaptive_planning_service or get_stock_analysis_adaptive_planning_service()
         )
         self.execution_planner_service = (
             execution_planner_service
@@ -265,6 +285,17 @@ class StockAnalysisMessageService:
             force_tooling=force_tooling,
             refresh_before_answer=refresh_before_answer,
         )
+        adaptive_planning = self.adaptive_planning_service.build_adaptive_planning(
+            user_id=user_id,
+            thread_id=thread_id,
+            thread=thread,
+            context_cards=context_cards,
+            active_memory=active_memory,
+            active_compression=active_compression,
+            open_tasks=open_tasks,
+            question_routing=question_routing.model_dump(),
+            research_task=selected_task,
+        )
         execution_plan = self.execution_planner_service.build_execution_plan(
             thread=thread,
             context_cards=context_cards,
@@ -272,6 +303,7 @@ class StockAnalysisMessageService:
             active_compression=active_compression,
             open_tasks=open_tasks,
             question_routing=question_routing.model_dump(),
+            adaptive_planning=adaptive_planning.model_dump(),
             user_message=message.strip(),
             force_tooling=force_tooling,
             refresh_before_answer=refresh_before_answer,
@@ -296,7 +328,13 @@ class StockAnalysisMessageService:
             active_memory=active_memory,
             active_compression=active_compression,
             question_routing=question_routing.model_dump(),
+            adaptive_planning=adaptive_planning.model_dump(),
             execution_plan=execution_plan.model_dump(),
+            evidence_orchestration=(
+                execution_plan.evidence_orchestration.model_dump()
+                if execution_plan.evidence_orchestration is not None
+                else None
+            ),
             recent_raw_messages=recent_raw_messages,
             user_question=message,
         )
@@ -322,6 +360,15 @@ class StockAnalysisMessageService:
             planner_result=planner_result,
             ticker_refs=assembled["ticker_refs"],
             theme_refs=assembled["theme_refs"],
+            preferred_evidence_order=adaptive_planning.preferred_evidence_order,
+            avoid_over_research=adaptive_planning.avoid_over_research,
+        )
+        evidence_conflict_summary = (
+            self.execution_planner_service.build_evidence_conflict_summary(
+                adaptive_planning=adaptive_planning.model_dump(),
+                tooling_result=tooling_result,
+                active_memory=active_memory,
+            )
         )
         previous_validation_summary = self._find_latest_validation_summary(
             history_messages=history_messages
@@ -339,6 +386,7 @@ class StockAnalysisMessageService:
             refresh_run=refresh_run,
             previous_validation_summary=previous_validation_summary,
             related_tasks=related_tasks,
+            evidence_conflict_summary=evidence_conflict_summary.model_dump(),
         )
         task_update_suggestions = (
             self.execution_planner_service.build_task_update_suggestions(
@@ -383,6 +431,13 @@ class StockAnalysisMessageService:
             mode=planner_result.mode,
             tool_reason=planner_result.tool_reason,
             tooling_result=tooling_result,
+            adaptive_planning=adaptive_planning.model_dump(),
+            evidence_orchestration=(
+                execution_plan.evidence_orchestration.model_dump()
+                if execution_plan.evidence_orchestration is not None
+                else {}
+            ),
+            evidence_conflict_summary=evidence_conflict_summary.model_dump(),
         )
         assistant_metadata = {
             "answer_basis": tooling_result.answer_basis,
@@ -432,6 +487,9 @@ class StockAnalysisMessageService:
                 tooling_result.provider_fallback_chain,
                 ensure_ascii=False,
             ),
+            "provider_stop_reason": tooling_result.provider_stop_reason or "",
+            "provider_skipped_reason": tooling_result.provider_skipped_reason or "",
+            "provider_confidence_hint": tooling_result.provider_confidence_hint or "",
             "evidence_generated_at": tooling_result.evidence_generated_at or "",
             "evidence_staleness_hint": tooling_result.evidence_staleness_hint or "",
             "refreshed_before_answer": bool(refresh_run),
@@ -520,7 +578,23 @@ class StockAnalysisMessageService:
                 question_routing.suggested_task_titles,
                 ensure_ascii=False,
             ),
+            "adaptive_planning_profile": adaptive_planning.planning_profile,
+            "adaptive_planning_reasoning": adaptive_planning.adjustment_reasoning,
+            "preferred_evidence_order_json": json.dumps(
+                adaptive_planning.preferred_evidence_order,
+                ensure_ascii=False,
+            ),
+            "planning_adjustments_json": json.dumps(
+                adaptive_planning.planning_adjustments,
+                ensure_ascii=False,
+            ),
+            "process_confidence_hint": adaptive_planning.confidence_hint or "",
             "execution_plan_summary": execution_plan.plan_summary,
+            "evidence_plan_summary": (
+                execution_plan.evidence_orchestration.evidence_plan_summary
+                if execution_plan.evidence_orchestration is not None
+                else ""
+            ),
             "executed_steps_json": json.dumps(executed_steps, ensure_ascii=False),
             "skipped_steps_json": json.dumps(skipped_steps, ensure_ascii=False),
             "failed_steps_json": json.dumps(failed_steps, ensure_ascii=False),
@@ -536,7 +610,12 @@ class StockAnalysisMessageService:
                 validation_summary.model_dump(),
                 ensure_ascii=False,
             ),
+            "evidence_conflict_summary_json": json.dumps(
+                evidence_conflict_summary.model_dump(),
+                ensure_ascii=False,
+            ),
             "thesis_change_hint": validation_summary.thesis_change_hint or "",
+            "thesis_confidence_hint": validation_summary.thesis_confidence_hint or "",
             "focus_tickers_json": json.dumps(
                 execution_plan.focus_tickers,
                 ensure_ascii=False,
@@ -580,6 +659,8 @@ class StockAnalysisMessageService:
             provider_attempts=tooling_result.provider_attempts,
             provider_used=tooling_result.provider_used,
             provider_fallback_chain=tooling_result.provider_fallback_chain,
+            provider_stop_reason=tooling_result.provider_stop_reason,
+            provider_skipped_reason=tooling_result.provider_skipped_reason,
             evidence_generated_at=tooling_result.evidence_generated_at,
             evidence_staleness_hint=tooling_result.evidence_staleness_hint,
             refreshed_before_answer=bool(refresh_run),
@@ -645,7 +726,17 @@ class StockAnalysisMessageService:
             recommended_next_action=question_routing.recommended_next_action,
             followup_candidates=question_routing.followup_candidates,
             suggested_task_titles=question_routing.suggested_task_titles,
+            adaptive_planning_profile=adaptive_planning.planning_profile,
+            adaptive_planning_reasoning=adaptive_planning.adjustment_reasoning,
+            preferred_evidence_order=adaptive_planning.preferred_evidence_order,
+            planning_adjustments=adaptive_planning.planning_adjustments,
+            process_confidence_hint=adaptive_planning.confidence_hint,
             execution_plan_summary=execution_plan.plan_summary,
+            evidence_plan_summary=(
+                execution_plan.evidence_orchestration.evidence_plan_summary
+                if execution_plan.evidence_orchestration is not None
+                else None
+            ),
             executed_steps=executed_steps,
             skipped_steps=skipped_steps,
             failed_steps=failed_steps,
@@ -654,7 +745,9 @@ class StockAnalysisMessageService:
                 item.model_dump() for item in task_update_suggestions
             ],
             validation_summary=validation_summary.model_dump(),
+            evidence_conflict_summary=evidence_conflict_summary.model_dump(),
             thesis_change_hint=validation_summary.thesis_change_hint,
+            thesis_confidence_hint=validation_summary.thesis_confidence_hint,
             focus_tickers=execution_plan.focus_tickers,
             focus_themes=execution_plan.focus_themes,
             user_message=self._serialize_message_item(user_item),
@@ -745,6 +838,9 @@ class StockAnalysisMessageService:
         mode: str,
         tool_reason: str | None,
         tooling_result: StockAnalysisToolingResult,
+        adaptive_planning: dict[str, Any],
+        evidence_orchestration: dict[str, Any],
+        evidence_conflict_summary: dict[str, Any],
     ) -> str:
         model = get_model_for_agent("research_agent")
         evidence_block = self._build_evidence_prompt_block(tooling_result)
@@ -753,14 +849,24 @@ class StockAnalysisMessageService:
                 "You are a stock analysis workspace assistant.",
                 f"Current Mode: {mode}",
                 assembled_context,
+                "Adaptive Planning",
+                self._build_adaptive_planning_prompt_block(adaptive_planning),
+                "Evidence Orchestration",
+                self._build_evidence_orchestration_prompt_block(
+                    evidence_orchestration
+                ),
                 "Temporary Evidence",
                 evidence_block,
+                "Evidence Conflict Summary",
+                self._build_evidence_conflict_prompt_block(evidence_conflict_summary),
                 "Current User Question",
                 user_question,
                 "Answer Requirements",
                 (
                     "Answer in Chinese. Prioritize explicit reasoning. "
                     "Default to the current context. "
+                    "Explain why this round studies in the chosen order, why some steps are skipped, "
+                    "and how evidence conflict changes the strength of the thesis. "
                     "If temporary evidence is present, treat it as temporary supplemental evidence only. "
                     "Do not claim any unavailable tool result. "
                     "If information is still insufficient, clearly say what is missing. "
@@ -796,6 +902,76 @@ class StockAnalysisMessageService:
         if tooling_result.evidence_summary:
             parts.append(f"Evidence Summary: {tooling_result.evidence_summary}")
         return "\n".join(parts)
+
+    @staticmethod
+    def _build_adaptive_planning_prompt_block(adaptive_planning: dict[str, Any]) -> str:
+        return "\n".join(
+            [
+                f"Planning Profile: {adaptive_planning.get('planning_profile') or '--'}",
+                "Preferred Evidence Order: "
+                + (
+                    " -> ".join(list(adaptive_planning.get("preferred_evidence_order") or [])[:8])
+                    or "--"
+                ),
+                "Planning Adjustments: "
+                + (
+                    "; ".join(list(adaptive_planning.get("planning_adjustments") or [])[:5])
+                    or "--"
+                ),
+                "Adjustment Reasoning: "
+                + str(adaptive_planning.get("adjustment_reasoning") or "--"),
+                "Confidence Hint: "
+                + str(adaptive_planning.get("confidence_hint") or "--"),
+            ]
+        )
+
+    @staticmethod
+    def _build_evidence_orchestration_prompt_block(
+        evidence_orchestration: dict[str, Any]
+    ) -> str:
+        return "\n".join(
+            [
+                "Evidence Plan Summary: "
+                + str(evidence_orchestration.get("evidence_plan_summary") or "--"),
+                "Evidence Order: "
+                + (
+                    " -> ".join(list(evidence_orchestration.get("evidence_order") or [])[:8])
+                    or "--"
+                ),
+                "Stop Conditions: "
+                + (
+                    "; ".join(list(evidence_orchestration.get("stop_conditions") or [])[:4])
+                    or "--"
+                ),
+            ]
+        )
+
+    @staticmethod
+    def _build_evidence_conflict_prompt_block(
+        evidence_conflict_summary: dict[str, Any]
+    ) -> str:
+        return "\n".join(
+            [
+                f"Conflict Level: {evidence_conflict_summary.get('conflict_level') or '--'}",
+                "Supporting Evidence: "
+                + (
+                    "; ".join(list(evidence_conflict_summary.get("supporting_evidence") or [])[:4])
+                    or "--"
+                ),
+                "Opposing Evidence: "
+                + (
+                    "; ".join(list(evidence_conflict_summary.get("opposing_evidence") or [])[:4])
+                    or "--"
+                ),
+                "Risk Evidence: "
+                + (
+                    "; ".join(list(evidence_conflict_summary.get("risk_evidence") or [])[:4])
+                    or "--"
+                ),
+                "Resolution Suggestion: "
+                + str(evidence_conflict_summary.get("resolution_suggestion") or "--"),
+            ]
+        )
 
     @staticmethod
     def _serialize_message_item(item: Any | None) -> dict[str, Any]:
@@ -853,14 +1029,24 @@ class StockAnalysisMessageService:
                 "recommended_next_action": None,
                 "followup_candidates": [],
                 "suggested_task_titles": [],
+                "adaptive_planning_profile": None,
+                "adaptive_planning_reasoning": None,
+                "preferred_evidence_order": [],
+                "planning_adjustments": [],
+                "process_confidence_hint": None,
                 "execution_plan_summary": None,
+                "evidence_plan_summary": None,
                 "executed_steps": [],
                 "skipped_steps": [],
                 "failed_steps": [],
                 "related_task_ids": [],
                 "task_update_suggestions": [],
                 "validation_summary": {},
+                "evidence_conflict_summary": {},
                 "thesis_change_hint": None,
+                "thesis_confidence_hint": None,
+                "provider_stop_reason": None,
+                "provider_skipped_reason": None,
                 "focus_tickers": [],
                 "focus_themes": [],
             }
@@ -1020,8 +1206,30 @@ class StockAnalysisMessageService:
             "suggested_task_titles": StockAnalysisMessageService._parse_json_list(
                 metadata.get("suggested_task_titles_json")
             ),
+            "adaptive_planning_profile": str(
+                metadata.get("adaptive_planning_profile") or ""
+            ).strip()
+            or None,
+            "adaptive_planning_reasoning": str(
+                metadata.get("adaptive_planning_reasoning") or ""
+            ).strip()
+            or None,
+            "preferred_evidence_order": StockAnalysisMessageService._parse_json_list(
+                metadata.get("preferred_evidence_order_json")
+            ),
+            "planning_adjustments": StockAnalysisMessageService._parse_json_list(
+                metadata.get("planning_adjustments_json")
+            ),
+            "process_confidence_hint": str(
+                metadata.get("process_confidence_hint") or ""
+            ).strip()
+            or None,
             "execution_plan_summary": str(
                 metadata.get("execution_plan_summary") or ""
+            ).strip()
+            or None,
+            "evidence_plan_summary": str(
+                metadata.get("evidence_plan_summary") or ""
             ).strip()
             or None,
             "executed_steps": StockAnalysisMessageService._parse_json_list(
@@ -1042,7 +1250,22 @@ class StockAnalysisMessageService:
             "validation_summary": StockAnalysisMessageService._parse_json_dict(
                 metadata.get("validation_summary_json")
             ),
+            "evidence_conflict_summary": StockAnalysisMessageService._parse_json_dict(
+                metadata.get("evidence_conflict_summary_json")
+            ),
             "thesis_change_hint": str(metadata.get("thesis_change_hint") or "").strip()
+            or None,
+            "thesis_confidence_hint": str(
+                metadata.get("thesis_confidence_hint") or ""
+            ).strip()
+            or None,
+            "provider_stop_reason": str(
+                metadata.get("provider_stop_reason") or ""
+            ).strip()
+            or None,
+            "provider_skipped_reason": str(
+                metadata.get("provider_skipped_reason") or ""
+            ).strip()
             or None,
             "focus_tickers": StockAnalysisMessageService._parse_json_list(
                 metadata.get("focus_tickers_json")

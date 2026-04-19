@@ -39,6 +39,9 @@ export type StockAnalysisResearchTask = {
   dismissed_at?: string | null;
   is_focus_related?: boolean;
   is_related_to_latest_message?: boolean;
+  is_planning_influencer?: boolean;
+  is_primary_research_anchor?: boolean;
+  suggested_planning_action?: string;
 };
 
 export type StockAnalysisResearchTaskList = {

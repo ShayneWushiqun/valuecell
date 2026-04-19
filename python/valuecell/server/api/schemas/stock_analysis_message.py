@@ -60,14 +60,24 @@ class StockAnalysisMessageItemData(BaseModel):
     recommended_next_action: str | None = None
     followup_candidates: list[str] = Field(default_factory=list)
     suggested_task_titles: list[str] = Field(default_factory=list)
+    adaptive_planning_profile: str | None = None
+    adaptive_planning_reasoning: str | None = None
+    preferred_evidence_order: list[str] = Field(default_factory=list)
+    planning_adjustments: list[str] = Field(default_factory=list)
+    process_confidence_hint: str | None = None
     execution_plan_summary: str | None = None
+    evidence_plan_summary: str | None = None
     executed_steps: list[dict[str, Any]] = Field(default_factory=list)
     skipped_steps: list[dict[str, Any]] = Field(default_factory=list)
     failed_steps: list[dict[str, Any]] = Field(default_factory=list)
     related_task_ids: list[int] = Field(default_factory=list)
     task_update_suggestions: list[dict[str, Any]] = Field(default_factory=list)
     validation_summary: dict[str, Any] = Field(default_factory=dict)
+    evidence_conflict_summary: dict[str, Any] = Field(default_factory=dict)
     thesis_change_hint: str | None = None
+    thesis_confidence_hint: str | None = None
+    provider_stop_reason: str | None = None
+    provider_skipped_reason: str | None = None
     focus_tickers: list[str] = Field(default_factory=list)
     focus_themes: list[str] = Field(default_factory=list)
 
@@ -138,14 +148,24 @@ class StockAnalysisMessageCreateData(BaseModel):
     recommended_next_action: str | None = None
     followup_candidates: list[str] = Field(default_factory=list)
     suggested_task_titles: list[str] = Field(default_factory=list)
+    adaptive_planning_profile: str | None = None
+    adaptive_planning_reasoning: str | None = None
+    preferred_evidence_order: list[str] = Field(default_factory=list)
+    planning_adjustments: list[str] = Field(default_factory=list)
+    process_confidence_hint: str | None = None
     execution_plan_summary: str | None = None
+    evidence_plan_summary: str | None = None
     executed_steps: list[dict[str, Any]] = Field(default_factory=list)
     skipped_steps: list[dict[str, Any]] = Field(default_factory=list)
     failed_steps: list[dict[str, Any]] = Field(default_factory=list)
     related_task_ids: list[int] = Field(default_factory=list)
     task_update_suggestions: list[dict[str, Any]] = Field(default_factory=list)
     validation_summary: dict[str, Any] = Field(default_factory=dict)
+    evidence_conflict_summary: dict[str, Any] = Field(default_factory=dict)
     thesis_change_hint: str | None = None
+    thesis_confidence_hint: str | None = None
+    provider_stop_reason: str | None = None
+    provider_skipped_reason: str | None = None
     focus_tickers: list[str] = Field(default_factory=list)
     focus_themes: list[str] = Field(default_factory=list)
     user_message: StockAnalysisMessageItemData

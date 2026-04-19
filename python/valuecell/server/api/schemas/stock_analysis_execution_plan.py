@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from .stock_analysis_adaptive_planning import (
+    StockAnalysisAdaptivePlanningData,
+    StockAnalysisEvidenceOrchestrationData,
+)
+
 
 class StockAnalysisExecutionStepData(BaseModel):
     step_id: str
@@ -13,6 +18,8 @@ class StockAnalysisExecutionStepData(BaseModel):
     source: str = "planner"
     target_refs: list[str] = Field(default_factory=list)
     result_summary: str | None = None
+    adjusted_by: str | None = None
+    skipped_reason: str | None = None
 
 
 class StockAnalysisTaskUpdateSuggestionData(BaseModel):
@@ -29,6 +36,9 @@ class StockAnalysisValidationSummaryData(BaseModel):
     opposing_points: list[str] = Field(default_factory=list)
     risk_points: list[str] = Field(default_factory=list)
     thesis_change_hint: str | None = None
+    evidence_conflict_level: str | None = None
+    resolution_suggestion: str | None = None
+    thesis_confidence_hint: str | None = None
 
 
 class StockAnalysisExecutionPlanData(BaseModel):
@@ -44,4 +54,6 @@ class StockAnalysisExecutionPlanData(BaseModel):
     requires_refresh: bool = False
     requires_tooling: bool = False
     requires_validation: bool = False
+    adaptive_planning: StockAnalysisAdaptivePlanningData | None = None
+    evidence_orchestration: StockAnalysisEvidenceOrchestrationData | None = None
     steps: list[StockAnalysisExecutionStepData] = Field(default_factory=list)

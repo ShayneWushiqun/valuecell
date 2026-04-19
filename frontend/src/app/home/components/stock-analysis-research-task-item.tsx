@@ -40,6 +40,15 @@ export function StockAnalysisResearchTaskItem({
         {task.is_related_to_latest_message ? (
           <Badge variant="secondary">与本轮相关</Badge>
         ) : null}
+        {task.is_planning_influencer ? (
+          <Badge variant="secondary">影响 planning</Badge>
+        ) : null}
+        {task.is_primary_research_anchor ? (
+          <Badge variant="secondary">当前研究锚点</Badge>
+        ) : null}
+        {task.suggested_planning_action ? (
+          <Badge variant="outline">{task.suggested_planning_action}</Badge>
+        ) : null}
       </div>
       <div className="mt-3 space-y-2">
         <p className="font-medium text-sm">{task.title}</p>

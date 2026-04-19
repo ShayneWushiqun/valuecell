@@ -41,6 +41,9 @@ class StockAnalysisToolingResult(BaseModel):
     provider_attempts: list[dict[str, Any]] = Field(default_factory=list)
     provider_used: list[str] = Field(default_factory=list)
     provider_fallback_chain: list[str] = Field(default_factory=list)
+    provider_stop_reason: str | None = None
+    provider_skipped_reason: str | None = None
+    provider_confidence_hint: str | None = None
     evidence_generated_at: str | None = None
     evidence_staleness_hint: str | None = None
 
@@ -103,6 +106,8 @@ class StockAnalysisToolingService:
         planner_result: StockAnalysisToolPlannerResult,
         ticker_refs: Sequence[str],
         theme_refs: Sequence[str],
+        preferred_evidence_order: Sequence[str] | None = None,
+        avoid_over_research: bool = False,
     ) -> StockAnalysisToolingResult:
         del context_cards
         result = StockAnalysisToolingResult(
@@ -111,34 +116,106 @@ class StockAnalysisToolingService:
         )
         if planner_result.mode == "context_only":
             return result
-
-        if INTERNAL_TOOL_LAYER in planner_result.tool_layers_to_use:
-            self._collect_internal_sources(
-                result=result,
-                user_id=user_id,
-                planner_result=planner_result,
-                ticker_refs=ticker_refs,
-                theme_refs=theme_refs,
-            )
-        if MARKET_TOOL_LAYER in planner_result.tool_layers_to_use:
-            self._collect_market_sources(
-                result=result,
-                planner_result=planner_result,
-                ticker_refs=ticker_refs,
-            )
-        if EXTERNAL_TOOL_LAYER in planner_result.tool_layers_to_use:
-            self._collect_external_sources(
-                result=result,
-                planner_result=planner_result,
-                ticker_refs=ticker_refs,
-                theme_refs=theme_refs,
-            )
+        execution_order = self._resolve_tool_execution_order(
+            tool_layers_to_use=planner_result.tool_layers_to_use,
+            preferred_evidence_order=preferred_evidence_order or [],
+        )
+        for layer in execution_order:
+            if layer == INTERNAL_TOOL_LAYER:
+                self._collect_internal_sources(
+                    result=result,
+                    user_id=user_id,
+                    planner_result=planner_result,
+                    ticker_refs=ticker_refs,
+                    theme_refs=theme_refs,
+                )
+            elif layer == MARKET_TOOL_LAYER:
+                self._collect_market_sources(
+                    result=result,
+                    planner_result=planner_result,
+                    ticker_refs=ticker_refs,
+                )
+            elif layer == EXTERNAL_TOOL_LAYER:
+                self._collect_external_sources(
+                    result=result,
+                    planner_result=planner_result,
+                    ticker_refs=ticker_refs,
+                    theme_refs=theme_refs,
+                )
         result.answer_basis = self._build_answer_basis(result=result)
         result.evidence_summary = self._build_evidence_summary(
             thread=thread,
             result=result,
         )
+        result.provider_skipped_reason = self._build_provider_skipped_reason(
+            planner_result=planner_result,
+            avoid_over_research=avoid_over_research,
+        )
+        result.provider_stop_reason = self._build_provider_stop_reason(
+            result=result,
+            avoid_over_research=avoid_over_research,
+        )
+        result.provider_confidence_hint = self._build_provider_confidence_hint(result=result)
         return result
+
+    @staticmethod
+    def _resolve_tool_execution_order(
+        *,
+        tool_layers_to_use: Sequence[str],
+        preferred_evidence_order: Sequence[str],
+    ) -> list[str]:
+        source_to_layer = {
+            "internal_structured": INTERNAL_TOOL_LAYER,
+            "market_price": MARKET_TOOL_LAYER,
+            "external_news": EXTERNAL_TOOL_LAYER,
+            "external_confirmation": EXTERNAL_TOOL_LAYER,
+        }
+        ordered: list[str] = []
+        for source_type in preferred_evidence_order:
+            layer = source_to_layer.get(source_type)
+            if layer and layer in tool_layers_to_use and layer not in ordered:
+                ordered.append(layer)
+        for layer in tool_layers_to_use:
+            if layer not in ordered:
+                ordered.append(layer)
+        return ordered
+
+    @staticmethod
+    def _build_provider_stop_reason(
+        *,
+        result: StockAnalysisToolingResult,
+        avoid_over_research: bool,
+    ) -> str | None:
+        if not result.provider_attempts:
+            return None
+        if result.provider_used:
+            if avoid_over_research:
+                return "已获得可用 external confirmation，结合 lightweight research 偏置后停止继续扩 provider。"
+            return "已获得可用 external confirmation，当前停止继续更多 provider fallback。"
+        return "外部 provider 未形成稳定确认，本轮停止在当前 fallback 边界。"
+
+    @staticmethod
+    def _build_provider_skipped_reason(
+        *,
+        planner_result: StockAnalysisToolPlannerResult,
+        avoid_over_research: bool,
+    ) -> str | None:
+        if EXTERNAL_TOOL_LAYER in planner_result.tool_layers_to_use:
+            return None
+        if avoid_over_research:
+            return "当前 planning 偏向 lightweight research，外部 provider 未被优先触发。"
+        return "当前问题未要求额外 external confirmation，外部 provider 被跳过。"
+
+    @staticmethod
+    def _build_provider_confidence_hint(
+        *,
+        result: StockAnalysisToolingResult,
+    ) -> str | None:
+        if result.provider_used:
+            return "当前至少有一个外部 provider 给出可用确认，但仍只作为补充证据。"
+        if result.provider_attempts:
+            return "外部 provider 已尝试但未形成稳定确认，结论不应依赖这层证据。"
+        return None
 
     def _collect_internal_sources(
         self,

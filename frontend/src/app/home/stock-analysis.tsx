@@ -57,6 +57,8 @@ import {
 import { StockAnalysisCompareTray } from "@/app/home/components/stock-analysis-compare-tray";
 import { StockAnalysisCompressionPanel } from "@/app/home/components/stock-analysis-compression-panel";
 import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
+import { StockAnalysisAdaptivePlan } from "@/app/home/components/stock-analysis-adaptive-plan";
+import { StockAnalysisEvidenceConflict } from "@/app/home/components/stock-analysis-evidence-conflict";
 import { StockAnalysisExecutionTrace } from "@/app/home/components/stock-analysis-execution-trace";
 import { StockAnalysisFeedbackPanel } from "@/app/home/components/stock-analysis-feedback-panel";
 import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
@@ -392,6 +394,38 @@ export default function StockAnalysis() {
       ),
     [threadResearchFeedback],
   );
+  const recentFeedbackMethodBias = useMemo(() => {
+    const counts = {
+      compare: 0,
+      refresh: 0,
+      tooling: 0,
+      validation: 0,
+    };
+    threadResearchFeedback.slice(0, 5).forEach((item) => {
+      if (item.compare_helpful) counts.compare += 1;
+      if (item.refresh_helpful) counts.refresh += 1;
+      if (item.tooling_helpful) counts.tooling += 1;
+      if (item.validation_helpful) counts.validation += 1;
+    });
+    const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (!ranked[0] || ranked[0][1] <= 0) return null;
+    return `${ranked[0][0]}_first`;
+  }, [threadResearchFeedback]);
+  const recentResearchQualityTrend = useMemo(() => {
+    const recentStatuses = threadResearchFeedback
+      .slice(0, 3)
+      .map((item) => item.process_quality_status)
+      .filter(Boolean);
+    if (!recentStatuses.length) return null;
+    if (recentStatuses.every((item) => item === "over_researched")) {
+      return "over_researched";
+    }
+    if (recentStatuses.every((item) => item === "under_evidenced")) {
+      return "under_evidenced";
+    }
+    if (recentStatuses[0] === "effective") return "effective_bias";
+    return "mixed";
+  }, [threadResearchFeedback]);
   const contextTitleMap = useMemo(
     () => new Map(contextItems.map((item) => [item.context_id, item.title])),
     [contextItems],
@@ -1467,6 +1501,18 @@ export default function StockAnalysis() {
                     }
                     hasTrackingFollowupTasks={hasTrackingFollowupTasks}
                     lastFeedbackSummary={latestResearchFeedback?.summary || null}
+                    currentPlanningProfile={
+                      latestAssistantMessage?.adaptive_planning_profile || null
+                    }
+                    currentEvidenceConflictLevel={
+                      typeof latestAssistantMessage?.evidence_conflict_summary
+                        ?.conflict_level === "string"
+                        ? latestAssistantMessage.evidence_conflict_summary
+                            .conflict_level
+                        : null
+                    }
+                    recentFeedbackMethodBias={recentFeedbackMethodBias}
+                    recentResearchQualityTrend={recentResearchQualityTrend}
                     lastRefreshAt={lastRefreshRun?.generated_at || null}
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
@@ -1522,6 +1568,10 @@ export default function StockAnalysis() {
                     currentFocusTickers={latestFocusTickers}
                     currentFocusThemes={latestFocusThemes}
                     relatedTaskIds={latestRelatedTaskIds}
+                    activeResearchTaskId={activeResearchTaskId}
+                    preferredEvidenceOrder={
+                      latestAssistantMessage?.preferred_evidence_order || []
+                    }
                     isLoading={researchTasksLoading}
                     generatePending={generateResearchTasks.isPending}
                     createPending={createResearchTask.isPending}
@@ -1735,6 +1785,34 @@ export default function StockAnalysis() {
                                     executedSteps={item.executed_steps}
                                     skippedSteps={item.skipped_steps}
                                     failedSteps={item.failed_steps}
+                                  />
+                                  <StockAnalysisAdaptivePlan
+                                    planningProfile={item.adaptive_planning_profile}
+                                    planningReasoning={
+                                      item.adaptive_planning_reasoning
+                                    }
+                                    preferredEvidenceOrder={
+                                      item.preferred_evidence_order
+                                    }
+                                    planningAdjustments={item.planning_adjustments}
+                                    processConfidenceHint={
+                                      item.process_confidence_hint
+                                    }
+                                    providerStopReason={
+                                      item.provider_stop_reason
+                                    }
+                                    providerSkippedReason={
+                                      item.provider_skipped_reason
+                                    }
+                                    evidencePlanSummary={item.evidence_plan_summary}
+                                  />
+                                  <StockAnalysisEvidenceConflict
+                                    evidenceConflictSummary={
+                                      item.evidence_conflict_summary
+                                    }
+                                    thesisConfidenceHint={
+                                      item.thesis_confidence_hint
+                                    }
                                   />
                                   <StockAnalysisValidationSummary
                                     validationSummary={item.validation_summary}

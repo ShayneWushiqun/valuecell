@@ -26,6 +26,10 @@ type StockAnalysisThreadSummaryProps = {
   lastFeedbackProcessQualityStatus?: string | null;
   hasTrackingFollowupTasks: boolean;
   lastFeedbackSummary?: string | null;
+  currentPlanningProfile?: string | null;
+  currentEvidenceConflictLevel?: string | null;
+  recentFeedbackMethodBias?: string | null;
+  recentResearchQualityTrend?: string | null;
   lastRefreshAt?: string | null;
   lastRefreshSummary?: string | null;
 };
@@ -63,6 +67,10 @@ export function StockAnalysisThreadSummary({
   lastFeedbackProcessQualityStatus,
   hasTrackingFollowupTasks,
   lastFeedbackSummary,
+  currentPlanningProfile,
+  currentEvidenceConflictLevel,
+  recentFeedbackMethodBias,
+  recentResearchQualityTrend,
   lastRefreshAt,
   lastRefreshSummary,
 }: StockAnalysisThreadSummaryProps) {
@@ -113,6 +121,18 @@ export function StockAnalysisThreadSummary({
         ) : null}
         {lastFeedbackProcessQualityStatus ? (
           <Badge variant="outline">过程偏 {lastFeedbackProcessQualityStatus}</Badge>
+        ) : null}
+        {currentPlanningProfile ? (
+          <Badge variant="outline">planning {currentPlanningProfile}</Badge>
+        ) : null}
+        {currentEvidenceConflictLevel ? (
+          <Badge variant="outline">conflict {currentEvidenceConflictLevel}</Badge>
+        ) : null}
+        {recentFeedbackMethodBias ? (
+          <Badge variant="outline">反馈偏向 {recentFeedbackMethodBias}</Badge>
+        ) : null}
+        {recentResearchQualityTrend ? (
+          <Badge variant="outline">近期趋势 {recentResearchQualityTrend}</Badge>
         ) : null}
       </div>
       <div className="mt-3 space-y-2 text-sm">

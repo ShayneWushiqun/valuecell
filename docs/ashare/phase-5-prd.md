@@ -2,7 +2,7 @@
 
 ## 1. 阶段名称
 
-`研究结论沉淀、线程记忆、Question Routing、Research Tasks 与 Research Feedback MVP`
+`研究结论沉淀、线程记忆、Question Routing、Research Tasks、Research Feedback 与 Adaptive Planning MVP`
 
 ## 2. 阶段目标
 
@@ -67,6 +67,14 @@
 - `task_followup_suggestions`
 - 线程级 feedback history / latest summary / assistant message 显式生成入口
 
+阶段五第五轮 本轮完成：
+
+- `feedback-aware planning`
+- `evidence orchestration`
+- `evidence conflict summary`
+- `stronger task-driven execution`
+- assistant message 中的 adaptive planning / evidence conflict / provider stop explanation
+
 当前仍未落地：
 
 - 自动长期记忆系统
@@ -74,8 +82,7 @@
 - 自动周期性总结
 - 自动交易
 - 更完整的全局绩效与研究看板
-- 更强 planner 语义和多步工具编排
-- 更强 multi-step autonomous planning
+- 更强 autonomous multi-step planning
 
 ## 3. 产品核心问题
 
@@ -187,6 +194,24 @@ capture 和 refresh 都生成新的显式快照，不覆盖旧历史。
 - 最近一轮研究更偏 `effective / mixed / under_evidenced / over_researched`
 - 当前 open tasks 里是否存在“建议继续跟踪”的任务
 - 哪种研究路径更稳定，哪些路径需要降权
+
+### 5.10 Feedback-Aware Planning
+
+adaptive planning 不替代 routing / execution planning / tool planner，而是回答：
+
+- 历史 feedback 告诉我们这条线程最近哪种研究方式更有效
+- 当前问题更适合先 compare、先 refresh、先 internal structured、还是先 external confirmation
+- 当前是否应避免过度研究
+- 哪些高优先级 task 应直接影响执行顺序
+
+### 5.11 Evidence Conflict Summary
+
+系统需要显式整理：
+
+- 什么支持当前 thesis
+- 什么削弱当前 thesis
+- 什么只是风险或噪音
+- 当前更适合继续研究、先 refresh，还是暂不强化结论
 
 ## 6. 必做功能
 

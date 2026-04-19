@@ -54,6 +54,8 @@ type StockAnalysisResearchTaskPanelProps = {
   currentFocusTickers?: string[];
   currentFocusThemes?: string[];
   relatedTaskIds?: number[];
+  activeResearchTaskId?: number | null;
+  preferredEvidenceOrder?: string[];
   isLoading?: boolean;
   generatePending?: boolean;
   createPending?: boolean;
@@ -78,6 +80,8 @@ export function StockAnalysisResearchTaskPanel({
   currentFocusTickers = [],
   currentFocusThemes = [],
   relatedTaskIds = [],
+  activeResearchTaskId = null,
+  preferredEvidenceOrder = [],
   isLoading = false,
   generatePending = false,
   createPending = false,
@@ -99,6 +103,28 @@ export function StockAnalysisResearchTaskPanel({
       item.related_tickers_json.some((ticker) => currentFocusTickers.includes(ticker)) ||
       item.related_themes_json.some((theme) => currentFocusThemes.includes(theme)),
     is_related_to_latest_message: relatedTaskIds.includes(item.task_id),
+    is_primary_research_anchor: activeResearchTaskId === item.task_id,
+    is_planning_influencer:
+      relatedTaskIds.includes(item.task_id) ||
+      (item.priority === "high" &&
+        preferredEvidenceOrder.some((sourceType) =>
+          [
+            sourceType === "refresh" && item.task_type === "refresh_needed",
+            sourceType === "compare_targets" && item.task_type === "compare_followup",
+            sourceType === "external_confirmation" && item.task_type === "tooling_check",
+            sourceType === "validation" && item.task_type === "thesis_validation",
+          ].some(Boolean),
+        )),
+    suggested_planning_action:
+      item.task_type === "refresh_needed"
+        ? "先 refresh"
+        : item.task_type === "compare_followup"
+          ? "先 compare"
+          : item.task_type === "tooling_check"
+            ? "先 external confirm"
+            : item.task_type === "thesis_validation"
+              ? "先 validation"
+              : undefined,
   });
 
   const openTasks = useMemo(
@@ -164,6 +190,9 @@ export function StockAnalysisResearchTaskPanel({
         <Badge variant="secondary">Open {taskData?.open_count || 0}</Badge>
         <Badge variant="outline">High {taskData?.high_priority_open_count || 0}</Badge>
         <Badge variant="outline">当前相关 {relatedTaskIds.length}</Badge>
+        <Badge variant="outline">
+          planning order：{preferredEvidenceOrder.slice(0, 3).join(" -> ") || "暂无"}
+        </Badge>
         <Badge variant={taskData?.has_actionable_gap ? "secondary" : "outline"}>
           {taskData?.has_actionable_gap ? "存在立即处理 gap" : "当前 gap 可控"}
         </Badge>

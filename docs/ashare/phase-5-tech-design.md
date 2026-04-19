@@ -4,7 +4,7 @@
 
 阶段五的技术目标，是在阶段四线程式研究工作区之上增加一个稳定的：
 
-`显式线程研究记忆层 + 显式会话上下文压缩层 + 可解释的问题路由层 + 显式研究任务层 + 研究反馈闭环层`
+`显式线程研究记忆层 + 显式会话上下文压缩层 + 可解释的问题路由层 + 显式研究任务层 + 研究反馈闭环层 + feedback-aware adaptive planning 层`
 
 让系统既能保留线程的长期研究结论，又继续坚持：
 
@@ -66,14 +66,24 @@
 - `what_helped / what_hurt / process_adjustments / task_followup_suggestions`
 - 工作区中的 feedback panel、历史列表、最新 feedback 摘要和 assistant message 显式生成入口
 
+阶段五第五轮 本轮新增：
+
+- `StockAnalysisAdaptivePlanningService`
+- `stock_analysis_adaptive_planning.py`
+- `stock_analysis_evidence_conflict.py`
+- `feedback-aware planning`
+- `evidence orchestration`
+- `evidence conflict summary`
+- adaptive planning 驱动的 execution step 前置 / 跳过原因解释
+- assistant metadata 中的 `adaptive_planning_profile / preferred_evidence_order / evidence_plan_summary / evidence_conflict_summary / provider_stop_reason / provider_skipped_reason`
+
 当前未实现：
 
 - 自动长期记忆系统
 - 更强 planner 语义
 - 自动交易
 - 更完整的全局绩效与研究看板
-- 更强的多步工具编排
-- 更强 multi-step autonomous planning
+- 更强 autonomous multi-step planning
 
 ## 2. 设计原则
 
@@ -121,6 +131,7 @@ active memory 只是一份线程级研究摘要。
 - `stock_analysis_thread_compression`
 - `stock_analysis_research_task`
 - `stock_analysis_research_feedback`
+- `stock_analysis_adaptive_planning`
 
 关键字段：
 
@@ -168,6 +179,7 @@ active memory 只是一份线程级研究摘要。
 - `StockAnalysisResearchTaskService`
 - `StockAnalysisExecutionPlannerService`
 - `StockAnalysisResearchFeedbackService`
+- `StockAnalysisAdaptivePlanningService`
 
 职责：
 
@@ -180,9 +192,11 @@ active memory 只是一份线程级研究摘要。
 - 在 planner 之前稳定输出 question routing
 - 从 memory / compression / compare / refresh / assistant routing 中显式生成 research tasks
 - 在 tool planner 之前稳定输出 execution plan
+- 在 execution planner 之前基于 recent feedback 输出 adaptive planning bias
 - 生成 validation summary、task update suggestions 与 execution trace
 - 基于 anchor assistant message 重新读取 outcome / effectiveness / risk / tasks 并生成 feedback snapshot
 - 生成显式 attribution、process adjustments 和 task follow-up suggestions
+- 生成 evidence orchestration、provider stop / skipped reason 和 evidence conflict summary
 
 ### 3.4 Prompt Assembler 联动
 
@@ -191,11 +205,15 @@ active memory 只是一份线程级研究摘要。
 - 增加 `active_memory` 入参
 - 增加 `active_compression` 与 `recent_raw_messages` 入参
 - 增加 `question_routing` 入参
+- 增加 `adaptive_planning` 入参
 - 增加 `execution_plan` 入参
+- 增加 `evidence_orchestration` 入参
 - 在 prompt 中追加 `Thread Active Research Memory`
 - 在 prompt 中追加 `Thread Active Conversation Compression`
 - 在 prompt 中追加 `Question Routing`
+- 在 prompt 中追加 `Adaptive Planning`
 - 在 prompt 中追加 `Execution Plan`
+- 在 prompt 中追加 `Evidence Orchestration`
 - 在 prompt 中追加 `Recent Raw Messages`
 - 在 response rules 中明确：
   - active memory 是辅助摘要

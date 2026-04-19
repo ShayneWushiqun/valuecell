@@ -6,6 +6,8 @@ type ExecutionStep = {
   title?: string;
   reason?: string;
   result_summary?: string | null;
+  adjusted_by?: string | null;
+  skipped_reason?: string | null;
 };
 
 type StockAnalysisExecutionTraceProps = {
@@ -60,6 +62,12 @@ export function StockAnalysisExecutionTrace({
             {executed.map((step) => (
               <div key={step.step_id || step.step_type} className="rounded border p-2">
                 <p>{step.title || step.step_type}</p>
+                {step.reason ? (
+                  <p className="mt-1 text-muted-foreground text-xs">{step.reason}</p>
+                ) : null}
+                {step.adjusted_by ? (
+                  <p className="mt-1 text-xs">调整来源: {step.adjusted_by}</p>
+                ) : null}
                 {step.result_summary ? (
                   <p className="mt-1 text-muted-foreground text-xs">{step.result_summary}</p>
                 ) : null}
@@ -75,6 +83,12 @@ export function StockAnalysisExecutionTrace({
             {skipped.map((step) => (
               <div key={step.step_id || step.step_type} className="rounded border p-2">
                 <p>{step.title || step.step_type}</p>
+                {step.reason ? (
+                  <p className="mt-1 text-muted-foreground text-xs">{step.reason}</p>
+                ) : null}
+                {step.skipped_reason ? (
+                  <p className="mt-1 text-xs">跳过原因: {step.skipped_reason}</p>
+                ) : null}
                 {step.result_summary ? (
                   <p className="mt-1 text-muted-foreground text-xs">{step.result_summary}</p>
                 ) : null}
@@ -90,6 +104,9 @@ export function StockAnalysisExecutionTrace({
             {failed.map((step) => (
               <div key={step.step_id || step.step_type} className="rounded border p-2">
                 <p>{step.title || step.step_type}</p>
+                {step.reason ? (
+                  <p className="mt-1 text-muted-foreground text-xs">{step.reason}</p>
+                ) : null}
                 {step.result_summary ? (
                   <p className="mt-1 text-muted-foreground text-xs">{step.result_summary}</p>
                 ) : null}

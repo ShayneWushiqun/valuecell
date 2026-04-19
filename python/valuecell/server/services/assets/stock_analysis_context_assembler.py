@@ -12,7 +12,9 @@ class StockAnalysisContextAssembler:
         active_memory: dict[str, Any] | None = None,
         active_compression: dict[str, Any] | None = None,
         question_routing: dict[str, Any] | None = None,
+        adaptive_planning: dict[str, Any] | None = None,
         execution_plan: dict[str, Any] | None = None,
+        evidence_orchestration: dict[str, Any] | None = None,
         recent_raw_messages: Sequence[dict[str, Any]] | None = None,
         user_question: str,
     ) -> dict[str, Any]:
@@ -86,8 +88,16 @@ class StockAnalysisContextAssembler:
                 self._build_question_routing_block(
                     question_routing=question_routing
                 ),
+                "Adaptive Planning",
+                self._build_adaptive_planning_block(
+                    adaptive_planning=adaptive_planning
+                ),
                 "Execution Plan",
                 self._build_execution_plan_block(execution_plan=execution_plan),
+                "Evidence Orchestration",
+                self._build_evidence_orchestration_block(
+                    evidence_orchestration=evidence_orchestration
+                ),
                 "Recent Raw Messages",
                 self._build_recent_raw_messages_block(
                     recent_raw_messages=recent_raw_messages or []
@@ -393,6 +403,72 @@ class StockAnalysisContextAssembler:
                     )
                     or "--"
                 ),
+            ]
+        )
+
+    @staticmethod
+    def _build_adaptive_planning_block(
+        *, adaptive_planning: dict[str, Any] | None
+    ) -> str:
+        if adaptive_planning is None:
+            return "No explicit adaptive planning guidance."
+        return "\n".join(
+            [
+                f"Planning Profile: {adaptive_planning.get('planning_profile') or '--'}",
+                f"Preferred First Action: {adaptive_planning.get('preferred_first_action') or '--'}",
+                "Preferred Evidence Order: "
+                + (
+                    " -> ".join(list(adaptive_planning.get("preferred_evidence_order") or [])[:8])
+                    or "--"
+                ),
+                f"Avoid Over Research: {'yes' if adaptive_planning.get('avoid_over_research') else 'no'}",
+                "Planning Adjustments: "
+                + (
+                    "; ".join(list(adaptive_planning.get("planning_adjustments") or [])[:4])
+                    or "--"
+                ),
+                "Adjustment Reasoning: "
+                + str(adaptive_planning.get("adjustment_reasoning") or "--"),
+                f"Confidence Hint: {adaptive_planning.get('confidence_hint') or '--'}",
+            ]
+        )
+
+    @staticmethod
+    def _build_evidence_orchestration_block(
+        *, evidence_orchestration: dict[str, Any] | None
+    ) -> str:
+        if evidence_orchestration is None:
+            return "No explicit evidence orchestration guidance."
+        steps = list(evidence_orchestration.get("evidence_steps") or [])
+        return "\n".join(
+            [
+                "Evidence Plan Summary: "
+                + str(evidence_orchestration.get("evidence_plan_summary") or "--"),
+                "Evidence Order: "
+                + (
+                    " -> ".join(list(evidence_orchestration.get("evidence_order") or [])[:8])
+                    or "--"
+                ),
+                "Stop Conditions: "
+                + (
+                    "; ".join(list(evidence_orchestration.get("stop_conditions") or [])[:4])
+                    or "--"
+                ),
+                "Evidence Steps: "
+                + (
+                    "; ".join(
+                        f"{item.get('source_type')}[{item.get('status')}]"
+                        for item in steps[:8]
+                    )
+                    or "--"
+                ),
+                "Merge Notes: "
+                + (
+                    "; ".join(list(evidence_orchestration.get("evidence_merge_notes") or [])[:4])
+                    or "--"
+                ),
+                "Evidence Confidence Hint: "
+                + str(evidence_orchestration.get("evidence_confidence_hint") or "--"),
             ]
         )
 

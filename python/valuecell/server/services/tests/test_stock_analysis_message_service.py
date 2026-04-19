@@ -13,6 +13,9 @@ from valuecell.server.services.assets.stock_analysis_message_service import (
 from valuecell.server.api.schemas.stock_analysis_question_router import (
     StockAnalysisQuestionRoutingData,
 )
+from valuecell.server.api.schemas.stock_analysis_adaptive_planning import (
+    StockAnalysisAdaptivePlanningData,
+)
 from valuecell.server.services.assets.stock_analysis_execution_planner_service import (
     StockAnalysisExecutionPlannerService,
 )
@@ -93,8 +96,18 @@ async def _fake_answer(
     mode: str,
     tool_reason: str | None,
     tooling_result: StockAnalysisToolingResult,
+    adaptive_planning: dict[str, Any],
+    evidence_orchestration: dict[str, Any],
+    evidence_conflict_summary: dict[str, Any],
 ) -> str:
-    del assembled_context, user_question, tool_reason
+    del (
+        assembled_context,
+        user_question,
+        tool_reason,
+        adaptive_planning,
+        evidence_orchestration,
+        evidence_conflict_summary,
+    )
     return f"回答依据：{tooling_result.answer_basis}。模式：{mode}"
 
 
@@ -219,6 +232,32 @@ class FakeQuestionRouterService:
         )
 
 
+class FakeAdaptivePlanningService:
+    def build_adaptive_planning(self, **kwargs) -> StockAnalysisAdaptivePlanningData:
+        del kwargs
+        return StockAnalysisAdaptivePlanningData(
+            planning_profile="compare_first",
+            feedback_window_size=3,
+            feedback_signals_used=["compare_helpful", "refresh_helpful"],
+            preferred_first_action="compare_targets",
+            preferred_evidence_order=[
+                "explicit_context",
+                "compare_targets",
+                "internal_structured",
+                "market_price",
+                "validation",
+            ],
+            prefer_compare_first=True,
+            prefer_refresh_first=False,
+            prefer_internal_first=True,
+            prefer_external_confirmation=False,
+            avoid_over_research=False,
+            planning_adjustments=["最近 feedback 指向 compare 更有帮助。"],
+            adjustment_reasoning="最近反馈显示 compare 路径更稳定，因此本轮先比较再补证据。",
+            confidence_hint="最近 feedback 信号较一致，本轮 planning 会显式吸收这些偏好。",
+        )
+
+
 class FakeResearchTaskService:
     def __init__(self, items: list[dict[str, Any]] | None = None) -> None:
         self.items = items or []
@@ -307,6 +346,7 @@ async def test_stock_analysis_message_service_reads_thread_conversation_and_pers
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         refresh_service=cast(Any, FakeRefreshService()),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
@@ -359,6 +399,7 @@ async def test_stock_analysis_message_service_keeps_context_only_without_externa
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=tooling,
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
@@ -373,8 +414,20 @@ async def test_stock_analysis_message_service_keeps_context_only_without_externa
         mode: str,
         tool_reason: str | None,
         tooling_result: StockAnalysisToolingResult,
+        adaptive_planning: dict[str, Any],
+        evidence_orchestration: dict[str, Any],
+        evidence_conflict_summary: dict[str, Any],
     ) -> str:
-        del assembled_context, user_question, mode, tool_reason, tooling_result
+        del (
+            assembled_context,
+            user_question,
+            mode,
+            tool_reason,
+            tooling_result,
+            adaptive_planning,
+            evidence_orchestration,
+            evidence_conflict_summary,
+        )
         called["count"] += 1
         return "回答依据：当前上下文。缺少更多卡片。"
 
@@ -417,6 +470,7 @@ async def test_stock_analysis_message_service_switches_history_by_thread(monkeyp
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         refresh_service=cast(Any, FakeRefreshService()),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
@@ -475,6 +529,7 @@ async def test_stock_analysis_message_service_force_tooling_enters_user_forced_m
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(USER_FORCED_TOOLING_MODE),
         tooling_service=tooling,
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
@@ -531,6 +586,7 @@ async def test_stock_analysis_message_service_need_tooling_returns_metadata(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
@@ -612,6 +668,7 @@ async def test_stock_analysis_message_service_returns_comparison_metadata(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         refresh_service=cast(Any, FakeRefreshService()),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
@@ -670,6 +727,7 @@ async def test_stock_analysis_message_service_marks_active_memory_usage(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(
             {
@@ -770,6 +828,7 @@ async def test_stock_analysis_message_service_refreshes_stale_contexts_before_an
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         refresh_service=refresh_service,
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
@@ -819,6 +878,7 @@ async def test_stock_analysis_message_service_exposes_question_routing_metadata(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         question_router_service=FakeQuestionRouterService(),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
@@ -843,9 +903,14 @@ async def test_stock_analysis_message_service_exposes_question_routing_metadata(
     assert history is not None
     assert history["items"][1]["question_intent"] == "define_next_step"
     assert history["items"][1]["recommended_next_action"] == "从当前线程生成研究任务"
+    assert history["items"][1]["adaptive_planning_profile"] == "compare_first"
+    assert history["items"][1]["preferred_evidence_order"]
+    assert history["items"][1]["planning_adjustments"]
     assert history["items"][1]["execution_plan_summary"] is not None
+    assert history["items"][1]["evidence_plan_summary"] is not None
     assert history["items"][1]["executed_steps"]
     assert history["items"][1]["validation_summary"]
+    assert history["items"][1]["evidence_conflict_summary"]
 
 
 @pytest.mark.asyncio
@@ -924,6 +989,7 @@ async def test_stock_analysis_message_service_uses_research_task_anchor_for_exec
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         research_task_service=task_service,
         question_router_service=FakeQuestionRouterService(),
         thread_memory_service=FakeThreadMemoryService(),
@@ -942,6 +1008,10 @@ async def test_stock_analysis_message_service_uses_research_task_anchor_for_exec
     assert 7 in result.related_task_ids
     assert result.focus_tickers == ["SZSE:300308", "SHSE:603019"]
     assert result.task_update_suggestions
+    assert result.adaptive_planning_profile == "compare_first"
+    assert result.preferred_evidence_order
+    assert result.evidence_plan_summary is not None
+    assert isinstance(result.evidence_conflict_summary, dict)
     assert result.validation_summary["thesis_status"] in {
         "thesis_maintained",
         "thesis_weakened",
@@ -972,6 +1042,7 @@ async def test_stock_analysis_message_service_can_save_temporary_evidence_as_con
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
+        adaptive_planning_service=FakeAdaptivePlanningService(),
         research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
