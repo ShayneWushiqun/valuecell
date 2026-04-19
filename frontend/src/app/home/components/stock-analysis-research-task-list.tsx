@@ -5,6 +5,7 @@ type StockAnalysisResearchTaskListProps = {
   tasks: StockAnalysisResearchTask[];
   emptyText: string;
   actionPending?: boolean;
+  onResearch: (task: StockAnalysisResearchTask) => void;
   onComplete: (task: StockAnalysisResearchTask) => void;
   onReopen: (task: StockAnalysisResearchTask) => void;
   onDismiss: (task: StockAnalysisResearchTask) => void;
@@ -14,6 +15,7 @@ export function StockAnalysisResearchTaskList({
   tasks,
   emptyText,
   actionPending = false,
+  onResearch,
   onComplete,
   onReopen,
   onDismiss,
@@ -33,6 +35,7 @@ export function StockAnalysisResearchTaskList({
           key={task.task_id}
           task={task}
           actionPending={actionPending}
+          onResearch={onResearch}
           onComplete={onComplete}
           onReopen={onReopen}
           onDismiss={onDismiss}

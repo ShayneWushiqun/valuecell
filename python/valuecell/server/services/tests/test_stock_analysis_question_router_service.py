@@ -70,3 +70,27 @@ def test_stock_analysis_question_router_service_detects_next_step_and_memory_rev
     assert result.should_revisit_active_memory is True
     assert result.should_revisit_active_compression is True
     assert result.followup_candidates
+
+
+def test_stock_analysis_question_router_service_mentions_selected_task() -> None:
+    service = StockAnalysisQuestionRouterService()
+
+    result = service.route_question(
+        thread={"compare_targets_json": []},
+        context_cards=[],
+        active_memory=None,
+        active_compression=None,
+        open_tasks=[
+            {"task_id": 8, "title": "刷新后重看当前结论", "status": "open"},
+        ],
+        selected_task={
+            "task_id": 8,
+            "title": "刷新后重看当前结论",
+            "summary": "旧上下文待刷新",
+        },
+        conversation_history=[],
+        user_message="围绕这个任务继续研究。",
+    )
+
+    assert "锚定任务" in result.routing_reason
+    assert "刷新后重看当前结论" in result.recommended_next_action

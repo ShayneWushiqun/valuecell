@@ -51,6 +51,14 @@
 - research task panel、手动创建、从线程生成、完成 / 重开 / 忽略
 - 研究任务与 compare / refresh / active memory / active compression / routing suggestion 联动
 
+阶段五第三轮 本轮完成：
+
+- 多步研究执行计划 `execution planning`
+- 任务驱动研究 `task-driven research`
+- `validation_summary`
+- `execution trace`
+- `research_task_id` 作为本轮研究锚点输入
+
 当前仍未落地：
 
 - 自动长期记忆系统
@@ -59,6 +67,7 @@
 - 自动交易
 - 更复杂的研究归因与绩效反馈
 - 更强 planner 语义和多步工具编排
+- 更强 multi-step autonomous planning
 
 ## 3. 产品核心问题
 
@@ -280,6 +289,82 @@ capture 和 refresh 都生成新的显式快照，不覆盖旧历史。
 - 规则优先
 - 结构化、可解释
 - 先与现有 tool planner 并存，不替代 `context_only / need_tooling / user_forced_tooling`
+
+### 6.9 Execution Planning
+
+阶段五第三轮在 question routing 之上新增 execution planning，形成三层：
+
+1. `question routing`
+2. `execution planning`
+3. `tool planner / tooling`
+
+execution plan 当前至少包含：
+
+- `question_intent`
+- `response_strategy`
+- `plan_summary`
+- `planning_reason`
+- `focus_tickers`
+- `focus_themes`
+- `related_task_ids`
+- `primary_compare_targets`
+- `requires_refresh`
+- `requires_tooling`
+- `requires_validation`
+- `steps`
+
+step 当前收口为稳定集合：
+
+- `inspect_context_cards`
+- `inspect_compare_targets`
+- `inspect_active_memory`
+- `inspect_active_compression`
+- `inspect_open_tasks`
+- `refresh_stale_contexts`
+- `collect_internal_structured_evidence`
+- `collect_market_price_evidence`
+- `collect_external_evidence`
+- `validate_thesis`
+- `synthesize_answer`
+- `suggest_task_updates`
+
+### 6.10 Task-Driven Research
+
+阶段五第三轮要求 research task 不再只是线程待办，而要真正进入本轮执行流：
+
+- 支持从某个 open task 发起研究
+- `research_task_id` 可作为 message 接口可选输入
+- planner 能识别当前问题与哪些 tasks 相关
+- 回答后只给出 `task_update_suggestions`，不自动修改任务状态
+
+当前建议动作先收口为：
+
+- `complete`
+- `keep_open`
+- `reopen`
+- `split_new_task`
+- `convert_to_refresh_check`
+
+### 6.11 Validation Summary 与 Execution Trace
+
+阶段五第三轮要求 assistant metadata 继续扩展，至少显式返回：
+
+- `execution_plan_summary`
+- `executed_steps`
+- `skipped_steps`
+- `failed_steps`
+- `related_task_ids`
+- `task_update_suggestions`
+- `validation_summary`
+- `thesis_change_hint`
+- `focus_tickers`
+- `focus_themes`
+
+其中 `validation_summary` 当前至少回答：
+
+- thesis 是延续、弱化、改善还是需要重审
+- 本轮 support / opposing / risk 的轻量汇总
+- 相对上一轮 validation 的变化提示
 
 ### 6.8 Research Tasks
 

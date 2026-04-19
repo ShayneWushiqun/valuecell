@@ -13,9 +13,14 @@ type StockAnalysisThreadSummaryProps = {
   compressionReason?: string | null;
   openResearchTaskCount: number;
   highPriorityResearchTaskCount: number;
+  relatedTaskCount: number;
   lastResearchTaskGenerateAt?: string | null;
   hasActionableTaskGap: boolean;
   actionableTaskGapSummary?: string | null;
+  lastExecutionTriggeredRefresh: boolean;
+  lastExecutionTriggeredTooling: boolean;
+  lastExecutionTriggeredValidation: boolean;
+  lastValidationSummary?: string | null;
   lastRefreshAt?: string | null;
   lastRefreshSummary?: string | null;
 };
@@ -40,9 +45,14 @@ export function StockAnalysisThreadSummary({
   compressionReason,
   openResearchTaskCount,
   highPriorityResearchTaskCount,
+  relatedTaskCount,
   lastResearchTaskGenerateAt,
   hasActionableTaskGap,
   actionableTaskGapSummary,
+  lastExecutionTriggeredRefresh,
+  lastExecutionTriggeredTooling,
+  lastExecutionTriggeredValidation,
+  lastValidationSummary,
   lastRefreshAt,
   lastRefreshSummary,
 }: StockAnalysisThreadSummaryProps) {
@@ -65,6 +75,7 @@ export function StockAnalysisThreadSummary({
         </Badge>
         <Badge variant="outline">Open tasks {openResearchTaskCount}</Badge>
         <Badge variant="outline">High tasks {highPriorityResearchTaskCount}</Badge>
+        <Badge variant="outline">当前相关 {relatedTaskCount}</Badge>
         <Badge variant={compressionRecommended ? "secondary" : "outline"}>
           {compressionRecommended ? "建议压缩" : "当前无需压缩"}
         </Badge>
@@ -73,6 +84,15 @@ export function StockAnalysisThreadSummary({
         </Badge>
         <Badge variant={hasActionableTaskGap ? "secondary" : "outline"}>
           {hasActionableTaskGap ? "存在任务 gap" : "当前任务 gap 可控"}
+        </Badge>
+        <Badge variant={lastExecutionTriggeredRefresh ? "secondary" : "outline"}>
+          {lastExecutionTriggeredRefresh ? "最近计划触发 refresh" : "最近计划未触发 refresh"}
+        </Badge>
+        <Badge variant={lastExecutionTriggeredTooling ? "secondary" : "outline"}>
+          {lastExecutionTriggeredTooling ? "最近计划触发 tooling" : "最近计划未触发 tooling"}
+        </Badge>
+        <Badge variant={lastExecutionTriggeredValidation ? "secondary" : "outline"}>
+          {lastExecutionTriggeredValidation ? "最近计划触发 validation" : "最近计划未触发 validation"}
         </Badge>
       </div>
       <div className="mt-3 space-y-2 text-sm">
@@ -84,6 +104,7 @@ export function StockAnalysisThreadSummary({
           最近一次任务生成：{formatTime(lastResearchTaskGenerateAt)}
         </p>
         <p>{actionableTaskGapSummary || "当前还没有需要立即处理的 research task gap。"}</p>
+        <p>{lastValidationSummary || "当前还没有最近一轮 thesis validation 摘要。"}</p>
         <p className="text-muted-foreground">
           {compressionReason || "当前线程如果继续增长，可手动整理对话。"}
         </p>

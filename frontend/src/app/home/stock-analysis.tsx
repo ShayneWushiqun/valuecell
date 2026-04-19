@@ -52,11 +52,13 @@ import {
 import { StockAnalysisCompareTray } from "@/app/home/components/stock-analysis-compare-tray";
 import { StockAnalysisCompressionPanel } from "@/app/home/components/stock-analysis-compression-panel";
 import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
+import { StockAnalysisExecutionTrace } from "@/app/home/components/stock-analysis-execution-trace";
 import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
 import { StockAnalysisMemoryPanel } from "@/app/home/components/stock-analysis-memory-panel";
 import { StockAnalysisResearchTaskPanel } from "@/app/home/components/stock-analysis-research-task-panel";
 import { StockAnalysisRefreshSummary } from "@/app/home/components/stock-analysis-refresh-summary";
 import { StockAnalysisThreadSummary } from "@/app/home/components/stock-analysis-thread-summary";
+import { StockAnalysisValidationSummary } from "@/app/home/components/stock-analysis-validation-summary";
 import { useGetThemeRadarOverview } from "@/api/theme-radar";
 import { useGetTradingAgentsRuns } from "@/api/tradingagents";
 import { useGetWatchlistCenterOverview } from "@/api/watchlist-center";
@@ -133,6 +135,18 @@ const isAssistantRole = (role: string) => {
   const normalized = role.toLowerCase();
   return normalized.includes("assistant") || normalized.includes("agent");
 };
+
+const readStringArray = (value: unknown) =>
+  Array.isArray(value)
+    ? value.map((item) => String(item)).filter(Boolean)
+    : [];
+
+const readTaskIds = (value: unknown) =>
+  Array.isArray(value)
+    ? value
+        .map((item) => Number(item))
+        .filter((item) => Number.isFinite(item) && item > 0)
+    : [];
 
 const buildManualCompareTarget = (
   type: "ticker" | "theme",
@@ -216,6 +230,7 @@ export default function StockAnalysis() {
   );
   const [renameTitle, setRenameTitle] = useState("");
   const [messageInput, setMessageInput] = useState("");
+  const [activeResearchTaskId, setActiveResearchTaskId] = useState<number | null>(null);
   const [pendingMessageAction, setPendingMessageAction] = useState<
     "send" | "tooling" | "refresh" | null
   >(null);
@@ -296,6 +311,51 @@ export default function StockAnalysis() {
   const activeCompression = compressionData?.active_compression || null;
   const threadCompressions = compressionData?.items || [];
   const threadResearchTasks = researchTaskData?.items || [];
+  const latestAssistantMessage = useMemo(
+    () =>
+      [...(messages?.items || [])]
+        .reverse()
+        .find((item) => isAssistantRole(item.role)) || null,
+    [messages?.items],
+  );
+  const latestRelatedTaskIds = useMemo(
+    () => readTaskIds(latestAssistantMessage?.related_task_ids),
+    [latestAssistantMessage?.related_task_ids],
+  );
+  const latestFocusTickers = useMemo(
+    () => readStringArray(latestAssistantMessage?.focus_tickers),
+    [latestAssistantMessage?.focus_tickers],
+  );
+  const latestFocusThemes = useMemo(
+    () => readStringArray(latestAssistantMessage?.focus_themes),
+    [latestAssistantMessage?.focus_themes],
+  );
+  const latestValidationSummary = useMemo(
+    () =>
+      latestAssistantMessage?.validation_summary &&
+      Object.keys(latestAssistantMessage.validation_summary).length
+        ? latestAssistantMessage.validation_summary
+        : null,
+    [latestAssistantMessage?.validation_summary],
+  );
+  const latestValidationSummaryText = useMemo(
+    () =>
+      latestValidationSummary && typeof latestValidationSummary.summary === "string"
+        ? latestValidationSummary.summary
+        : null,
+    [latestValidationSummary],
+  );
+  const latestExecutedStepTypes = useMemo(
+    () =>
+      Array.isArray(latestAssistantMessage?.executed_steps)
+        ? latestAssistantMessage.executed_steps
+            .map((item) =>
+              item && typeof item.step_type === "string" ? item.step_type : "",
+            )
+            .filter(Boolean)
+        : [],
+    [latestAssistantMessage?.executed_steps],
+  );
   const contextTitleMap = useMemo(
     () => new Map(contextItems.map((item) => [item.context_id, item.title])),
     [contextItems],
@@ -323,6 +383,7 @@ export default function StockAnalysis() {
     setForkDialogOpen(false);
     setForkTitle("");
     setSeedFromActiveMemory(false);
+    setActiveResearchTaskId(null);
     setLastRefreshRun(null);
     setRecentContextRefreshState({});
   }, [selectedThreadId]);
@@ -805,6 +866,24 @@ export default function StockAnalysis() {
     }
   };
 
+  const handleResearchFromTask = (task: StockAnalysisResearchTask) => {
+    const prompt = [
+      `围绕研究任务继续分析：${task.title}`,
+      task.summary ? `重点：${task.summary}` : "",
+      task.related_tickers_json.length
+        ? `关注标的：${task.related_tickers_json.join("、")}`
+        : "",
+      task.related_themes_json.length
+        ? `关注主题：${task.related_themes_json.join("、")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("。");
+    setActiveResearchTaskId(task.task_id);
+    setMessageInput(prompt);
+    toast.success(`已将任务 #${task.task_id} 设为本轮研究锚点`);
+  };
+
   const applyRecentRefreshState = (refreshRun: StockAnalysisRefreshRunResult) => {
     setLastRefreshRun(refreshRun);
     setRecentContextRefreshState(
@@ -913,9 +992,11 @@ export default function StockAnalysis() {
   const handleSendMessage = async ({
     forceTooling = false,
     refreshBeforeAnswer = false,
+    researchTaskId,
   }: {
     forceTooling?: boolean;
     refreshBeforeAnswer?: boolean;
+    researchTaskId?: number | null;
   } = {}) => {
     if (!currentThread) {
       toast.error("请先选中线程");
@@ -935,9 +1016,10 @@ export default function StockAnalysis() {
           message: messageInput.trim(),
           force_tooling: forceTooling,
           refresh_before_answer: refreshBeforeAnswer,
+          research_task_id: researchTaskId ?? activeResearchTaskId ?? undefined,
         },
       });
-      if (refreshBeforeAnswer && response.data.refresh_run_summary) {
+      if (response.data.refreshed_before_answer && response.data.refresh_run_summary) {
         applyRecentRefreshState({
           thread_id: currentThread.thread_id,
           refreshed_count: response.data.refreshed_context_ids.length,
@@ -1005,6 +1087,8 @@ export default function StockAnalysis() {
         });
       }
       setMessageInput("");
+      setActiveResearchTaskId(null);
+      toast.success("研究消息已发送");
     } catch {
       toast.error("发送消息失败");
     } finally {
@@ -1256,6 +1340,7 @@ export default function StockAnalysis() {
                     highPriorityResearchTaskCount={
                       researchTaskData?.high_priority_open_count || 0
                     }
+                    relatedTaskCount={latestRelatedTaskIds.length}
                     lastResearchTaskGenerateAt={
                       researchTaskData?.last_generated_at || null
                     }
@@ -1265,6 +1350,17 @@ export default function StockAnalysis() {
                     actionableTaskGapSummary={
                       researchTaskData?.actionable_gap_summary || null
                     }
+                    lastExecutionTriggeredRefresh={
+                      Boolean(latestAssistantMessage?.refreshed_before_answer) ||
+                      latestExecutedStepTypes.includes("refresh_stale_contexts")
+                    }
+                    lastExecutionTriggeredTooling={
+                      latestExecutedStepTypes.some((item) =>
+                        item.startsWith("collect_"),
+                      )
+                    }
+                    lastExecutionTriggeredValidation={Boolean(latestValidationSummary)}
+                    lastValidationSummary={latestValidationSummaryText}
                     lastRefreshAt={lastRefreshRun?.generated_at || null}
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
@@ -1317,6 +1413,9 @@ export default function StockAnalysis() {
 
                   <StockAnalysisResearchTaskPanel
                     taskData={researchTaskData}
+                    currentFocusTickers={latestFocusTickers}
+                    currentFocusThemes={latestFocusThemes}
+                    relatedTaskIds={latestRelatedTaskIds}
                     isLoading={researchTasksLoading}
                     generatePending={generateResearchTasks.isPending}
                     createPending={createResearchTask.isPending}
@@ -1327,6 +1426,7 @@ export default function StockAnalysis() {
                     }
                     onGenerate={() => void handleGenerateResearchTasks()}
                     onCreate={(draft) => void handleCreateResearchTask(draft)}
+                    onResearch={(task) => void handleResearchFromTask(task)}
                     onComplete={(task) => void handleCompleteResearchTask(task.task_id)}
                     onReopen={(task) => void handleReopenResearchTask(task.task_id)}
                     onDismiss={(task) => void handleDismissResearchTask(task.task_id)}
@@ -1500,6 +1600,49 @@ export default function StockAnalysis() {
                                             >
                                               {title}
                                             </Badge>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                  <StockAnalysisExecutionTrace
+                                    questionIntent={item.question_intent}
+                                    responseStrategy={item.response_strategy}
+                                    executionPlanSummary={item.execution_plan_summary}
+                                    executedSteps={item.executed_steps}
+                                    skippedSteps={item.skipped_steps}
+                                    failedSteps={item.failed_steps}
+                                  />
+                                  <StockAnalysisValidationSummary
+                                    validationSummary={item.validation_summary}
+                                    thesisChangeHint={item.thesis_change_hint}
+                                  />
+                                  {item.related_task_ids.length ||
+                                  item.task_update_suggestions.length ? (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm">
+                                      <p className="font-medium">Research Task 建议</p>
+                                      {item.related_task_ids.length ? (
+                                        <p className="mt-2 text-muted-foreground">
+                                          本轮关联任务：{item.related_task_ids.join("、")}
+                                        </p>
+                                      ) : null}
+                                      {item.task_update_suggestions.length ? (
+                                        <div className="mt-2 space-y-2">
+                                          {item.task_update_suggestions.map((suggestion, index) => (
+                                            <div
+                                              key={`${String(suggestion.task_id || index)}-${String(
+                                                suggestion.suggestion || "",
+                                              )}`}
+                                              className="rounded border p-2"
+                                            >
+                                              <p>
+                                                任务 #{String(suggestion.task_id || "--")}：
+                                                {String(suggestion.suggestion || "keep_open")}
+                                              </p>
+                                              <p className="mt-1 text-muted-foreground text-xs">
+                                                {String(suggestion.reason || "")}
+                                              </p>
+                                            </div>
                                           ))}
                                         </div>
                                       ) : null}
@@ -1815,6 +1958,18 @@ export default function StockAnalysis() {
                           </div>
                         ) : null}
                       </div>
+                      {activeResearchTaskId ? (
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-3 text-sm">
+                          <Badge variant="secondary">当前研究锚点任务 #{activeResearchTaskId}</Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActiveResearchTaskId(null)}
+                          >
+                            清除锚点
+                          </Button>
+                        </div>
+                      ) : null}
                       <Textarea
                         value={messageInput}
                         onChange={(event) => setMessageInput(event.target.value)}

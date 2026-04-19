@@ -76,6 +76,22 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
             "followup_candidates": ["刷新后再比较"],
             "suggested_task_titles": ["补充比较：中际旭创 vs 平安银行 的优先级确认"],
         },
+        execution_plan={
+            "plan_summary": "先读取上下文，再看 compare targets，必要时 refresh 后做 validation。",
+            "planning_reason": "线程存在 compare targets 与 stale context。",
+            "focus_tickers": ["SZSE:300308", "SZSE:000001"],
+            "focus_themes": ["AI算力", "金融"],
+            "related_task_ids": [7],
+            "requires_refresh": True,
+            "requires_tooling": False,
+            "requires_validation": True,
+            "steps": [
+                {"step_type": "inspect_context_cards", "status": "planned"},
+                {"step_type": "inspect_compare_targets", "status": "planned"},
+                {"step_type": "refresh_stale_contexts", "status": "planned"},
+                {"step_type": "validate_thesis", "status": "planned"},
+            ],
+        },
         recent_raw_messages=[
             {"item_id": "item_13", "role": "user", "content": "最近承接谁更强？"},
             {"item_id": "item_14", "role": "assistant", "content": "先看中军强度。"},
@@ -126,10 +142,12 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
     assert "Thread Active Research Memory" in result["prompt_context"]
     assert "Thread Active Conversation Compression" in result["prompt_context"]
     assert "Question Routing" in result["prompt_context"]
+    assert "Execution Plan" in result["prompt_context"]
     assert "Recent Raw Messages" in result["prompt_context"]
     assert "Memory ID: 8" in result["prompt_context"]
     assert "Compression ID: 5" in result["prompt_context"]
     assert "Question Intent: compare_targets" in result["prompt_context"]
+    assert "Plan Summary: 先读取上下文，再看 compare targets，必要时 refresh 后做 validation。" in result["prompt_context"]
     assert "item_13" in result["prompt_context"]
     assert "source=holding" in result["prompt_context"]
     assert "已删除卡片" not in result["prompt_context"]

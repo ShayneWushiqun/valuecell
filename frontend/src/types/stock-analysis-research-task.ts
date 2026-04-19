@@ -37,6 +37,8 @@ export type StockAnalysisResearchTask = {
   updated_at: string;
   completed_at?: string | null;
   dismissed_at?: string | null;
+  is_focus_related?: boolean;
+  is_related_to_latest_message?: boolean;
 };
 
 export type StockAnalysisResearchTaskList = {

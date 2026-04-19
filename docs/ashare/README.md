@@ -120,7 +120,7 @@ ValueCell 当前已经具备以下基础能力：
 
 因此目前的真实状态应理解为：
 
-`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP、A 股每日决策总控台 MVP、每日快照/复盘中心 MVP、题材雷达中心 MVP、观察池中心 MVP，以及阶段三第一波的持仓周期中心 MVP、卖点与风险中心 MVP、决策记录沉淀 MVP、阶段三第二波的统一事件模型 MVP、决策时间窗上下文 MVP、决策上下文页 MVP 已完成。阶段四核心 MVP 已完成六轮：覆盖股票分析工作区骨架、多模块 context import、多轮聊天、tooling / refresh / evidence / compare / fork / refresh-before-answer 编排；阶段五第一轮-A 已完成显式线程研究记忆 MVP，第一轮-B 已完成 context compression，第二轮已完成 question routing 与 research tasks。当前系统完整链路已升级为“市场 / 总控台 -> 题材雷达 -> 观察池 -> 机会池 -> 提醒 -> 持仓周期 -> 卖点与风险 -> 决策上下文 -> 复盘 -> 研究线程聊天工作区 -> 线程研究记忆 / 对话压缩 / question routing / research tasks”，并具备日级快照沉淀、关键决策记录回看、重点标的事件归一、10/20/40 日时间窗解释、显式上下文研究线程、显式研究记忆、显式对话压缩、可解释的问题路由和显式研究任务，但自动长期记忆、真实 LLM 裁决与自动交易仍未开始。`
+`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP、A 股每日决策总控台 MVP、每日快照/复盘中心 MVP、题材雷达中心 MVP、观察池中心 MVP，以及阶段三第一波的持仓周期中心 MVP、卖点与风险中心 MVP、决策记录沉淀 MVP、阶段三第二波的统一事件模型 MVP、决策时间窗上下文 MVP、决策上下文页 MVP 已完成。阶段四核心 MVP 已完成六轮：覆盖股票分析工作区骨架、多模块 context import、多轮聊天、tooling / refresh / evidence / compare / fork / refresh-before-answer 编排；阶段五第一轮-A 已完成显式线程研究记忆 MVP，第一轮-B 已完成 context compression，第二轮已完成 question routing 与 research tasks，第三轮已完成 execution planning / task-driven research / validation summary / execution trace。当前系统完整链路已升级为“市场 / 总控台 -> 题材雷达 -> 观察池 -> 机会池 -> 提醒 -> 持仓周期 -> 卖点与风险 -> 决策上下文 -> 复盘 -> 研究线程聊天工作区 -> 线程研究记忆 / 对话压缩 / question routing / research tasks / execution planning / validation”，并具备日级快照沉淀、关键决策记录回看、重点标的事件归一、10/20/40 日时间窗解释、显式上下文研究线程、显式研究记忆、显式对话压缩、可解释的问题路由、显式研究任务、任务驱动研究和消息级执行路径说明，但自动长期记忆、真实 LLM 裁决与自动交易仍未开始。`
 
 如果继续往下推进，下一阶段的重点不应再只是“更多页面或更多规则”，而应进入：
 
@@ -550,7 +550,10 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - 已在问题进入 message service 时新增 question routing，稳定输出 `question_intent / response_strategy / routing_reason / recommended_next_action`
 - 已新增 research task model / repository / service / router，并支持 list / detail / create / generate / complete / reopen / dismiss
 - 已在工作区中新增 research task panel、手动创建、从线程生成、完成 / 重开 / 忽略和 assistant routing explanation
-- 当前仍未做自动长期记忆系统、更强 planner 语义 / 多步工具编排、自动交易和更复杂的研究归因 / 绩效反馈
+- 已新增 execution planner，形成 `question routing -> execution planning -> tool planner / tooling` 三层
+- 已支持 `research_task_id` 作为消息级研究锚点，并输出 execution trace、validation summary 与 task update suggestions
+- 已在工作区消息区新增 execution trace / validation / task suggestions 展示，并支持“围绕此任务继续研究”
+- 当前仍未做自动长期记忆系统、更强 multi-step autonomous planning、自动交易和更复杂的研究归因 / 绩效反馈
 
 ## 7. 推荐执行顺序
 

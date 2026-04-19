@@ -46,6 +46,16 @@
 - assistant metadata 中的 `question_intent / response_strategy / routing_reason / recommended_next_action`
 - 工作区里的 research task panel、手动创建、生成、完成 / 重开 / 忽略
 
+阶段五第三轮 本轮新增：
+
+- `StockAnalysisExecutionPlannerService`
+- `stock_analysis_execution_plan.py`
+- `execution planning`
+- `task-driven research`
+- `validation_summary`
+- `execution trace`
+- `research_task_id` message input
+
 当前未实现：
 
 - 自动长期记忆系统
@@ -53,6 +63,7 @@
 - 自动交易
 - 更复杂的研究归因与绩效反馈
 - 更强的多步工具编排
+- 更强 multi-step autonomous planning
 
 ## 2. 设计原则
 
@@ -143,6 +154,7 @@ active memory 只是一份线程级研究摘要。
 - `StockAnalysisThreadCompressionService`
 - `StockAnalysisQuestionRouterService`
 - `StockAnalysisResearchTaskService`
+- `StockAnalysisExecutionPlannerService`
 
 职责：
 
@@ -154,6 +166,8 @@ active memory 只是一份线程级研究摘要。
 - 生成 active compression、recent raw messages 和 compression recommendation
 - 在 planner 之前稳定输出 question routing
 - 从 memory / compression / compare / refresh / assistant routing 中显式生成 research tasks
+- 在 tool planner 之前稳定输出 execution plan
+- 生成 validation summary、task update suggestions 与 execution trace
 
 ### 3.4 Prompt Assembler 联动
 
@@ -162,9 +176,11 @@ active memory 只是一份线程级研究摘要。
 - 增加 `active_memory` 入参
 - 增加 `active_compression` 与 `recent_raw_messages` 入参
 - 增加 `question_routing` 入参
+- 增加 `execution_plan` 入参
 - 在 prompt 中追加 `Thread Active Research Memory`
 - 在 prompt 中追加 `Thread Active Conversation Compression`
 - 在 prompt 中追加 `Question Routing`
+- 在 prompt 中追加 `Execution Plan`
 - 在 prompt 中追加 `Recent Raw Messages`
 - 在 response rules 中明确：
   - active memory 是辅助摘要
@@ -179,8 +195,10 @@ active memory 只是一份线程级研究摘要。
 - 发送消息时查询 active memory
 - 发送消息时查询 active compression 和 recent raw messages
 - 在 tool planner 之前先执行 question router
+- 在 tool planner 之前再执行 execution planner
 - 将 active memory、active compression、recent raw messages 一并传给 assembler
 - 将 question routing 作为第一层研究语义，与 tool planner 第二层并存
+- 将 execution planner 作为第二层研究路径，与 tool planner 第三层并存
 - assistant metadata 返回：
   - `used_active_memory`
   - `active_memory_id`
@@ -201,6 +219,13 @@ active memory 只是一份线程级研究摘要。
 -  - `recommended_next_action`
 -  - `followup_candidates`
 -  - `suggested_task_titles`
+-  - `execution_plan_summary`
+-  - `executed_steps / skipped_steps / failed_steps`
+-  - `related_task_ids`
+-  - `task_update_suggestions`
+-  - `validation_summary`
+-  - `thesis_change_hint`
+-  - `focus_tickers / focus_themes`
 
 ### 3.6 Workspace / Fork 联动
 
@@ -292,6 +317,51 @@ fallback 仍保留：
 - 以 `thread_id + title + task_type + status=open` 为 dedupe key
 - 命中 open task 时更新摘要和关联字段，不重复插入
 
+### 4.6 Execution Planning 主路径
+
+当前第三轮在 question routing 之上新增 execution planning：
+
+- 输入：thread、context cards、compare targets、active memory、active compression、open tasks、question routing、用户问题、显式 refresh / tooling 要求、可选 `research_task_id`
+- 输出：`plan_summary / planning_reason / focus_tickers / focus_themes / related_task_ids / primary_compare_targets / requires_refresh / requires_tooling / requires_validation / steps`
+
+step 当前稳定收口为：
+
+- `inspect_context_cards`
+- `inspect_compare_targets`
+- `inspect_active_memory`
+- `inspect_active_compression`
+- `inspect_open_tasks`
+- `refresh_stale_contexts`
+- `collect_internal_structured_evidence`
+- `collect_market_price_evidence`
+- `collect_external_evidence`
+- `validate_thesis`
+- `synthesize_answer`
+- `suggest_task_updates`
+
+消息链路中的实际执行结果再回填为：
+
+- `executed_steps`
+- `skipped_steps`
+- `failed_steps`
+
+### 4.7 Validation Summary
+
+当前第三轮新增保守的 thesis validation 层：
+
+- `thesis_maintained`
+- `thesis_weakened`
+- `thesis_recheck_needed`
+- `thesis_improved`
+
+输出包含：
+
+- `summary`
+- `support_points`
+- `opposing_points`
+- `risk_points`
+- `thesis_change_hint`
+
 ## 5. API 设计
 
 ### 5.1 列表与详情
@@ -352,6 +422,27 @@ fallback 仍保留：
 - `has_actionable_gap`
 - `actionable_gap_summary`
 
+### 5.5 Message Execution Metadata
+
+`POST /api/v1/stock-analysis/threads/{thread_id}/messages`
+
+请求新增可选参数：
+
+- `research_task_id`
+
+assistant message metadata 新增：
+
+- `execution_plan_summary`
+- `executed_steps`
+- `skipped_steps`
+- `failed_steps`
+- `related_task_ids`
+- `task_update_suggestions`
+- `validation_summary`
+- `thesis_change_hint`
+- `focus_tickers`
+- `focus_themes`
+
 ## 6. 前端设计
 
 ### 6.1 数据访问
@@ -364,6 +455,8 @@ fallback 仍保留：
 - `frontend/src/types/stock-analysis-thread-compression.ts`
 - `frontend/src/api/stock-analysis-research-task.ts`
 - `frontend/src/types/stock-analysis-research-task.ts`
+- `frontend/src/app/home/components/stock-analysis-execution-trace.tsx`
+- `frontend/src/app/home/components/stock-analysis-validation-summary.tsx`
 
 ### 6.2 工作区交互
 
@@ -386,6 +479,8 @@ fallback 仍保留：
 - `查看压缩历史`
 - `查看历史任务`
 - 历史版本激活
+- `围绕此任务继续研究`
+- 当前研究锚点任务提示
 
 ### 6.3 消息区提示
 
@@ -411,6 +506,20 @@ assistant message 若存在 routing metadata，消息下方显示：
 - recommended next action
 - suggested task titles
 
+assistant message 若存在 execution planning metadata，消息下方显示：
+
+- execution plan summary
+- executed steps
+- skipped steps
+- failed steps
+
+assistant message 若存在 validation / task metadata，消息下方显示：
+
+- validation summary
+- thesis change hint
+- related task ids
+- task update suggestions
+
 ### 6.4 Fork Dialog 联动
 
 fork dialog 新增：
@@ -429,6 +538,7 @@ fork dialog 新增：
 - `test_stock_analysis_thread_compression_router.py`
 - `test_stock_analysis_question_router_service.py`
 - `test_stock_analysis_research_task_service.py`
+- `test_stock_analysis_execution_planner_service.py`
 - `test_stock_analysis_research_task_router.py`
 - `test_stock_analysis_context_assembler.py`
 - `test_stock_analysis_message_service.py`
@@ -443,11 +553,16 @@ fork dialog 新增：
 - assembler 拼入 active memory
 - assembler 拼入 active compression 与 recent raw messages
 - assembler 拼入 question routing block
+- assembler 拼入 execution plan block
 - message metadata 标记 used active memory
 - message metadata 标记 used active compression
 - message metadata 带出 routing fields
+- message metadata 带出 execution / validation / task suggestion fields
 - compression recommendation 正确
 - generate 从 memory / compression / compare / refresh / routing 中抽任务
 - research task dedupe / complete / reopen / dismiss 正确
+- execution planner 根据 intent 生成不同 steps
+- `research_task_id` 能进入 planning
+- validation summary 状态合法
 - compare 模式保留 compared tickers
 - fork thread + `seed_from_active_memory`

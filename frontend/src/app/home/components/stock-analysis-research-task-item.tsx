@@ -1,4 +1,4 @@
-import { RotateCcw, Sparkles, CheckCircle2, XCircle } from "lucide-react";
+import { RotateCcw, Sparkles, CheckCircle2, XCircle, PlayCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { StockAnalysisResearchTask } from "@/types/stock-analysis-research-task";
@@ -13,6 +13,7 @@ const formatTime = (value?: string | null) => {
 type StockAnalysisResearchTaskItemProps = {
   task: StockAnalysisResearchTask;
   actionPending?: boolean;
+  onResearch: (task: StockAnalysisResearchTask) => void;
   onComplete: (task: StockAnalysisResearchTask) => void;
   onReopen: (task: StockAnalysisResearchTask) => void;
   onDismiss: (task: StockAnalysisResearchTask) => void;
@@ -21,6 +22,7 @@ type StockAnalysisResearchTaskItemProps = {
 export function StockAnalysisResearchTaskItem({
   task,
   actionPending = false,
+  onResearch,
   onComplete,
   onReopen,
   onDismiss,
@@ -34,6 +36,10 @@ export function StockAnalysisResearchTaskItem({
         <Badge variant="outline">{task.task_type}</Badge>
         <Badge variant="outline">{task.status}</Badge>
         <Badge variant="outline">{task.source_kind}</Badge>
+        {task.is_focus_related ? <Badge variant="secondary">focus 相关</Badge> : null}
+        {task.is_related_to_latest_message ? (
+          <Badge variant="secondary">与本轮相关</Badge>
+        ) : null}
       </div>
       <div className="mt-3 space-y-2">
         <p className="font-medium text-sm">{task.title}</p>
@@ -61,6 +67,15 @@ export function StockAnalysisResearchTaskItem({
       <div className="mt-3 flex flex-wrap gap-2">
         {task.status === "open" ? (
           <>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={actionPending}
+              onClick={() => onResearch(task)}
+            >
+              <PlayCircle className="size-4" />
+              围绕此任务继续研究
+            </Button>
             <Button
               size="sm"
               variant="outline"

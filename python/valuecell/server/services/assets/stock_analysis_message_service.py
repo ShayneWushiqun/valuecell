@@ -25,6 +25,14 @@ from .stock_analysis_question_router_service import (
     StockAnalysisQuestionRouterService,
     get_stock_analysis_question_router_service,
 )
+from .stock_analysis_execution_planner_service import (
+    StockAnalysisExecutionPlannerService,
+    get_stock_analysis_execution_planner_service,
+)
+from .stock_analysis_research_task_service import (
+    StockAnalysisResearchTaskService,
+    get_stock_analysis_research_task_service,
+)
 from .stock_analysis_thread_memory_service import (
     StockAnalysisThreadMemoryService,
     get_stock_analysis_thread_memory_service,
@@ -100,6 +108,16 @@ class StockAnalysisMessageResult(BaseModel):
     recommended_next_action: str | None = None
     followup_candidates: list[str]
     suggested_task_titles: list[str]
+    execution_plan_summary: str | None = None
+    executed_steps: list[dict[str, Any]]
+    skipped_steps: list[dict[str, Any]]
+    failed_steps: list[dict[str, Any]]
+    related_task_ids: list[int]
+    task_update_suggestions: list[dict[str, Any]]
+    validation_summary: dict[str, Any]
+    thesis_change_hint: str | None = None
+    focus_tickers: list[str]
+    focus_themes: list[str]
     user_message: dict[str, Any]
     assistant_message: dict[str, Any]
 
@@ -114,6 +132,10 @@ class StockAnalysisMessageService:
         tooling_service: Optional[StockAnalysisToolingService] = None,
         refresh_service: Optional[StockAnalysisRefreshService] = None,
         question_router_service: Optional[StockAnalysisQuestionRouterService] = None,
+        execution_planner_service: Optional[
+            StockAnalysisExecutionPlannerService
+        ] = None,
+        research_task_service: Optional[StockAnalysisResearchTaskService] = None,
         thread_memory_service: Optional[StockAnalysisThreadMemoryService] = None,
         thread_compression_service: Optional[
             StockAnalysisThreadCompressionService
@@ -129,6 +151,13 @@ class StockAnalysisMessageService:
         self.refresh_service = refresh_service or get_stock_analysis_refresh_service()
         self.question_router_service = (
             question_router_service or get_stock_analysis_question_router_service()
+        )
+        self.execution_planner_service = (
+            execution_planner_service
+            or get_stock_analysis_execution_planner_service()
+        )
+        self.research_task_service = (
+            research_task_service or get_stock_analysis_research_task_service()
         )
         self.thread_memory_service = (
             thread_memory_service or get_stock_analysis_thread_memory_service()
@@ -175,6 +204,7 @@ class StockAnalysisMessageService:
         message: str,
         force_tooling: bool = False,
         refresh_before_answer: bool = False,
+        research_task_id: int | None = None,
     ) -> StockAnalysisMessageResult | None:
         thread_obj = self.stock_analysis_workspace_service.stock_analysis_thread_repository.get_thread_by_id(
             user_id=user_id,
@@ -182,14 +212,6 @@ class StockAnalysisMessageService:
         )
         if thread_obj is None:
             return None
-        refresh_run = None
-        if refresh_before_answer:
-            refresh_run = await self.refresh_service.refresh_stale_contexts(
-                user_id=user_id,
-                thread_id=thread_id,
-                include_supported_only=True,
-                pin_refreshed_cards=False,
-            )
         thread = self.stock_analysis_workspace_service._serialize_thread(thread_obj)
         context_result = await self.stock_analysis_workspace_service.list_context_cards(
             user_id=user_id,
@@ -215,22 +237,66 @@ class StockAnalysisMessageService:
             for item in history_items
             if str(item.event) == str(NotifyResponseEvent.MESSAGE)
         ]
+        task_state = await self.research_task_service.list_tasks(
+            user_id=user_id,
+            thread_id=thread_id,
+        )
+        open_tasks = [
+            item
+            for item in list((task_state or {}).get("items") or [])
+            if str(item.get("status") or "") == "open"
+        ]
+        selected_task = None
+        if research_task_id:
+            selected_task = await self.research_task_service.get_task(
+                user_id=user_id,
+                thread_id=thread_id,
+                task_id=research_task_id,
+            )
         question_routing = self.question_router_service.route_question(
             thread=thread,
             context_cards=context_cards,
             active_memory=active_memory,
             active_compression=active_compression,
+            open_tasks=open_tasks,
+            selected_task=selected_task,
             conversation_history=history_messages,
             user_message=message.strip(),
             force_tooling=force_tooling,
             refresh_before_answer=refresh_before_answer,
         )
+        execution_plan = self.execution_planner_service.build_execution_plan(
+            thread=thread,
+            context_cards=context_cards,
+            active_memory=active_memory,
+            active_compression=active_compression,
+            open_tasks=open_tasks,
+            question_routing=question_routing.model_dump(),
+            user_message=message.strip(),
+            force_tooling=force_tooling,
+            refresh_before_answer=refresh_before_answer,
+            research_task=selected_task,
+        )
+        refresh_run = None
+        if execution_plan.requires_refresh:
+            refresh_run = await self.refresh_service.refresh_stale_contexts(
+                user_id=user_id,
+                thread_id=thread_id,
+                include_supported_only=True,
+                pin_refreshed_cards=False,
+            )
+            context_result = await self.stock_analysis_workspace_service.list_context_cards(
+                user_id=user_id,
+                thread_id=thread_id,
+            )
+            context_cards = list((context_result or {}).get("items") or [])
         assembled = self.context_assembler.assemble(
             thread=thread,
             context_cards=context_cards,
             active_memory=active_memory,
             active_compression=active_compression,
             question_routing=question_routing.model_dump(),
+            execution_plan=execution_plan.model_dump(),
             recent_raw_messages=recent_raw_messages,
             user_question=message,
         )
@@ -257,6 +323,43 @@ class StockAnalysisMessageService:
             ticker_refs=assembled["ticker_refs"],
             theme_refs=assembled["theme_refs"],
         )
+        previous_validation_summary = self._find_latest_validation_summary(
+            history_messages=history_messages
+        )
+        related_tasks = [
+            item
+            for item in open_tasks
+            if int(item.get("task_id") or 0) in list(execution_plan.related_task_ids)
+        ]
+        validation_summary = self.execution_planner_service.build_validation_summary(
+            question_routing=question_routing.model_dump(),
+            active_memory=active_memory,
+            active_compression=active_compression,
+            planner_mode=planner_result.mode,
+            refresh_run=refresh_run,
+            previous_validation_summary=previous_validation_summary,
+            related_tasks=related_tasks,
+        )
+        task_update_suggestions = (
+            self.execution_planner_service.build_task_update_suggestions(
+                related_tasks=related_tasks,
+                validation_summary=validation_summary,
+                requires_refresh=execution_plan.requires_refresh,
+                requires_tooling=execution_plan.requires_tooling,
+                question_routing=question_routing.model_dump(),
+            )
+        )
+        executed_steps, skipped_steps, failed_steps = (
+            self.execution_planner_service.build_execution_trace(
+                execution_plan=execution_plan,
+                refresh_run=refresh_run,
+                planner_mode=planner_result.mode,
+                tool_layers_to_use=planner_result.tool_layers_to_use,
+                tool_call_summaries=tooling_result.tool_call_summaries,
+                validation_summary=validation_summary,
+                task_update_suggestions=task_update_suggestions,
+            )
+        )
 
         user_item = await self.conversation_service.core_conversation_service.add_item(
             role=Role.USER,
@@ -269,6 +372,7 @@ class StockAnalysisMessageService:
                 "mode": planner_result.mode,
                 "force_tooling": force_tooling,
                 "refresh_before_answer": refresh_before_answer,
+                "research_task_id": research_task_id or 0,
                 "thread_id": thread_id,
             },
         )
@@ -330,7 +434,7 @@ class StockAnalysisMessageService:
             ),
             "evidence_generated_at": tooling_result.evidence_generated_at or "",
             "evidence_staleness_hint": tooling_result.evidence_staleness_hint or "",
-            "refreshed_before_answer": refresh_before_answer,
+            "refreshed_before_answer": bool(refresh_run),
             "refresh_run_summary": str((refresh_run or {}).get("summary") or "").strip(),
             "refreshed_context_ids_json": json.dumps(
                 list((refresh_run or {}).get("refreshed_context_ids") or []),
@@ -416,6 +520,31 @@ class StockAnalysisMessageService:
                 question_routing.suggested_task_titles,
                 ensure_ascii=False,
             ),
+            "execution_plan_summary": execution_plan.plan_summary,
+            "executed_steps_json": json.dumps(executed_steps, ensure_ascii=False),
+            "skipped_steps_json": json.dumps(skipped_steps, ensure_ascii=False),
+            "failed_steps_json": json.dumps(failed_steps, ensure_ascii=False),
+            "related_task_ids_json": json.dumps(
+                execution_plan.related_task_ids,
+                ensure_ascii=False,
+            ),
+            "task_update_suggestions_json": json.dumps(
+                [item.model_dump() for item in task_update_suggestions],
+                ensure_ascii=False,
+            ),
+            "validation_summary_json": json.dumps(
+                validation_summary.model_dump(),
+                ensure_ascii=False,
+            ),
+            "thesis_change_hint": validation_summary.thesis_change_hint or "",
+            "focus_tickers_json": json.dumps(
+                execution_plan.focus_tickers,
+                ensure_ascii=False,
+            ),
+            "focus_themes_json": json.dumps(
+                execution_plan.focus_themes,
+                ensure_ascii=False,
+            ),
             "thread_id": thread_id,
         }
         assistant_item = await self.conversation_service.core_conversation_service.add_item(
@@ -453,7 +582,7 @@ class StockAnalysisMessageService:
             provider_fallback_chain=tooling_result.provider_fallback_chain,
             evidence_generated_at=tooling_result.evidence_generated_at,
             evidence_staleness_hint=tooling_result.evidence_staleness_hint,
-            refreshed_before_answer=refresh_before_answer,
+            refreshed_before_answer=bool(refresh_run),
             refresh_run_summary=(refresh_run or {}).get("summary"),
             refreshed_context_ids=list((refresh_run or {}).get("refreshed_context_ids") or []),
             refresh_failed_context_ids=list((refresh_run or {}).get("failed_context_ids") or []),
@@ -516,6 +645,18 @@ class StockAnalysisMessageService:
             recommended_next_action=question_routing.recommended_next_action,
             followup_candidates=question_routing.followup_candidates,
             suggested_task_titles=question_routing.suggested_task_titles,
+            execution_plan_summary=execution_plan.plan_summary,
+            executed_steps=executed_steps,
+            skipped_steps=skipped_steps,
+            failed_steps=failed_steps,
+            related_task_ids=execution_plan.related_task_ids,
+            task_update_suggestions=[
+                item.model_dump() for item in task_update_suggestions
+            ],
+            validation_summary=validation_summary.model_dump(),
+            thesis_change_hint=validation_summary.thesis_change_hint,
+            focus_tickers=execution_plan.focus_tickers,
+            focus_themes=execution_plan.focus_themes,
             user_message=self._serialize_message_item(user_item),
             assistant_message=self._serialize_message_item(assistant_item),
         )
@@ -712,6 +853,16 @@ class StockAnalysisMessageService:
                 "recommended_next_action": None,
                 "followup_candidates": [],
                 "suggested_task_titles": [],
+                "execution_plan_summary": None,
+                "executed_steps": [],
+                "skipped_steps": [],
+                "failed_steps": [],
+                "related_task_ids": [],
+                "task_update_suggestions": [],
+                "validation_summary": {},
+                "thesis_change_hint": None,
+                "focus_tickers": [],
+                "focus_themes": [],
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -869,6 +1020,36 @@ class StockAnalysisMessageService:
             "suggested_task_titles": StockAnalysisMessageService._parse_json_list(
                 metadata.get("suggested_task_titles_json")
             ),
+            "execution_plan_summary": str(
+                metadata.get("execution_plan_summary") or ""
+            ).strip()
+            or None,
+            "executed_steps": StockAnalysisMessageService._parse_json_list(
+                metadata.get("executed_steps_json")
+            ),
+            "skipped_steps": StockAnalysisMessageService._parse_json_list(
+                metadata.get("skipped_steps_json")
+            ),
+            "failed_steps": StockAnalysisMessageService._parse_json_list(
+                metadata.get("failed_steps_json")
+            ),
+            "related_task_ids": StockAnalysisMessageService._parse_json_list(
+                metadata.get("related_task_ids_json")
+            ),
+            "task_update_suggestions": StockAnalysisMessageService._parse_json_list(
+                metadata.get("task_update_suggestions_json")
+            ),
+            "validation_summary": StockAnalysisMessageService._parse_json_dict(
+                metadata.get("validation_summary_json")
+            ),
+            "thesis_change_hint": str(metadata.get("thesis_change_hint") or "").strip()
+            or None,
+            "focus_tickers": StockAnalysisMessageService._parse_json_list(
+                metadata.get("focus_tickers_json")
+            ),
+            "focus_themes": StockAnalysisMessageService._parse_json_list(
+                metadata.get("focus_themes_json")
+            ),
         }
 
     @staticmethod
@@ -906,6 +1087,19 @@ class StockAnalysisMessageService:
             return []
 
     @staticmethod
+    def _parse_json_dict(value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            return value
+        text = str(value or "").strip()
+        if not text:
+            return {}
+        try:
+            parsed = json.loads(text)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+
+    @staticmethod
     def _parse_bool(value: Any) -> bool:
         if isinstance(value, bool):
             return value
@@ -924,6 +1118,16 @@ class StockAnalysisMessageService:
         except ValueError:
             return None
         return parsed if parsed > 0 else None
+
+    @staticmethod
+    def _find_latest_validation_summary(
+        *, history_messages: list[dict[str, Any]]
+    ) -> dict[str, Any] | None:
+        for item in reversed(history_messages):
+            summary = item.get("validation_summary")
+            if isinstance(summary, dict) and summary:
+                return summary
+        return None
 
 
 _stock_analysis_message_service: Optional[StockAnalysisMessageService] = None

@@ -12,6 +12,7 @@ class StockAnalysisContextAssembler:
         active_memory: dict[str, Any] | None = None,
         active_compression: dict[str, Any] | None = None,
         question_routing: dict[str, Any] | None = None,
+        execution_plan: dict[str, Any] | None = None,
         recent_raw_messages: Sequence[dict[str, Any]] | None = None,
         user_question: str,
     ) -> dict[str, Any]:
@@ -85,6 +86,8 @@ class StockAnalysisContextAssembler:
                 self._build_question_routing_block(
                     question_routing=question_routing
                 ),
+                "Execution Plan",
+                self._build_execution_plan_block(execution_plan=execution_plan),
                 "Recent Raw Messages",
                 self._build_recent_raw_messages_block(
                     recent_raw_messages=recent_raw_messages or []
@@ -353,6 +356,40 @@ class StockAnalysisContextAssembler:
                 + (
                     "; ".join(
                         list(active_memory.get("next_data_to_check_json") or [])[:4]
+                    )
+                    or "--"
+                ),
+            ]
+        )
+
+    @staticmethod
+    def _build_execution_plan_block(
+        *, execution_plan: dict[str, Any] | None
+    ) -> str:
+        if execution_plan is None:
+            return "No explicit execution planning guidance."
+        steps = list(execution_plan.get("steps") or [])
+        return "\n".join(
+            [
+                f"Plan Summary: {execution_plan.get('plan_summary') or '--'}",
+                f"Planning Reason: {execution_plan.get('planning_reason') or '--'}",
+                "Focus Tickers: "
+                + (", ".join(list(execution_plan.get("focus_tickers") or [])) or "--"),
+                "Focus Themes: "
+                + (", ".join(list(execution_plan.get("focus_themes") or [])) or "--"),
+                "Related Task IDs: "
+                + (
+                    ", ".join(str(item) for item in list(execution_plan.get("related_task_ids") or []))
+                    or "--"
+                ),
+                f"Requires Refresh: {'yes' if execution_plan.get('requires_refresh') else 'no'}",
+                f"Requires Tooling: {'yes' if execution_plan.get('requires_tooling') else 'no'}",
+                f"Requires Validation: {'yes' if execution_plan.get('requires_validation') else 'no'}",
+                "Planned Steps: "
+                + (
+                    "; ".join(
+                        f"{item.get('step_type')}[{item.get('status')}]"
+                        for item in steps[:8]
                     )
                     or "--"
                 ),

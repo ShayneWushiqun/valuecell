@@ -71,6 +71,7 @@ type CreateMessagePayload = {
   message: string;
   force_tooling?: boolean;
   refresh_before_answer?: boolean;
+  research_task_id?: number;
 };
 
 type SaveEvidencePayload = {

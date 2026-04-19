@@ -51,6 +51,9 @@ const formatTime = (value?: string | null) => {
 
 type StockAnalysisResearchTaskPanelProps = {
   taskData: StockAnalysisResearchTaskListData | null | undefined;
+  currentFocusTickers?: string[];
+  currentFocusThemes?: string[];
+  relatedTaskIds?: number[];
   isLoading?: boolean;
   generatePending?: boolean;
   createPending?: boolean;
@@ -64,6 +67,7 @@ type StockAnalysisResearchTaskPanelProps = {
     related_tickers_json: string[];
     related_themes_json: string[];
   }) => void;
+  onResearch: (task: StockAnalysisResearchTask) => void;
   onComplete: (task: StockAnalysisResearchTask) => void;
   onReopen: (task: StockAnalysisResearchTask) => void;
   onDismiss: (task: StockAnalysisResearchTask) => void;
@@ -71,12 +75,16 @@ type StockAnalysisResearchTaskPanelProps = {
 
 export function StockAnalysisResearchTaskPanel({
   taskData,
+  currentFocusTickers = [],
+  currentFocusThemes = [],
+  relatedTaskIds = [],
   isLoading = false,
   generatePending = false,
   createPending = false,
   actionPending = false,
   onGenerate,
   onCreate,
+  onResearch,
   onComplete,
   onReopen,
   onDismiss,
@@ -85,13 +93,27 @@ export function StockAnalysisResearchTaskPanel({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [draft, setDraft] = useState<ManualTaskDraft>(EMPTY_DRAFT);
 
+  const enhanceTask = (item: StockAnalysisResearchTask): StockAnalysisResearchTask => ({
+    ...item,
+    is_focus_related:
+      item.related_tickers_json.some((ticker) => currentFocusTickers.includes(ticker)) ||
+      item.related_themes_json.some((theme) => currentFocusThemes.includes(theme)),
+    is_related_to_latest_message: relatedTaskIds.includes(item.task_id),
+  });
+
   const openTasks = useMemo(
-    () => (taskData?.items || []).filter((item) => item.status === "open"),
-    [taskData],
+    () =>
+      (taskData?.items || [])
+        .filter((item) => item.status === "open")
+        .map((item) => enhanceTask(item)),
+    [taskData, currentFocusTickers, currentFocusThemes, relatedTaskIds],
   );
   const historyTasks = useMemo(
-    () => (taskData?.items || []).filter((item) => item.status !== "open"),
-    [taskData],
+    () =>
+      (taskData?.items || [])
+        .filter((item) => item.status !== "open")
+        .map((item) => enhanceTask(item)),
+    [taskData, currentFocusTickers, currentFocusThemes, relatedTaskIds],
   );
 
   const submitCreate = () => {
@@ -141,6 +163,7 @@ export function StockAnalysisResearchTaskPanel({
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
         <Badge variant="secondary">Open {taskData?.open_count || 0}</Badge>
         <Badge variant="outline">High {taskData?.high_priority_open_count || 0}</Badge>
+        <Badge variant="outline">当前相关 {relatedTaskIds.length}</Badge>
         <Badge variant={taskData?.has_actionable_gap ? "secondary" : "outline"}>
           {taskData?.has_actionable_gap ? "存在立即处理 gap" : "当前 gap 可控"}
         </Badge>
@@ -263,6 +286,7 @@ export function StockAnalysisResearchTaskPanel({
             tasks={openTasks}
             emptyText="当前没有 open research tasks。可以从线程生成，或手动创建下一步研究任务。"
             actionPending={actionPending}
+            onResearch={onResearch}
             onComplete={onComplete}
             onReopen={onReopen}
             onDismiss={onDismiss}
@@ -279,6 +303,7 @@ export function StockAnalysisResearchTaskPanel({
               tasks={historyTasks}
               emptyText="当前没有 completed / dismissed 的历史任务。"
               actionPending={actionPending}
+              onResearch={onResearch}
               onComplete={onComplete}
               onReopen={onReopen}
               onDismiss={onDismiss}

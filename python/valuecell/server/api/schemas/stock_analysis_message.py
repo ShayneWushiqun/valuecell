@@ -60,6 +60,16 @@ class StockAnalysisMessageItemData(BaseModel):
     recommended_next_action: str | None = None
     followup_candidates: list[str] = Field(default_factory=list)
     suggested_task_titles: list[str] = Field(default_factory=list)
+    execution_plan_summary: str | None = None
+    executed_steps: list[dict[str, Any]] = Field(default_factory=list)
+    skipped_steps: list[dict[str, Any]] = Field(default_factory=list)
+    failed_steps: list[dict[str, Any]] = Field(default_factory=list)
+    related_task_ids: list[int] = Field(default_factory=list)
+    task_update_suggestions: list[dict[str, Any]] = Field(default_factory=list)
+    validation_summary: dict[str, Any] = Field(default_factory=dict)
+    thesis_change_hint: str | None = None
+    focus_tickers: list[str] = Field(default_factory=list)
+    focus_themes: list[str] = Field(default_factory=list)
 
 
 class StockAnalysisMessageListData(BaseModel):
@@ -73,6 +83,7 @@ class StockAnalysisMessageCreateRequest(BaseModel):
     message: str
     force_tooling: bool = False
     refresh_before_answer: bool = False
+    research_task_id: int | None = None
 
 
 class StockAnalysisMessageCreateData(BaseModel):
@@ -127,5 +138,15 @@ class StockAnalysisMessageCreateData(BaseModel):
     recommended_next_action: str | None = None
     followup_candidates: list[str] = Field(default_factory=list)
     suggested_task_titles: list[str] = Field(default_factory=list)
+    execution_plan_summary: str | None = None
+    executed_steps: list[dict[str, Any]] = Field(default_factory=list)
+    skipped_steps: list[dict[str, Any]] = Field(default_factory=list)
+    failed_steps: list[dict[str, Any]] = Field(default_factory=list)
+    related_task_ids: list[int] = Field(default_factory=list)
+    task_update_suggestions: list[dict[str, Any]] = Field(default_factory=list)
+    validation_summary: dict[str, Any] = Field(default_factory=dict)
+    thesis_change_hint: str | None = None
+    focus_tickers: list[str] = Field(default_factory=list)
+    focus_themes: list[str] = Field(default_factory=list)
     user_message: StockAnalysisMessageItemData
     assistant_message: StockAnalysisMessageItemData

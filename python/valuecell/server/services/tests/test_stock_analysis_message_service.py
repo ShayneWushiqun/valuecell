@@ -13,6 +13,9 @@ from valuecell.server.services.assets.stock_analysis_message_service import (
 from valuecell.server.api.schemas.stock_analysis_question_router import (
     StockAnalysisQuestionRoutingData,
 )
+from valuecell.server.services.assets.stock_analysis_execution_planner_service import (
+    StockAnalysisExecutionPlannerService,
+)
 from valuecell.server.services.assets.stock_analysis_refresh_service import (
     StockAnalysisRefreshService,
 )
@@ -216,6 +219,64 @@ class FakeQuestionRouterService:
         )
 
 
+class FakeResearchTaskService:
+    def __init__(self, items: list[dict[str, Any]] | None = None) -> None:
+        self.items = items or []
+
+    async def list_tasks(self, *, user_id: str, thread_id: int):
+        del user_id
+        filtered = [item for item in self.items if item["thread_id"] == thread_id]
+        return {
+            "thread_id": thread_id,
+            "items": filtered,
+            "count": len(filtered),
+            "open_count": len([item for item in filtered if item["status"] == "open"]),
+            "high_priority_open_count": len(
+                [
+                    item
+                    for item in filtered
+                    if item["status"] == "open" and item["priority"] == "high"
+                ]
+            ),
+            "last_generated_at": None,
+            "has_actionable_gap": False,
+            "actionable_gap_summary": None,
+            "generated_at": "2026-04-19T10:00:00Z",
+        }
+
+    async def get_task(self, *, user_id: str, thread_id: int, task_id: int):
+        del user_id
+        for item in self.items:
+            if item["thread_id"] == thread_id and item["task_id"] == task_id:
+                return item
+        return None
+
+
+class FakeRefreshService:
+    async def refresh_stale_contexts(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        include_supported_only: bool = True,
+        pin_refreshed_cards: bool = False,
+    ):
+        del user_id, include_supported_only, pin_refreshed_cards
+        return {
+            "thread_id": thread_id,
+            "refreshed_count": 0,
+            "skipped_count": 0,
+            "failed_count": 0,
+            "items": [],
+            "summary": "当前没有需要实际刷新的上下文。",
+            "generated_at": "2026-04-19T10:00:00Z",
+            "refreshed_context_ids": [],
+            "failed_context_ids": [],
+            "skipped_context_ids": [],
+            "changed_contexts": [],
+        }
+
+
 @pytest.mark.asyncio
 async def test_stock_analysis_message_service_reads_thread_conversation_and_persists_history(
     monkeypatch,
@@ -246,6 +307,8 @@ async def test_stock_analysis_message_service_reads_thread_conversation_and_pers
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        refresh_service=cast(Any, FakeRefreshService()),
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -296,6 +359,7 @@ async def test_stock_analysis_message_service_keeps_context_only_without_externa
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=tooling,
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -353,6 +417,8 @@ async def test_stock_analysis_message_service_switches_history_by_thread(monkeyp
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        refresh_service=cast(Any, FakeRefreshService()),
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -409,6 +475,7 @@ async def test_stock_analysis_message_service_force_tooling_enters_user_forced_m
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(USER_FORCED_TOOLING_MODE),
         tooling_service=tooling,
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -464,6 +531,7 @@ async def test_stock_analysis_message_service_need_tooling_returns_metadata(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -544,6 +612,8 @@ async def test_stock_analysis_message_service_returns_comparison_metadata(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        refresh_service=cast(Any, FakeRefreshService()),
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -600,6 +670,7 @@ async def test_stock_analysis_message_service_marks_active_memory_usage(
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(
             {
                 "memory_id": 9,
@@ -700,6 +771,7 @@ async def test_stock_analysis_message_service_refreshes_stale_contexts_before_an
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
         refresh_service=refresh_service,
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -748,6 +820,7 @@ async def test_stock_analysis_message_service_exposes_question_routing_metadata(
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
         question_router_service=FakeQuestionRouterService(),
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )
@@ -770,6 +843,111 @@ async def test_stock_analysis_message_service_exposes_question_routing_metadata(
     assert history is not None
     assert history["items"][1]["question_intent"] == "define_next_step"
     assert history["items"][1]["recommended_next_action"] == "从当前线程生成研究任务"
+    assert history["items"][1]["execution_plan_summary"] is not None
+    assert history["items"][1]["executed_steps"]
+    assert history["items"][1]["validation_summary"]
+
+
+@pytest.mark.asyncio
+async def test_stock_analysis_message_service_uses_research_task_anchor_for_execution(
+    monkeypatch,
+) -> None:
+    conversation_service = FakeConversationServiceForMessages()
+    workspace_service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        conversation_service=cast(Any, conversation_service),
+    )
+    thread = await workspace_service.create_thread(
+        user_id="default_user",
+        title="任务锚点",
+        focus_type="comparison",
+        compare_targets_json=[
+            {
+                "target_type": "ticker",
+                "ref": "SZSE:300308",
+                "label": "中际旭创",
+                "source_module": "manual",
+                "role": "primary",
+                "order": 0,
+            },
+            {
+                "target_type": "ticker",
+                "ref": "SHSE:603019",
+                "label": "中科曙光",
+                "source_module": "manual",
+                "role": "secondary",
+                "order": 1,
+            },
+        ],
+    )
+    await workspace_service.create_context_card(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        context_type="ticker",
+        title="比较卡片",
+        summary="当前需要围绕比较主线继续研究。",
+        ticker_refs_json=["SZSE:300308"],
+        source_module="ticker",
+        source_ref="SZSE:300308",
+    )
+    task_service = FakeResearchTaskService(
+        [
+            {
+                "task_id": 7,
+                "thread_id": thread["thread_id"],
+                "user_id": "default_user",
+                "title": "补充比较：中际旭创 vs 中科曙光 的优先级确认",
+                "summary": "继续比较主线并验证 thesis。",
+                "task_type": "compare_followup",
+                "status": "open",
+                "priority": "high",
+                "source_kind": "compare",
+                "source_ref": "compare_targets",
+                "related_tickers_json": ["SZSE:300308", "SHSE:603019"],
+                "related_themes_json": [],
+                "related_context_ids_json": [1],
+                "related_memory_id": None,
+                "related_compression_id": None,
+                "related_message_id": None,
+                "resolution_note": None,
+                "dismiss_reason": None,
+                "created_at": "2026-04-19T10:00:00Z",
+                "updated_at": "2026-04-19T10:00:00Z",
+                "completed_at": None,
+                "dismissed_at": None,
+            }
+        ]
+    )
+    service = StockAnalysisMessageService(
+        stock_analysis_workspace_service=workspace_service,
+        conversation_service=cast(Any, conversation_service),
+        tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
+        tooling_service=FakeToolingService(),
+        research_task_service=task_service,
+        question_router_service=FakeQuestionRouterService(),
+        thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
+    )
+    monkeypatch.setattr(service, "_generate_answer", _fake_answer)
+
+    result = await service.send_message(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        message="围绕这个任务继续研究。",
+        research_task_id=7,
+    )
+
+    assert result is not None
+    assert 7 in result.related_task_ids
+    assert result.focus_tickers == ["SZSE:300308", "SHSE:603019"]
+    assert result.task_update_suggestions
+    assert result.validation_summary["thesis_status"] in {
+        "thesis_maintained",
+        "thesis_weakened",
+        "thesis_recheck_needed",
+        "thesis_improved",
+    }
 
 
 @pytest.mark.asyncio
@@ -794,6 +972,7 @@ async def test_stock_analysis_message_service_can_save_temporary_evidence_as_con
         conversation_service=cast(Any, conversation_service),
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
+        research_task_service=FakeResearchTaskService(),
         thread_memory_service=FakeThreadMemoryService(),
         thread_compression_service=FakeThreadCompressionService(),
     )

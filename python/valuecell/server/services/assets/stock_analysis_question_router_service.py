@@ -34,6 +34,8 @@ class StockAnalysisQuestionRouterService:
         context_cards: Sequence[dict[str, Any]],
         active_memory: dict[str, Any] | None,
         active_compression: dict[str, Any] | None,
+        open_tasks: Sequence[dict[str, Any]] | None = None,
+        selected_task: dict[str, Any] | None = None,
         conversation_history: Sequence[dict[str, Any]],
         user_message: str,
         force_tooling: bool = False,
@@ -101,6 +103,8 @@ class StockAnalysisQuestionRouterService:
             response_strategy=response_strategy,
             has_compare_targets=has_compare_targets,
             stale_contexts=stale_contexts,
+            open_tasks=open_tasks or [],
+            selected_task=selected_task,
             force_tooling=force_tooling,
             refresh_before_answer=refresh_before_answer,
         )
@@ -109,6 +113,7 @@ class StockAnalysisQuestionRouterService:
             question_intent=question_intent,
             stale_contexts=stale_contexts,
             has_compare_targets=has_compare_targets,
+            selected_task=selected_task,
         )
         return StockAnalysisQuestionRoutingData(
             question_intent=question_intent,
@@ -258,6 +263,8 @@ class StockAnalysisQuestionRouterService:
         response_strategy: str,
         has_compare_targets: bool,
         stale_contexts: Sequence[dict[str, Any]],
+        open_tasks: Sequence[dict[str, Any]],
+        selected_task: dict[str, Any] | None,
         force_tooling: bool,
         refresh_before_answer: bool,
     ) -> str:
@@ -266,6 +273,12 @@ class StockAnalysisQuestionRouterService:
             reasons.append("线程已存在显式 compare targets")
         if stale_contexts:
             reasons.append("当前线程存在 stale/建议刷新的上下文")
+        if open_tasks:
+            reasons.append(f"线程当前有 {len(open_tasks)} 条 open research tasks")
+        if selected_task:
+            reasons.append(
+                f"本轮显式锚定任务 #{int(selected_task.get('task_id') or 0)}"
+            )
         if force_tooling:
             reasons.append("用户显式要求先补数据")
         if refresh_before_answer:
@@ -280,7 +293,11 @@ class StockAnalysisQuestionRouterService:
         question_intent: str,
         stale_contexts: Sequence[dict[str, Any]],
         has_compare_targets: bool,
+        selected_task: dict[str, Any] | None,
     ) -> str:
+        if selected_task:
+            task_title = _clean_text(selected_task.get("title"), fallback="当前任务")
+            return f"优先围绕研究任务“{task_title}”推进本轮研究，并保留线程其他上下文。"
         if response_strategy == "refresh_then_answer":
             if stale_contexts:
                 stale_title = _clean_text(stale_contexts[0].get("title"), fallback="关键上下文")

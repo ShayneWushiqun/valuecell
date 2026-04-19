@@ -72,6 +72,16 @@ export type StockAnalysisMessage = {
   recommended_next_action?: string | null;
   followup_candidates: string[];
   suggested_task_titles: string[];
+  execution_plan_summary?: string | null;
+  executed_steps: Array<Record<string, unknown>>;
+  skipped_steps: Array<Record<string, unknown>>;
+  failed_steps: Array<Record<string, unknown>>;
+  related_task_ids: number[];
+  task_update_suggestions: Array<Record<string, unknown>>;
+  validation_summary: Record<string, unknown>;
+  thesis_change_hint?: string | null;
+  focus_tickers: string[];
+  focus_themes: string[];
 };
 
 export type StockAnalysisMessageList = {
@@ -152,6 +162,16 @@ export type StockAnalysisMessageCreateResult = {
   recommended_next_action?: string | null;
   followup_candidates: string[];
   suggested_task_titles: string[];
+  execution_plan_summary?: string | null;
+  executed_steps: Array<Record<string, unknown>>;
+  skipped_steps: Array<Record<string, unknown>>;
+  failed_steps: Array<Record<string, unknown>>;
+  related_task_ids: number[];
+  task_update_suggestions: Array<Record<string, unknown>>;
+  validation_summary: Record<string, unknown>;
+  thesis_change_hint?: string | null;
+  focus_tickers: string[];
+  focus_themes: string[];
   user_message: StockAnalysisMessage;
   assistant_message: StockAnalysisMessage;
 };
