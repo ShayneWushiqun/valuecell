@@ -4,7 +4,7 @@
 
 阶段五的技术目标，是在阶段四线程式研究工作区之上增加一个稳定的：
 
-`显式线程研究记忆层 + 显式会话上下文压缩层 + 可解释的问题路由层 + 显式研究任务层`
+`显式线程研究记忆层 + 显式会话上下文压缩层 + 可解释的问题路由层 + 显式研究任务层 + 研究反馈闭环层`
 
 让系统既能保留线程的长期研究结论，又继续坚持：
 
@@ -56,12 +56,22 @@
 - `execution trace`
 - `research_task_id` message input
 
+阶段五第四轮 本轮新增：
+
+- `stock_analysis_research_feedback` 模型与仓储
+- `StockAnalysisResearchFeedbackService`
+- `GET/POST` 形式的 research feedback list / detail / capture / refresh API
+- 研究结果反馈 `outcome_alignment_status`
+- 研究过程归因 `process_quality_status + compare/refresh/tooling/validation helpful`
+- `what_helped / what_hurt / process_adjustments / task_followup_suggestions`
+- 工作区中的 feedback panel、历史列表、最新 feedback 摘要和 assistant message 显式生成入口
+
 当前未实现：
 
 - 自动长期记忆系统
 - 更强 planner 语义
 - 自动交易
-- 更复杂的研究归因与绩效反馈
+- 更完整的全局绩效与研究看板
 - 更强的多步工具编排
 - 更强 multi-step autonomous planning
 
@@ -110,6 +120,7 @@ active memory 只是一份线程级研究摘要。
 - `stock_analysis_thread_memory`
 - `stock_analysis_thread_compression`
 - `stock_analysis_research_task`
+- `stock_analysis_research_feedback`
 
 关键字段：
 
@@ -130,6 +141,7 @@ active memory 只是一份线程级研究摘要。
 - `StockAnalysisThreadMemoryRepository`
 - `StockAnalysisThreadCompressionRepository`
 - `StockAnalysisResearchTaskRepository`
+- `StockAnalysisResearchFeedbackRepository`
 
 提供：
 
@@ -155,6 +167,7 @@ active memory 只是一份线程级研究摘要。
 - `StockAnalysisQuestionRouterService`
 - `StockAnalysisResearchTaskService`
 - `StockAnalysisExecutionPlannerService`
+- `StockAnalysisResearchFeedbackService`
 
 职责：
 
@@ -168,6 +181,8 @@ active memory 只是一份线程级研究摘要。
 - 从 memory / compression / compare / refresh / assistant routing 中显式生成 research tasks
 - 在 tool planner 之前稳定输出 execution plan
 - 生成 validation summary、task update suggestions 与 execution trace
+- 基于 anchor assistant message 重新读取 outcome / effectiveness / risk / tasks 并生成 feedback snapshot
+- 生成显式 attribution、process adjustments 和 task follow-up suggestions
 
 ### 3.4 Prompt Assembler 联动
 

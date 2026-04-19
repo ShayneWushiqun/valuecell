@@ -21,6 +21,11 @@ type StockAnalysisThreadSummaryProps = {
   lastExecutionTriggeredTooling: boolean;
   lastExecutionTriggeredValidation: boolean;
   lastValidationSummary?: string | null;
+  recentFeedbackCount: number;
+  lastFeedbackOutcomeStatus?: string | null;
+  lastFeedbackProcessQualityStatus?: string | null;
+  hasTrackingFollowupTasks: boolean;
+  lastFeedbackSummary?: string | null;
   lastRefreshAt?: string | null;
   lastRefreshSummary?: string | null;
 };
@@ -53,6 +58,11 @@ export function StockAnalysisThreadSummary({
   lastExecutionTriggeredTooling,
   lastExecutionTriggeredValidation,
   lastValidationSummary,
+  recentFeedbackCount,
+  lastFeedbackOutcomeStatus,
+  lastFeedbackProcessQualityStatus,
+  hasTrackingFollowupTasks,
+  lastFeedbackSummary,
   lastRefreshAt,
   lastRefreshSummary,
 }: StockAnalysisThreadSummaryProps) {
@@ -94,6 +104,16 @@ export function StockAnalysisThreadSummary({
         <Badge variant={lastExecutionTriggeredValidation ? "secondary" : "outline"}>
           {lastExecutionTriggeredValidation ? "最近计划触发 validation" : "最近计划未触发 validation"}
         </Badge>
+        <Badge variant="outline">Research feedback {recentFeedbackCount}</Badge>
+        <Badge variant={hasTrackingFollowupTasks ? "secondary" : "outline"}>
+          {hasTrackingFollowupTasks ? "存在继续跟踪建议" : "暂无继续跟踪建议"}
+        </Badge>
+        {lastFeedbackOutcomeStatus ? (
+          <Badge variant="outline">最近 feedback: {lastFeedbackOutcomeStatus}</Badge>
+        ) : null}
+        {lastFeedbackProcessQualityStatus ? (
+          <Badge variant="outline">过程偏 {lastFeedbackProcessQualityStatus}</Badge>
+        ) : null}
       </div>
       <div className="mt-3 space-y-2 text-sm">
         <p className="text-muted-foreground">
@@ -105,6 +125,7 @@ export function StockAnalysisThreadSummary({
         </p>
         <p>{actionableTaskGapSummary || "当前还没有需要立即处理的 research task gap。"}</p>
         <p>{lastValidationSummary || "当前还没有最近一轮 thesis validation 摘要。"}</p>
+        <p>{lastFeedbackSummary || "当前还没有研究反馈摘要。"}</p>
         <p className="text-muted-foreground">
           {compressionReason || "当前线程如果继续增长，可手动整理对话。"}
         </p>

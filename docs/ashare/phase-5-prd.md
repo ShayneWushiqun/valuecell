@@ -2,7 +2,7 @@
 
 ## 1. 阶段名称
 
-`研究结论沉淀、线程记忆、Question Routing 与 Research Tasks MVP`
+`研究结论沉淀、线程记忆、Question Routing、Research Tasks 与 Research Feedback MVP`
 
 ## 2. 阶段目标
 
@@ -59,13 +59,21 @@
 - `execution trace`
 - `research_task_id` 作为本轮研究锚点输入
 
+阶段五第四轮 本轮完成：
+
+- 研究反馈 `research feedback`
+- 研究过程归因 `research attribution`
+- `process_adjustments`
+- `task_followup_suggestions`
+- 线程级 feedback history / latest summary / assistant message 显式生成入口
+
 当前仍未落地：
 
 - 自动长期记忆系统
 - 黑盒自动 memory 注入
 - 自动周期性总结
 - 自动交易
-- 更复杂的研究归因与绩效反馈
+- 更完整的全局绩效与研究看板
 - 更强 planner 语义和多步工具编排
 - 更强 multi-step autonomous planning
 
@@ -160,6 +168,25 @@ capture 和 refresh 都生成新的显式快照，不覆盖旧历史。
 - 来源：memory / compression / compare / refresh / assistant suggestion / manual
 - 关联 ticker / theme / context / memory / compression / message
 - 完成、重开、忽略等显式动作
+
+### 5.8 Research Feedback
+
+每份 research feedback 都对应线程里某次 assistant 研究输出的回看快照，至少回答：
+
+- 这轮研究后来是否被 outcome / effectiveness / risk 支持
+- compare / refresh / tooling / validation 哪些真正有帮助
+- 哪些过程只是制造噪音
+- 哪些任务应该继续跟踪
+- 下一次研究流程应如何调整
+
+### 5.9 Thread Feedback Loop
+
+线程不再只是连续聊天，而是可以持续沉淀：
+
+- 最近 feedback 数量与状态
+- 最近一轮研究更偏 `effective / mixed / under_evidenced / over_researched`
+- 当前 open tasks 里是否存在“建议继续跟踪”的任务
+- 哪种研究路径更稳定，哪些路径需要降权
 
 ## 6. 必做功能
 

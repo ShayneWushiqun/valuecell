@@ -280,6 +280,92 @@ class FakeResearchTaskRecord:
         }
 
 
+@dataclass
+class FakeResearchFeedbackRecord:
+    id: int
+    thread_id: int
+    user_id: str
+    anchor_message_id: str
+    title: str
+    anchor_question_intent: str | None
+    anchor_response_strategy: str | None
+    anchor_mode: str | None
+    anchor_plan_summary: str | None
+    anchor_validation_status: str | None
+    linked_task_ids_json: list[int]
+    linked_context_ids_json: list[int]
+    linked_memory_id: int | None
+    linked_compression_id: int | None
+    linked_compare_targets_json: list[dict[str, Any]]
+    linked_tickers_json: list[str]
+    linked_themes_json: list[str]
+    linked_outcome_review_ids_json: list[int]
+    linked_effectiveness_snapshot_json: dict[str, Any]
+    linked_risk_sizing_snapshot_json: dict[str, Any]
+    outcome_alignment_status: str
+    process_quality_status: str
+    compare_helpful: bool
+    refresh_helpful: bool
+    tooling_helpful: bool
+    validation_helpful: bool
+    what_helped_json: list[str]
+    what_hurt_json: list[str]
+    process_adjustments_json: list[str]
+    task_followup_suggestions_json: list[dict[str, Any]]
+    summary: str
+    detail_note: str | None
+    created_at: Any = None
+    updated_at: Any = None
+
+    def __post_init__(self) -> None:
+        import datetime as dt
+
+        self.created_at = self.created_at or dt.datetime.now(dt.UTC)
+        self.updated_at = self.updated_at or dt.datetime.now(dt.UTC)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "feedback_id": self.id,
+            "thread_id": self.thread_id,
+            "user_id": self.user_id,
+            "anchor_message_id": self.anchor_message_id,
+            "title": self.title,
+            "anchor_question_intent": self.anchor_question_intent,
+            "anchor_response_strategy": self.anchor_response_strategy,
+            "anchor_mode": self.anchor_mode,
+            "anchor_plan_summary": self.anchor_plan_summary,
+            "anchor_validation_status": self.anchor_validation_status,
+            "linked_task_ids_json": list(self.linked_task_ids_json),
+            "linked_context_ids_json": list(self.linked_context_ids_json),
+            "linked_memory_id": self.linked_memory_id,
+            "linked_compression_id": self.linked_compression_id,
+            "linked_compare_targets_json": list(self.linked_compare_targets_json),
+            "linked_tickers_json": list(self.linked_tickers_json),
+            "linked_themes_json": list(self.linked_themes_json),
+            "linked_outcome_review_ids_json": list(self.linked_outcome_review_ids_json),
+            "linked_effectiveness_snapshot_json": dict(
+                self.linked_effectiveness_snapshot_json
+            ),
+            "linked_risk_sizing_snapshot_json": dict(
+                self.linked_risk_sizing_snapshot_json
+            ),
+            "outcome_alignment_status": self.outcome_alignment_status,
+            "process_quality_status": self.process_quality_status,
+            "compare_helpful": self.compare_helpful,
+            "refresh_helpful": self.refresh_helpful,
+            "tooling_helpful": self.tooling_helpful,
+            "validation_helpful": self.validation_helpful,
+            "what_helped_json": list(self.what_helped_json),
+            "what_hurt_json": list(self.what_hurt_json),
+            "process_adjustments_json": list(self.process_adjustments_json),
+            "task_followup_suggestions_json": list(self.task_followup_suggestions_json),
+            "summary": self.summary,
+            "detail_note": self.detail_note,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+
 class FakeThreadRepository:
     def __init__(self) -> None:
         self.items: list[FakeThreadRecord] = []
@@ -600,6 +686,37 @@ class FakeResearchTaskRepository:
             return None
         for key, value in payload.items():
             setattr(item, key, value)
+        return item
+
+
+class FakeResearchFeedbackRepository:
+    def __init__(self) -> None:
+        self.items: list[FakeResearchFeedbackRecord] = []
+        self.next_id = 1
+
+    def list_feedbacks(self, *, user_id: str, thread_id: int, limit: int = 200):
+        result = [
+            item
+            for item in self.items
+            if item.user_id == user_id and item.thread_id == thread_id
+        ]
+        result.sort(key=lambda item: (item.created_at, item.id), reverse=True)
+        return result[:limit]
+
+    def get_feedback_by_id(self, *, user_id: str, thread_id: int, feedback_id: int):
+        for item in self.items:
+            if (
+                item.user_id == user_id
+                and item.thread_id == thread_id
+                and item.id == feedback_id
+            ):
+                return item
+        return None
+
+    def create_feedback(self, payload: dict[str, Any]):
+        item = FakeResearchFeedbackRecord(id=self.next_id, **payload)
+        self.next_id += 1
+        self.items.append(item)
         return item
 
 

@@ -64,6 +64,9 @@ from .routers.stock_analysis_thread_compression import (
 from .routers.stock_analysis_research_task import (
     create_stock_analysis_research_task_router,
 )
+from .routers.stock_analysis_research_feedback import (
+    create_stock_analysis_research_feedback_router,
+)
 from .schemas import AppInfoData, SuccessResponse
 
 
@@ -298,6 +301,9 @@ def _add_routes(app: FastAPI, settings) -> None:
         create_stock_analysis_thread_compression_router(), prefix=API_PREFIX
     )
     app.include_router(create_stock_analysis_research_task_router(), prefix=API_PREFIX)
+    app.include_router(
+        create_stock_analysis_research_feedback_router(), prefix=API_PREFIX
+    )
     app.include_router(create_theme_radar_router(), prefix=API_PREFIX)
     app.include_router(create_watchlist_center_router(), prefix=API_PREFIX)
     app.include_router(create_risk_sizing_router(), prefix=API_PREFIX)

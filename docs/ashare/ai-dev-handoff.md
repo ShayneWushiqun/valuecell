@@ -249,8 +249,8 @@
 - 阶段四第四轮已完成第三层外部解释型补数第一版、临时证据保存为长期上下文、证据来源与时效说明
 - 阶段四第五轮已完成显式对比研究、线程分叉增强、上下文刷新与时效治理
 - 阶段四第六轮已完成批量 stale refresh、刷新后重答工作流、refresh diff 摘要、研究流摘要区和外部 provider 编排收口
-- 阶段四核心 MVP 已完成，阶段五第一轮-A 已完成显式线程研究记忆 MVP，第一轮-B 已完成 context compression，第二轮已完成 question routing 与 research tasks，第三轮已完成 execution planning / task-driven research / validation summary / execution trace
-- 当前仍未接自动长期记忆系统、自动交易、更强 multi-step autonomous planning 和更复杂的 SSE 工具可视化
+- 阶段四核心 MVP 已完成，阶段五第一轮-A 已完成显式线程研究记忆 MVP，第一轮-B 已完成 context compression，第二轮已完成 question routing 与 research tasks，第三轮已完成 execution planning / task-driven research / validation summary / execution trace，第四轮已完成 research feedback / research attribution / process adjustments / task follow-up suggestions
+- 当前仍未接自动长期记忆系统、自动交易、更强 multi-step autonomous planning、更完整的全局绩效与研究看板和更复杂的 SSE 工具可视化
 
 ## 6.2 当前阶段推进建议
 
@@ -312,12 +312,19 @@
   - 已可把研究任务显式完成、重开或忽略，不做后台自动调度
 - `/api/v1/stock-analysis/threads/{thread_id}/messages`
   - 已支持可选 `research_task_id`，并在 assistant metadata 中返回 execution plan、executed/skipped/failed steps、validation summary、task update suggestions、focus tickers/themes
+- `/api/v1/stock-analysis/threads/{thread_id}/research-feedback`
+  - 已可显式列出线程 research feedback、最近一份 feedback 和历史版本摘要
+- `/api/v1/stock-analysis/threads/{thread_id}/research-feedback/capture`
+  - 已可基于 anchor assistant message 显式生成 research feedback，回看 outcome / effectiveness / risk / tasks 是否支持该轮研究
+- `/api/v1/stock-analysis/threads/{thread_id}/research-feedback/{feedback_id}/refresh`
+  - 已可基于旧 feedback 重新生成新版反馈快照，保留旧版本并更新 attribution / process adjustments / task follow-up suggestions
 - `/home/stock-analysis`
-  - 已从骨架页升级为可用聊天工作区，支持“发送”“补数据后再回答”“刷新过期上下文后再回答”“保存为上下文”“compare tray”“分叉线程”“研究流摘要区”“研究记忆面板 / 历史版本 / 激活 / 刷新”“compression panel / 历史版本 / 激活 / 刷新”“research task panel / 生成 / 手动创建 / 完成 / 重开 / 忽略 / 围绕此任务继续研究”“assistant routing explanation”“execution trace / validation / task suggestions”和“上下文刷新”
+  - 已从骨架页升级为可用聊天工作区，支持“发送”“补数据后再回答”“刷新过期上下文后再回答”“保存为上下文”“compare tray”“分叉线程”“研究流摘要区”“研究记忆面板 / 历史版本 / 激活 / 刷新”“compression panel / 历史版本 / 激活 / 刷新”“research task panel / 生成 / 手动创建 / 完成 / 重开 / 忽略 / 围绕此任务继续研究”“feedback panel / 历史列表 / 最新 feedback 摘要 / assistant message 生成反馈”“assistant routing explanation”“execution trace / validation / task suggestions”和“上下文刷新”
 
 当前仍需留到下一轮的点：
 
 - 自动长期记忆系统、更细的 planner 语义
+- 更完整的全局绩效与研究看板
 - 更复杂的 SSE 工具过程可视化
 - 更强的第三层 provider 扩展与更多解释型来源
 - 更复杂的研究归因 / 绩效反馈

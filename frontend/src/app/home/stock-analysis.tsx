@@ -31,6 +31,11 @@ import {
   useReopenStockAnalysisResearchTask,
 } from "@/api/stock-analysis-research-task";
 import {
+  useCaptureStockAnalysisResearchFeedback,
+  useGetStockAnalysisResearchFeedback,
+  useRefreshStockAnalysisResearchFeedback,
+} from "@/api/stock-analysis-research-feedback";
+import {
   useCreateStockAnalysisMessage,
   useCreateStockAnalysisThread,
   useDeleteStockAnalysisContext,
@@ -53,6 +58,7 @@ import { StockAnalysisCompareTray } from "@/app/home/components/stock-analysis-c
 import { StockAnalysisCompressionPanel } from "@/app/home/components/stock-analysis-compression-panel";
 import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
 import { StockAnalysisExecutionTrace } from "@/app/home/components/stock-analysis-execution-trace";
+import { StockAnalysisFeedbackPanel } from "@/app/home/components/stock-analysis-feedback-panel";
 import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
 import { StockAnalysisMemoryPanel } from "@/app/home/components/stock-analysis-memory-panel";
 import { StockAnalysisResearchTaskPanel } from "@/app/home/components/stock-analysis-research-task-panel";
@@ -97,6 +103,7 @@ import type {
   StockAnalysisCompareTarget,
   StockAnalysisThread,
 } from "@/types/stock-analysis-thread";
+import type { StockAnalysisResearchFeedback } from "@/types/stock-analysis-research-feedback";
 import type { StockAnalysisResearchTask } from "@/types/stock-analysis-research-task";
 
 const FOCUS_OPTIONS = [
@@ -244,10 +251,12 @@ export default function StockAnalysis() {
   const [forkFocusTypeOverride, setForkFocusTypeOverride] = useState("inherit");
   const [lastRefreshRun, setLastRefreshRun] =
     useState<StockAnalysisRefreshRunResult | null>(null);
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState<number | null>(null);
   const [recentContextRefreshState, setRecentContextRefreshState] = useState<
     Record<number, { status: "refreshed" | "skipped" | "failed"; reason?: string | null }>
   >({});
   const autoImportKeyRef = useRef<string | null>(null);
+  const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: overview, isLoading, isError } =
     useGetStockAnalysisWorkspaceOverview(selectedThreadId);
@@ -263,6 +272,8 @@ export default function StockAnalysis() {
     useGetStockAnalysisThreadCompressions(selectedThreadId);
   const { data: researchTaskData, isLoading: researchTasksLoading } =
     useGetStockAnalysisResearchTasks(selectedThreadId);
+  const { data: researchFeedbackData, isLoading: researchFeedbackLoading } =
+    useGetStockAnalysisResearchFeedback(selectedThreadId);
   const { data: tradingRuns } = useGetTradingAgentsRuns();
   const { data: holdingOverview } = useGetHoldingLifecycleOverview();
   const { data: opportunityOverview } = useGetOpportunityCandidates();
@@ -293,6 +304,8 @@ export default function StockAnalysis() {
   const completeResearchTask = useCompleteStockAnalysisResearchTask();
   const reopenResearchTask = useReopenStockAnalysisResearchTask();
   const dismissResearchTask = useDismissStockAnalysisResearchTask();
+  const captureResearchFeedback = useCaptureStockAnalysisResearchFeedback();
+  const refreshResearchFeedback = useRefreshStockAnalysisResearchFeedback();
   const saveEvidence = useSaveStockAnalysisEvidence();
   const updateCompareTargets = useUpdateStockAnalysisCompareTargets();
   const forkThread = useForkStockAnalysisThread();
@@ -311,6 +324,8 @@ export default function StockAnalysis() {
   const activeCompression = compressionData?.active_compression || null;
   const threadCompressions = compressionData?.items || [];
   const threadResearchTasks = researchTaskData?.items || [];
+  const threadResearchFeedback = researchFeedbackData?.items || [];
+  const latestResearchFeedback = researchFeedbackData?.latest_feedback || null;
   const latestAssistantMessage = useMemo(
     () =>
       [...(messages?.items || [])]
@@ -356,6 +371,27 @@ export default function StockAnalysis() {
         : [],
     [latestAssistantMessage?.executed_steps],
   );
+  const feedbackByAnchorMessageId = useMemo(() => {
+    const map = new Map<string, StockAnalysisResearchFeedback[]>();
+    threadResearchFeedback.forEach((item) => {
+      if (!item.anchor_message_id) return;
+      const current = map.get(item.anchor_message_id) || [];
+      current.push(item);
+      map.set(item.anchor_message_id, current);
+    });
+    return map;
+  }, [threadResearchFeedback]);
+  const hasTrackingFollowupTasks = useMemo(
+    () =>
+      threadResearchFeedback.some((item) =>
+        item.task_followup_suggestions_json.some((suggestion) =>
+          ["keep_tracking", "convert_to_refresh_check", "reopen_for_research"].includes(
+            suggestion.suggestion,
+          ),
+        ),
+      ),
+    [threadResearchFeedback],
+  );
   const contextTitleMap = useMemo(
     () => new Map(contextItems.map((item) => [item.context_id, item.title])),
     [contextItems],
@@ -384,6 +420,7 @@ export default function StockAnalysis() {
     setForkTitle("");
     setSeedFromActiveMemory(false);
     setActiveResearchTaskId(null);
+    setSelectedFeedbackId(null);
     setLastRefreshRun(null);
     setRecentContextRefreshState({});
   }, [selectedThreadId]);
@@ -789,6 +826,66 @@ export default function StockAnalysis() {
       toast.success("已切换当前对话压缩摘要");
     } catch {
       toast.error("切换对话压缩失败");
+    }
+  };
+
+  const scrollToFeedbackPanel = () => {
+    feedbackPanelRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const handleViewResearchFeedback = (feedbackId: number) => {
+    setSelectedFeedbackId(feedbackId);
+    scrollToFeedbackPanel();
+  };
+
+  const handleCaptureResearchFeedback = async ({
+    anchorMessageId,
+    relatedTaskIds,
+    relatedTickers,
+    title,
+    note,
+  }: {
+    anchorMessageId?: string;
+    relatedTaskIds?: number[];
+    relatedTickers?: string[];
+    title?: string;
+    note?: string;
+  } = {}) => {
+    if (!currentThread) return;
+    try {
+      const response = await captureResearchFeedback.mutateAsync({
+        threadId: currentThread.thread_id,
+        data: {
+          anchor_message_id: anchorMessageId,
+          related_task_ids: relatedTaskIds,
+          related_tickers: relatedTickers,
+          title,
+          note,
+        },
+      });
+      setSelectedFeedbackId(response.data.feedback.feedback_id);
+      scrollToFeedbackPanel();
+      toast.success("已生成研究反馈");
+    } catch {
+      toast.error("生成研究反馈失败");
+    }
+  };
+
+  const handleRefreshResearchFeedback = async (feedbackId: number) => {
+    if (!currentThread) return;
+    try {
+      const response = await refreshResearchFeedback.mutateAsync({
+        threadId: currentThread.thread_id,
+        feedbackId,
+      });
+      setSelectedFeedbackId(response.data.feedback.feedback_id);
+      scrollToFeedbackPanel();
+      toast.success("已刷新研究反馈");
+    } catch {
+      toast.error("刷新研究反馈失败");
     }
   };
 
@@ -1361,6 +1458,15 @@ export default function StockAnalysis() {
                     }
                     lastExecutionTriggeredValidation={Boolean(latestValidationSummary)}
                     lastValidationSummary={latestValidationSummaryText}
+                    recentFeedbackCount={researchFeedbackData?.count || 0}
+                    lastFeedbackOutcomeStatus={
+                      latestResearchFeedback?.outcome_alignment_status || null
+                    }
+                    lastFeedbackProcessQualityStatus={
+                      latestResearchFeedback?.process_quality_status || null
+                    }
+                    hasTrackingFollowupTasks={hasTrackingFollowupTasks}
+                    lastFeedbackSummary={latestResearchFeedback?.summary || null}
                     lastRefreshAt={lastRefreshRun?.generated_at || null}
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
@@ -1432,6 +1538,20 @@ export default function StockAnalysis() {
                     onDismiss={(task) => void handleDismissResearchTask(task.task_id)}
                   />
 
+                  <div ref={feedbackPanelRef}>
+                    <StockAnalysisFeedbackPanel
+                      feedbackData={researchFeedbackData}
+                      isLoading={researchFeedbackLoading}
+                      capturePending={captureResearchFeedback.isPending}
+                      refreshPending={refreshResearchFeedback.isPending}
+                      selectedFeedbackId={selectedFeedbackId}
+                      onCaptureLatest={() => void handleCaptureResearchFeedback()}
+                      onRefresh={(feedbackId) =>
+                        void handleRefreshResearchFeedback(feedbackId)
+                      }
+                    />
+                  </div>
+
                   <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
 
                   <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
@@ -1443,15 +1563,18 @@ export default function StockAnalysis() {
                             <Spinner className="size-5" />
                           </div>
                         ) : messages?.items.length ? (
-                          messages.items.map((item) => (
-                            <div
-                              key={item.item_id}
-                              className={`rounded-xl border p-3 ${
-                                isAssistantRole(item.role)
-                                  ? "bg-primary/5"
-                                  : "bg-background"
-                              }`}
-                            >
+                          messages.items.map((item) => {
+                            const anchoredFeedback =
+                              feedbackByAnchorMessageId.get(item.item_id)?.[0] || null;
+                            return (
+                              <div
+                                key={item.item_id}
+                                className={`rounded-xl border p-3 ${
+                                  isAssistantRole(item.role)
+                                    ? "bg-primary/5"
+                                    : "bg-background"
+                                }`}
+                              >
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="outline">
                                   {isAssistantRole(item.role) ? "研究助手" : "用户"}
@@ -1617,6 +1740,60 @@ export default function StockAnalysis() {
                                     validationSummary={item.validation_summary}
                                     thesisChangeHint={item.thesis_change_hint}
                                   />
+                                  <div className="rounded-lg border border-dashed p-3 text-sm">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="font-medium">研究反馈</p>
+                                      {anchoredFeedback ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() =>
+                                            handleViewResearchFeedback(
+                                              anchoredFeedback.feedback_id,
+                                            )
+                                          }
+                                        >
+                                          查看研究反馈
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={captureResearchFeedback.isPending}
+                                          onClick={() =>
+                                            void handleCaptureResearchFeedback({
+                                              anchorMessageId: item.item_id,
+                                              relatedTaskIds: item.related_task_ids,
+                                              relatedTickers: item.focus_tickers,
+                                            })
+                                          }
+                                        >
+                                          生成研究反馈
+                                        </Button>
+                                      )}
+                                    </div>
+                                    {anchoredFeedback ? (
+                                      <div className="mt-2 space-y-2">
+                                        <div className="flex flex-wrap gap-2">
+                                          <Badge variant="secondary">
+                                            {anchoredFeedback.outcome_alignment_status}
+                                          </Badge>
+                                          <Badge variant="outline">
+                                            {anchoredFeedback.process_quality_status}
+                                          </Badge>
+                                        </div>
+                                        <p className="text-muted-foreground">
+                                          {anchoredFeedback.summary}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <p className="mt-2 text-muted-foreground">
+                                        显式生成后，可回看这轮研究后来是否被 outcome /
+                                        effectiveness / risk 支持，以及 compare /
+                                        refresh / tooling / validation 到底有没有价值。
+                                      </p>
+                                    )}
+                                  </div>
                                   {item.related_task_ids.length ||
                                   item.task_update_suggestions.length ? (
                                     <div className="rounded-lg border border-dashed p-3 text-sm">
@@ -1942,7 +2119,8 @@ export default function StockAnalysis() {
                                 </div>
                               ) : null}
                             </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
                             当前线程还没有历史消息。可以直接基于右侧已挂载的上下文卡片开始提问。
