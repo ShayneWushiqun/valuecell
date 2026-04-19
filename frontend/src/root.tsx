@@ -8,6 +8,7 @@ import { Toaster } from "./components/ui/sonner";
 
 import "./global.css";
 import { SidebarProvider } from "./components/ui/sidebar";
+import { ApiError, isApiNetworkError } from "./lib/api-client";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const language = useLanguage();
@@ -41,13 +42,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // Global default 5 minutes fresh time
-      gcTime: 30 * 60 * 1000, // Global default 30 minutes garbage collection time
-      refetchOnWindowFocus: false, // Don't refetch on window focus by default
-      retry: 1, // Default retry 1 times on failure
+      staleTime: 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      retry: (failureCount, error) => {
+        if (isApiNetworkError(error)) {
+          return false;
+        }
+        if (error instanceof ApiError) {
+          if (error.status >= 500) {
+            return failureCount < 1;
+          }
+          return false;
+        }
+        return failureCount < 1;
+      },
     },
     mutations: {
-      retry: 1, // Default retry 1 time for mutations
+      retry: false,
     },
   },
 });

@@ -36,6 +36,7 @@ export const useGetStockAnalysisThreadCompressions = (
     staleTime: COMPRESSION_STALE_TIME_MS,
     gcTime: COMPRESSION_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 

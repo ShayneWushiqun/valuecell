@@ -36,6 +36,7 @@ export const useGetStockAnalysisThreadMemories = (
     staleTime: MEMORY_STALE_TIME_MS,
     gcTime: MEMORY_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 

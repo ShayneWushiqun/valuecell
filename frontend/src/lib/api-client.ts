@@ -8,12 +8,52 @@ import type { SystemInfo } from "@/types/system";
 export class ApiError extends Error {
   public status: number;
   public details?: unknown;
+  public endpoint?: string;
+  public method?: string;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    details?: unknown,
+    meta?: { endpoint?: string; method?: string },
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.details = details;
+    this.endpoint = meta?.endpoint;
+    this.method = meta?.method;
+  }
+}
+
+export type ApiNetworkErrorKind =
+  | "network_changed"
+  | "temporary_network"
+  | "offline"
+  | "unreachable"
+  | "timeout"
+  | "aborted"
+  | "unknown_network";
+
+export class ApiNetworkError extends Error {
+  public kind: ApiNetworkErrorKind;
+  public endpoint: string;
+  public method: string;
+  public originalMessage: string;
+
+  constructor(params: {
+    kind: ApiNetworkErrorKind;
+    endpoint: string;
+    method: string;
+    message: string;
+    originalMessage: string;
+  }) {
+    super(params.message);
+    this.name = "ApiNetworkError";
+    this.kind = params.kind;
+    this.endpoint = params.endpoint;
+    this.method = params.method;
+    this.originalMessage = params.originalMessage;
   }
 }
 
@@ -30,7 +70,93 @@ export interface RequestConfig {
   signal?: AbortSignal;
   keepalive?: boolean;
   wrapError?: boolean;
+  toastError?: boolean;
 }
+
+const TOAST_DEDUPE_WINDOW_MS = 5000;
+const recentToastMap = new Map<string, number>();
+
+const dedupedToastError = (message: string, key = message) => {
+  const now = Date.now();
+  const lastShownAt = recentToastMap.get(key);
+  if (lastShownAt && now - lastShownAt < TOAST_DEDUPE_WINDOW_MS) {
+    return;
+  }
+  recentToastMap.set(key, now);
+  toast.error(message);
+};
+
+const formatNetworkErrorMessage = (kind: ApiNetworkErrorKind) => {
+  switch (kind) {
+    case "network_changed":
+      return "网络环境发生变化，当前先使用缓存结果。";
+    case "temporary_network":
+      return "网络暂时波动，当前先使用缓存结果。";
+    case "offline":
+      return "当前似乎已离线，请检查网络后再试。";
+    case "unreachable":
+      return "当前无法连接到服务，请稍后再试。";
+    case "timeout":
+      return "请求超时，请稍后重试。";
+    case "aborted":
+      return "请求已取消。";
+    default:
+      return "网络请求失败，请稍后再试。";
+  }
+};
+
+const classifyFetchError = (
+  error: unknown,
+  endpoint: string,
+  method: string,
+): ApiNetworkError => {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error";
+  const normalizedMessage = message.toLowerCase();
+
+  let kind: ApiNetworkErrorKind = "unknown_network";
+  if (error instanceof DOMException && error.name === "AbortError") {
+    kind = "aborted";
+  } else if (normalizedMessage.includes("network changed")) {
+    kind = "network_changed";
+  } else if (
+    !navigator.onLine ||
+    normalizedMessage.includes("offline") ||
+    normalizedMessage.includes("network request failed")
+  ) {
+    kind = "offline";
+  } else if (normalizedMessage.includes("timeout")) {
+    kind = "timeout";
+  } else if (
+    normalizedMessage.includes("failed to fetch") ||
+    normalizedMessage.includes("networkerror") ||
+    normalizedMessage.includes("load failed")
+  ) {
+    kind = "temporary_network";
+  } else if (
+    normalizedMessage.includes("fetch") ||
+    normalizedMessage.includes("network")
+  ) {
+    kind = "unreachable";
+  }
+
+  return new ApiNetworkError({
+    kind,
+    endpoint,
+    method,
+    originalMessage: message,
+    message: formatNetworkErrorMessage(kind),
+  });
+};
+
+export const isApiNetworkError = (error: unknown): error is ApiNetworkError =>
+  error instanceof ApiNetworkError;
+
+export const isTemporaryApiNetworkError = (error: unknown) =>
+  isApiNetworkError(error) &&
+  ["network_changed", "temporary_network", "offline", "unreachable"].includes(
+    error.kind,
+  );
 
 export const getServerUrl = (endpoint: string) => {
   if (endpoint.startsWith("http")) return endpoint;
@@ -50,6 +176,9 @@ class ApiClient {
   private async handleResponse<T>(
     response: Response,
     wrapError: boolean,
+    endpoint: string,
+    method: string,
+    toastError: boolean,
   ): Promise<T> {
     if (wrapError && !response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -82,14 +211,14 @@ class ApiClient {
             }
           }
         } catch (error) {
-          toast.error(JSON.stringify(error));
+          dedupedToastError(JSON.stringify(error), "auth-refresh");
           useSystemStore.getState().clearSystemInfo();
         }
-      } else {
-        toast.error(message);
+      } else if (toastError) {
+        dedupedToastError(message, `${method}:${endpoint}:${response.status}`);
       }
 
-      throw new ApiError(message, response.status, errorData);
+      throw new ApiError(message, response.status, errorData, { endpoint, method });
     }
 
     const contentType = response.headers.get("content-type");
@@ -135,8 +264,28 @@ class ApiClient {
       }
     }
 
-    const response = await fetch(url, requestConfig);
-    return this.handleResponse<T>(response, config.wrapError ?? true);
+    const toastError =
+      mergedConfig.toastError ?? (method !== "GET" && method !== "HEAD");
+
+    try {
+      const response = await fetch(url, requestConfig);
+      return this.handleResponse<T>(
+        response,
+        config.wrapError ?? true,
+        endpoint,
+        method,
+        toastError,
+      );
+    } catch (error) {
+      const networkError = classifyFetchError(error, endpoint, method);
+      if (toastError && networkError.kind !== "aborted") {
+        dedupedToastError(
+          networkError.message,
+          `${networkError.kind}:${networkError.endpoint}`,
+        );
+      }
+      throw networkError;
+    }
   }
 
   async get<T>(endpoint: string, config?: RequestConfig): Promise<T> {

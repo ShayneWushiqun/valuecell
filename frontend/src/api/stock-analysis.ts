@@ -122,6 +122,7 @@ export const useGetStockAnalysisThreads = () =>
     staleTime: MEDIUM_STALE_TIME_MS,
     gcTime: STOCK_ANALYSIS_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 
@@ -143,6 +144,7 @@ export const useGetStockAnalysisWorkspaceOverview = (
     staleTime: MEDIUM_STALE_TIME_MS,
     gcTime: STOCK_ANALYSIS_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 
@@ -162,6 +164,7 @@ export const useGetStockAnalysisContexts = (
     staleTime: MEDIUM_STALE_TIME_MS,
     gcTime: STOCK_ANALYSIS_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 
@@ -181,6 +184,7 @@ export const useGetStockAnalysisMessages = (
     staleTime: SHORT_STALE_TIME_MS,
     gcTime: STOCK_ANALYSIS_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 
@@ -200,6 +204,7 @@ export const useGetStockAnalysisCompareTargets = (
     staleTime: MEDIUM_STALE_TIME_MS,
     gcTime: STOCK_ANALYSIS_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 

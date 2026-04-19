@@ -12,6 +12,11 @@ export const useGetHoldingExitSignals = () =>
     queryFn: () =>
       apiClient.get<ApiResponse<HoldingExitSignalList>>("portfolio/exit-signals"),
     select: (response) => response.data,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
 export const useGetHoldingExitSignal = (holdingId: number | null, enabled = true) =>
@@ -23,6 +28,11 @@ export const useGetHoldingExitSignal = (holdingId: number | null, enabled = true
         `portfolio/holdings/${holdingId}/exit-signal`,
       ),
     select: (response) => response.data,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
 export const useRefreshHoldingExitSignal = () => {

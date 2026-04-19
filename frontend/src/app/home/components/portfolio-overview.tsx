@@ -21,6 +21,7 @@ import {
   useRefreshHoldingDiagnosis,
   useUpdateHolding,
 } from "@/api/portfolio";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { isApiNetworkError } from "@/lib/api-client";
 import type { HoldingExitSignal } from "@/types/holding-exit-signal";
 import type { CreateHoldingRequest, UserHolding } from "@/types/portfolio";
 
@@ -410,13 +412,25 @@ export default function PortfolioOverview({
   sectionDescription = "围绕已有持仓给出短周期动作建议，并支持手动维护和诊断刷新。",
   className,
 }: PortfolioOverviewProps) {
-  const { data, isLoading } = useGetPortfolioOverview();
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useGetPortfolioOverview();
   const refreshBriefing = useRefreshDailyBriefing();
   const createHolding = useCreateHolding();
   const updateHolding = useUpdateHolding();
   const deleteHolding = useDeleteHolding();
   const refreshDiagnosis = useRefreshHoldingDiagnosis();
-  const { data: exitSignalList } = useGetHoldingExitSignals();
+  const {
+    data: exitSignalList,
+    isError: exitSignalsError,
+    error: exitSignalsQueryError,
+    refetch: refetchExitSignals,
+  } = useGetHoldingExitSignals();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState<UserHolding | null>(null);
@@ -516,6 +530,35 @@ export default function PortfolioOverview({
 
   return (
     <div className={`flex flex-col gap-4 ${className || "p-5"}`}>
+      {!!data && isFetching ? (
+        <p className="text-center text-muted-foreground text-xs">
+          已展示上次结果，正在后台刷新持仓信息。
+        </p>
+      ) : null}
+      {!!data && (isError || exitSignalsError) ? (
+        <Alert>
+          <AlertTitle>当前先使用缓存结果</AlertTitle>
+          <AlertDescription>
+            <p>
+              {isApiNetworkError(error) || isApiNetworkError(exitSignalsQueryError)
+                ? "网络波动，当前先显示上次持仓与卖点结果。"
+                : "持仓信息刷新失败，当前先显示上次结果。"}
+            </p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => void refetch()}>
+                重试持仓
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void refetchExitSignals()}
+              >
+                重试卖点
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {showDailySummary ? (
         <section className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="rounded-2xl border bg-background p-5">

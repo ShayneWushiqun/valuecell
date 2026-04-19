@@ -31,6 +31,7 @@ export const useGetTradingAgentsRuns = (enabled = true) => {
     staleTime: 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
     refetchInterval: (query) =>
       query.state.data?.data.running_count ? 3000 : false,

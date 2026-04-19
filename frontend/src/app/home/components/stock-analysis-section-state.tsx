@@ -12,6 +12,8 @@ type StockAnalysisSectionStateProps = {
   isRefreshing?: boolean;
   hasData?: boolean;
   isError?: boolean;
+  isWarning?: boolean;
+  warningText?: string;
   onRetry?: () => void;
 };
 
@@ -24,6 +26,8 @@ export function StockAnalysisSectionState({
   isRefreshing = false,
   hasData = true,
   isError = false,
+  isWarning = false,
+  warningText,
   onRetry,
 }: StockAnalysisSectionStateProps) {
   if (isLoading && !hasData) {
@@ -61,6 +65,23 @@ export function StockAnalysisSectionState({
       <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
         {emptyText}
       </div>
+    );
+  }
+
+  if (hasData && isWarning) {
+    return (
+      <Alert className="rounded-xl">
+        <AlertCircle />
+        <AlertTitle>{title}当前先使用缓存结果</AlertTitle>
+        <AlertDescription>
+          <p>{warningText || "网络暂时波动，后台刷新失败，你仍可继续查看已加载内容。"}</p>
+          {onRetry ? (
+            <Button size="sm" variant="outline" onClick={onRetry}>
+              重试
+            </Button>
+          ) : null}
+        </AlertDescription>
+      </Alert>
     );
   }
 

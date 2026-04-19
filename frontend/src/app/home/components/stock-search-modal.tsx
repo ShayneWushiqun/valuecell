@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useDebounce } from "@/hooks/use-debounce";
+import { isApiNetworkError } from "@/lib/api-client";
 import type { Stock, Watchlist } from "@/types/stock";
 
 interface StockSearchModalProps {
@@ -81,7 +82,14 @@ export default function StockSearchModal({ children }: StockSearchModalProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
-  const { data: stockList, isLoading } = useGetStocksList({
+  const trimmedQuery = debouncedQuery.trim();
+  const {
+    data: stockList,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+  } = useGetStocksList({
     query: debouncedQuery,
   });
 
@@ -134,18 +142,43 @@ export default function StockSearchModal({ children }: StockSearchModalProps) {
 
         {/* Search Results */}
         <div className="scroll-container">
-          {isLoading ? (
+          {trimmedQuery.length > 0 && trimmedQuery.length < 2 ? (
+            <p className="p-4 text-center text-muted-foreground text-sm">
+              至少输入 2 个字符后再开始搜索。
+            </p>
+          ) : isLoading ? (
             <p className="p-4 text-center text-muted-foreground text-sm">
               {t("home.search.searching")}
             </p>
+          ) : isError && stockList?.length ? (
+            <div className="space-y-3">
+              <p className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
+                {isApiNetworkError(error)
+                  ? "网络波动，当前先显示上次搜索结果。"
+                  : "搜索刷新失败，当前先显示上次结果。"}
+              </p>
+              <div className="rounded-lg bg-background py-2">
+                {filteredStockList.map((stock) => (
+                  <StockItem key={stock.ticker} stock={stock} />
+                ))}
+              </div>
+            </div>
           ) : filteredStockList && filteredStockList.length > 0 ? (
-            <div className="rounded-lg bg-background py-2">
-              {filteredStockList.map((stock) => (
-                <StockItem key={stock.ticker} stock={stock} />
-              ))}
+            <div className="space-y-3">
+              {isFetching ? (
+                <p className="text-center text-muted-foreground text-xs">
+                  已展示上次结果，正在后台刷新搜索。
+                </p>
+              ) : null}
+              <div className="rounded-lg bg-background py-2">
+                {filteredStockList.map((stock) => (
+                  <StockItem key={stock.ticker} stock={stock} />
+                ))}
+              </div>
             </div>
           ) : (
-            query &&
+            trimmedQuery &&
+            trimmedQuery.length >= 2 &&
             !isLoading &&
             stockList &&
             filteredStockList.length === 0 && (

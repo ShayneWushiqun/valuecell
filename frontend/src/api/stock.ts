@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { API_QUERY_KEYS, VALUECELL_BACKEND_URL } from "@/constants/api";
 import { type ApiResponse, apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/store/settings-store";
@@ -17,6 +22,11 @@ export const useGetWatchlist = () =>
     queryKey: API_QUERY_KEYS.STOCK.watchlist,
     queryFn: () => apiClient.get<ApiResponse<Watchlist[]>>("watchlist/"),
     select: (data) => data.data,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
 export const useGetStocksList = (params: { query: string }) => {
@@ -30,7 +40,14 @@ export const useGetStocksList = (params: { query: string }) => {
         { signal },
       ),
     select: (data) => data.data.results,
-    enabled: !!params.query,
+    enabled: params.query.trim().length >= 2,
+    placeholderData: keepPreviousData,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    retry: false,
   });
 };
 
@@ -76,6 +93,11 @@ export const useGetStockPrice = (params: { ticker: string }) =>
       ),
     select: (data) => data.data,
     enabled: !!params.ticker,
+    staleTime: 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
 export const useGetStockHistory = (params: {
@@ -95,6 +117,11 @@ export const useGetStockHistory = (params: {
       ),
     select: (data) => data.data,
     enabled: !!params.ticker,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
 export const useGetStockDetail = (params: { ticker: string }) =>
@@ -109,4 +136,9 @@ export const useGetStockDetail = (params: { ticker: string }) =>
       ),
     select: (data) => data.data,
     enabled: !!params.ticker,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });

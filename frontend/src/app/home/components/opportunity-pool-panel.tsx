@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
 import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { isApiNetworkError } from "@/lib/api-client";
 import OpportunityCandidateCard from "./opportunity-candidate-card";
 
 export default function OpportunityPoolPanel() {
@@ -11,6 +13,9 @@ export default function OpportunityPoolPanel() {
     data: opportunityPool,
     isLoading,
     isError,
+    isFetching,
+    error,
+    refetch,
   } = useGetOpportunityCandidates();
 
   const visibleItems = useMemo(
@@ -53,13 +58,35 @@ export default function OpportunityPoolPanel() {
         </div>
       ) : null}
 
-      {!isLoading && (isError || !opportunityPool?.available || !visibleItems.length) ? (
+      {!!visibleItems.length && isFetching ? (
+        <p className="mt-4 text-center text-muted-foreground text-xs">
+          已展示上次结果，正在后台刷新机会池。
+        </p>
+      ) : null}
+
+      {!!visibleItems.length && isError ? (
+        <Alert className="mt-4">
+          <AlertTitle>当前先使用缓存结果</AlertTitle>
+          <AlertDescription>
+            <p>
+              {isApiNetworkError(error)
+                ? "网络波动，当前先显示上次机会池结果。"
+                : "机会池刷新失败，当前先显示上次结果。"}
+            </p>
+            <Button size="sm" variant="outline" onClick={() => void refetch()}>
+              重试
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {!isLoading && (!visibleItems.length && (isError || !opportunityPool?.available)) ? (
         <div className="mt-4 rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
           {opportunityPool?.empty_message || "暂无可用机会池候选"}
         </div>
       ) : null}
 
-      {!isLoading && !isError && visibleItems.length ? (
+      {!isLoading && visibleItems.length ? (
         <div className="mt-4 grid gap-3 xl:grid-cols-2">
           {visibleItems.map((item) => (
             <OpportunityCandidateCard

@@ -60,6 +60,7 @@ export const useGetStockAnalysisResearchTasks = (
     staleTime: TASK_STALE_TIME_MS,
     gcTime: TASK_GC_TIME_MS,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
   });
 

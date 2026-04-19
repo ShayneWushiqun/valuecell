@@ -110,6 +110,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { isApiNetworkError } from "@/lib/api-client";
 import type {
   AnalysisContextCard,
   StockAnalysisRefreshRunResult,
@@ -279,6 +280,7 @@ export default function StockAnalysis() {
     data: overview,
     isLoading,
     isError,
+    error: overviewError,
     isFetching: overviewRefreshing,
     refetch: refetchOverview,
   } = useGetStockAnalysisWorkspaceOverview(selectedThreadId);
@@ -287,6 +289,7 @@ export default function StockAnalysis() {
     isLoading: contextsLoading,
     isFetching: contextsRefreshing,
     isError: contextsError,
+    error: contextsQueryError,
     refetch: refetchContexts,
   } = useGetStockAnalysisContexts(selectedThreadId);
   const {
@@ -294,6 +297,7 @@ export default function StockAnalysis() {
     isLoading: messagesLoading,
     isFetching: messagesRefreshing,
     isError: messagesError,
+    error: messagesQueryError,
     refetch: refetchMessages,
   } = useGetStockAnalysisMessages(selectedThreadId);
   const { data: compareTargetData, isFetching: compareTargetsRefreshing } =
@@ -303,6 +307,7 @@ export default function StockAnalysis() {
     isLoading: memoriesLoading,
     isFetching: memoriesRefreshing,
     isError: memoriesError,
+    error: memoriesQueryError,
     refetch: refetchMemories,
   } = useGetStockAnalysisThreadMemories(
     selectedThreadId,
@@ -313,6 +318,7 @@ export default function StockAnalysis() {
     isLoading: compressionsLoading,
     isFetching: compressionsRefreshing,
     isError: compressionsError,
+    error: compressionsQueryError,
     refetch: refetchCompressions,
   } = useGetStockAnalysisThreadCompressions(
     selectedThreadId,
@@ -324,6 +330,7 @@ export default function StockAnalysis() {
     isLoading: researchTasksLoading,
     isFetching: researchTasksRefreshing,
     isError: researchTasksError,
+    error: researchTasksQueryError,
     refetch: refetchResearchTasks,
   } = useGetStockAnalysisResearchTasks(
     selectedThreadId,
@@ -334,13 +341,15 @@ export default function StockAnalysis() {
     isLoading: researchFeedbackLoading,
     isFetching: researchFeedbackRefreshing,
     isError: researchFeedbackError,
+    error: researchFeedbackQueryError,
     refetch: refetchResearchFeedback,
   } = useGetStockAnalysisResearchFeedback(
     selectedThreadId,
     !!selectedThreadId && (secondaryTab === "assistant" || secondaryTab === "feedback"),
   );
+  const shouldLoadGlobalOverview = secondaryTab === "advanced";
   const { data: globalOverview, isFetching: globalOverviewRefreshing } =
-    useGetStockAnalysisOverview();
+    useGetStockAnalysisOverview(shouldLoadGlobalOverview);
 
   const isAddContextSourcePanelOpen = addContextOpen && !!selectedThreadId;
   const shouldLoadTradingRuns =
@@ -605,6 +614,28 @@ export default function StockAnalysis() {
     decisionReviewsRefreshing ||
     decisionEffectivenessRefreshing ||
     riskSizingSummaryRefreshing;
+  const showOverviewCachedWarning = !!overview && isError && isApiNetworkError(overviewError);
+  const showMessagesCachedWarning =
+    !!messages?.items.length &&
+    messagesError &&
+    isApiNetworkError(messagesQueryError);
+  const showContextsCachedWarning =
+    !!contextItems.length &&
+    contextsError &&
+    isApiNetworkError(contextsQueryError);
+  const showAssistantCachedWarning =
+    (!!threadResearchTasks.length || !!threadResearchFeedback.length) &&
+    (researchTasksError || researchFeedbackError) &&
+    (isApiNetworkError(researchTasksQueryError) ||
+      isApiNetworkError(researchFeedbackQueryError));
+  const showMemoriesCachedWarning =
+    (!!activeMemory || !!threadMemories.length) &&
+    memoriesError &&
+    isApiNetworkError(memoriesQueryError);
+  const showCompressionCachedWarning =
+    (!!activeCompression || !!threadCompressions.length) &&
+    compressionsError &&
+    isApiNetworkError(compressionsQueryError);
 
   useEffect(() => {
     if (!selectedThreadId && overview?.current_thread?.thread_id) {
@@ -1622,11 +1653,12 @@ export default function StockAnalysis() {
                     loadingText="正在后台刷新线程摘要"
                     isRefreshing={
                       !!overview &&
-                      (overviewRefreshing ||
-                        compareTargetsRefreshing ||
-                        globalOverviewRefreshing)
+                      (overviewRefreshing || compareTargetsRefreshing)
                     }
                     hasData={!!overview}
+                    isWarning={showOverviewCachedWarning}
+                    warningText="网络暂时波动，当前先使用已加载的线程信息。"
+                    onRetry={() => void refetchOverview()}
                   />
 
                   {lastActionMessage ? (
@@ -1748,6 +1780,8 @@ export default function StockAnalysis() {
                       isRefreshing={!!messages?.items.length && messagesRefreshing}
                       hasData={!!messages?.items.length}
                       isError={messagesError}
+                      isWarning={showMessagesCachedWarning}
+                      warningText="网络暂时波动，当前先显示上次聊天记录。"
                       errorText="加载聊天记录失败，请稍后重试。"
                       onRetry={() => void refetchMessages()}
                     />
@@ -2453,6 +2487,8 @@ export default function StockAnalysis() {
                               !!threadResearchFeedback.length
                             }
                             isError={researchTasksError || researchFeedbackError}
+                            isWarning={showAssistantCachedWarning}
+                            warningText="网络波动，当前先显示上次任务与反馈结果。"
                             errorText="研究任务或反馈加载失败，请稍后重试。"
                             onRetry={() => {
                               void refetchResearchTasks();
@@ -2505,6 +2541,8 @@ export default function StockAnalysis() {
                             isRefreshing={!!memoryData && memoriesRefreshing}
                             hasData={!!memoryData || !!activeMemory || !!threadMemories.length}
                             isError={memoriesError}
+                            isWarning={showMemoriesCachedWarning}
+                            warningText="网络波动，当前先使用已缓存的研究记忆。"
                             errorText="研究记忆加载失败，请稍后重试。"
                             onRetry={() => void refetchMemories()}
                           />
@@ -2534,6 +2572,8 @@ export default function StockAnalysis() {
                               !!threadCompressions.length
                             }
                             isError={compressionsError}
+                            isWarning={showCompressionCachedWarning}
+                            warningText="网络波动，当前先使用已缓存的对话整理结果。"
                             errorText="对话整理信息加载失败，请稍后重试。"
                             onRetry={() => void refetchCompressions()}
                           />
@@ -2701,6 +2741,8 @@ export default function StockAnalysis() {
                     isRefreshing={!!contextItems.length && contextsRefreshing}
                     hasData={!!contextItems.length}
                     isError={contextsError}
+                    isWarning={showContextsCachedWarning}
+                    warningText="网络波动，当前先显示已缓存的上下文卡片。"
                     errorText="上下文卡片加载失败，请稍后重试。"
                     onRetry={() => void refetchContexts()}
                   />

@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useGetEntryTimingSignals } from "@/api/entry-timing";
 import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { isApiNetworkError } from "@/lib/api-client";
 import {
   DecisionAlertSummaryPanel,
   EntryTimingSummaryPanel,
@@ -31,6 +33,9 @@ export default function Opportunities() {
     data: opportunityPool,
     isLoading,
     isError,
+    isFetching,
+    error,
+    refetch,
   } = useGetOpportunityCandidates();
   const {
     data: entryTimingSignals,
@@ -147,13 +152,35 @@ export default function Opportunities() {
         </div>
       ) : null}
 
-      {!isLoading && (isError || !opportunityPool?.available || !filteredItems.length) ? (
+      {!!filteredItems.length && isFetching ? (
+        <p className="text-center text-muted-foreground text-xs">
+          已展示上次结果，正在后台刷新机会池。
+        </p>
+      ) : null}
+
+      {!!filteredItems.length && isError ? (
+        <Alert>
+          <AlertTitle>当前先使用缓存结果</AlertTitle>
+          <AlertDescription>
+            <p>
+              {isApiNetworkError(error)
+                ? "网络波动，当前先显示上次机会池结果。"
+                : "机会池刷新失败，当前先显示上次结果。"}
+            </p>
+            <Button size="sm" variant="outline" onClick={() => void refetch()}>
+              重试
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {!isLoading && (!filteredItems.length && (isError || !opportunityPool?.available)) ? (
         <div className="rounded-xl border border-dashed p-6 text-muted-foreground text-sm">
           {opportunityPool?.empty_message || "暂无可用机会池候选"}
         </div>
       ) : null}
 
-      {!isLoading && !isError && groupedItems.length ? (
+      {!isLoading && groupedItems.length ? (
         <div className="space-y-6">
           {groupedItems.map((group) => (
             <section key={group.bucket} className="space-y-3">

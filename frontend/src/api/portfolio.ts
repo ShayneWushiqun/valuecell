@@ -15,6 +15,11 @@ export const useGetPortfolioOverview = () =>
     queryKey: API_QUERY_KEYS.PORTFOLIO.overview,
     queryFn: () => apiClient.get<ApiResponse<PortfolioOverview>>("portfolio/overview"),
     select: (response) => response.data,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
 export const useGetHoldings = () =>
@@ -22,6 +27,11 @@ export const useGetHoldings = () =>
     queryKey: API_QUERY_KEYS.PORTFOLIO.holdings,
     queryFn: () => apiClient.get<ApiResponse<HoldingList>>("portfolio/holdings"),
     select: (response) => response.data,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
 export const useRefreshDailyBriefing = () => {
