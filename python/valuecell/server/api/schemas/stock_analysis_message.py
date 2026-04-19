@@ -54,6 +54,12 @@ class StockAnalysisMessageItemData(BaseModel):
     uncompressed_message_count: int = 0
     estimated_history_size: int = 0
     active_compression_stale: bool = False
+    question_intent: str | None = None
+    response_strategy: str | None = None
+    routing_reason: str | None = None
+    recommended_next_action: str | None = None
+    followup_candidates: list[str] = Field(default_factory=list)
+    suggested_task_titles: list[str] = Field(default_factory=list)
 
 
 class StockAnalysisMessageListData(BaseModel):
@@ -115,5 +121,11 @@ class StockAnalysisMessageCreateData(BaseModel):
     uncompressed_message_count: int = 0
     estimated_history_size: int = 0
     active_compression_stale: bool = False
+    question_intent: str | None = None
+    response_strategy: str | None = None
+    routing_reason: str | None = None
+    recommended_next_action: str | None = None
+    followup_candidates: list[str] = Field(default_factory=list)
+    suggested_task_titles: list[str] = Field(default_factory=list)
     user_message: StockAnalysisMessageItemData
     assistant_message: StockAnalysisMessageItemData

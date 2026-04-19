@@ -68,6 +68,14 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
             "recent_tooling_notes_json": ["补了价格动作。"],
             "recent_evidence_notes_json": ["行情补充：补最近 5 日日线。"],
         },
+        question_routing={
+            "question_intent": "compare_targets",
+            "response_strategy": "answer_with_compare_focus",
+            "routing_reason": "识别为 compare_targets；因此采用 answer_with_compare_focus",
+            "recommended_next_action": "围绕 compare targets 输出主次与依据",
+            "followup_candidates": ["刷新后再比较"],
+            "suggested_task_titles": ["补充比较：中际旭创 vs 平安银行 的优先级确认"],
+        },
         recent_raw_messages=[
             {"item_id": "item_13", "role": "user", "content": "最近承接谁更强？"},
             {"item_id": "item_14", "role": "assistant", "content": "先看中军强度。"},
@@ -117,9 +125,11 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
     assert "Current Context Refresh Status" in result["prompt_context"]
     assert "Thread Active Research Memory" in result["prompt_context"]
     assert "Thread Active Conversation Compression" in result["prompt_context"]
+    assert "Question Routing" in result["prompt_context"]
     assert "Recent Raw Messages" in result["prompt_context"]
     assert "Memory ID: 8" in result["prompt_context"]
     assert "Compression ID: 5" in result["prompt_context"]
+    assert "Question Intent: compare_targets" in result["prompt_context"]
     assert "item_13" in result["prompt_context"]
     assert "source=holding" in result["prompt_context"]
     assert "已删除卡片" not in result["prompt_context"]

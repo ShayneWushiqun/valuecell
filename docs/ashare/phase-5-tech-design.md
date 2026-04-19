@@ -2,9 +2,9 @@
 
 ## 1. 目标
 
-阶段五第一轮的技术目标，是在阶段四线程式研究工作区之上增加一个稳定的：
+阶段五的技术目标，是在阶段四线程式研究工作区之上增加一个稳定的：
 
-`显式线程研究记忆层 + 显式会话上下文压缩层`
+`显式线程研究记忆层 + 显式会话上下文压缩层 + 可解释的问题路由层 + 显式研究任务层`
 
 让系统既能保留线程的长期研究结论，又继续坚持：
 
@@ -36,12 +36,23 @@
 - 工作区里的 compression panel / history / activate / refresh
 - compression recommendation / reason / uncompressed_message_count / estimated_history_size
 
+阶段五第二轮 本轮新增：
+
+- `stock_analysis_research_task` 模型与仓储
+- `StockAnalysisQuestionRouterService`
+- `StockAnalysisResearchTaskService`
+- `GET/POST` 形式的 research task list / detail / create / generate / complete / reopen / dismiss API
+- prompt 中的 `Question Routing`
+- assistant metadata 中的 `question_intent / response_strategy / routing_reason / recommended_next_action`
+- 工作区里的 research task panel、手动创建、生成、完成 / 重开 / 忽略
+
 当前未实现：
 
 - 自动长期记忆系统
 - 更强 planner 语义
 - 自动交易
 - 更复杂的研究归因与绩效反馈
+- 更强的多步工具编排
 
 ## 2. 设计原则
 
@@ -87,6 +98,7 @@ active memory 只是一份线程级研究摘要。
 
 - `stock_analysis_thread_memory`
 - `stock_analysis_thread_compression`
+- `stock_analysis_research_task`
 
 关键字段：
 
@@ -106,6 +118,7 @@ active memory 只是一份线程级研究摘要。
 
 - `StockAnalysisThreadMemoryRepository`
 - `StockAnalysisThreadCompressionRepository`
+- `StockAnalysisResearchTaskRepository`
 
 提供：
 
@@ -128,6 +141,8 @@ active memory 只是一份线程级研究摘要。
 
 - `StockAnalysisThreadMemoryService`
 - `StockAnalysisThreadCompressionService`
+- `StockAnalysisQuestionRouterService`
+- `StockAnalysisResearchTaskService`
 
 职责：
 
@@ -137,6 +152,8 @@ active memory 只是一份线程级研究摘要。
 - 保证线程内 active memory 唯一
 - 返回带版本号与统计信息的 memory DTO
 - 生成 active compression、recent raw messages 和 compression recommendation
+- 在 planner 之前稳定输出 question routing
+- 从 memory / compression / compare / refresh / assistant routing 中显式生成 research tasks
 
 ### 3.4 Prompt Assembler 联动
 
@@ -144,8 +161,10 @@ active memory 只是一份线程级研究摘要。
 
 - 增加 `active_memory` 入参
 - 增加 `active_compression` 与 `recent_raw_messages` 入参
+- 增加 `question_routing` 入参
 - 在 prompt 中追加 `Thread Active Research Memory`
 - 在 prompt 中追加 `Thread Active Conversation Compression`
+- 在 prompt 中追加 `Question Routing`
 - 在 prompt 中追加 `Recent Raw Messages`
 - 在 response rules 中明确：
   - active memory 是辅助摘要
@@ -159,7 +178,9 @@ active memory 只是一份线程级研究摘要。
 
 - 发送消息时查询 active memory
 - 发送消息时查询 active compression 和 recent raw messages
+- 在 tool planner 之前先执行 question router
 - 将 active memory、active compression、recent raw messages 一并传给 assembler
+- 将 question routing 作为第一层研究语义，与 tool planner 第二层并存
 - assistant metadata 返回：
   - `used_active_memory`
   - `active_memory_id`
@@ -174,6 +195,12 @@ active memory 只是一份线程级研究摘要。
 -  - `active_compression_covered_until_message_id`
 -  - `active_compression_covered_message_count`
 -  - `recent_raw_message_count`
+-  - `question_intent`
+-  - `response_strategy`
+-  - `routing_reason`
+-  - `recommended_next_action`
+-  - `followup_candidates`
+-  - `suggested_task_titles`
 
 ### 3.6 Workspace / Fork 联动
 
@@ -240,6 +267,31 @@ fallback 仍保留：
 - compare targets
 - source snapshot
 
+### 4.4 Question Routing 主路径
+
+当前第二轮优先采用规则优先的可解释路由：
+
+- 先识别 `summarize_context / explain_reasoning / compare_targets / refresh_state_check / external_evidence_check / challenge_conclusion / update_thesis / define_next_step / context_gap / general_followup`
+- 再映射到 `answer_from_context / answer_with_compare_focus / refresh_then_answer / tooling_then_answer / restate_and_recheck / highlight_context_gap / suggest_research_tasks`
+- 输出 `routing_reason`、`recommended_next_action`、`followup_candidates` 和 `suggested_task_titles`
+
+该层不替代现有 tool planner，只负责研究语义。
+
+### 4.5 Research Task Generate 主路径
+
+当前第二轮 `generate` 只从现有线程结构中显式抽取任务：
+
+- active memory 的 `key_uncertainties / next_questions / risk_points`
+- active compression 的 `open_questions / recent_compare_notes / recent_tooling_notes / recent_evidence_notes`
+- compare targets 当前状态
+- stale / refresh recommended contexts
+- 最近 assistant message 的 routing metadata 与建议任务标题
+
+轻量去重规则：
+
+- 以 `thread_id + title + task_type + status=open` 为 dedupe key
+- 命中 open task 时更新摘要和关联字段，不重复插入
+
 ## 5. API 设计
 
 ### 5.1 列表与详情
@@ -282,6 +334,24 @@ fallback 仍保留：
 - `estimated_history_size`
 - `active_compression_stale`
 
+### 5.4 Research Tasks
+
+- `GET /api/v1/stock-analysis/threads/{thread_id}/research-tasks`
+- `GET /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/generate`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}/complete`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}/reopen`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}/dismiss`
+
+列表还返回：
+
+- `open_count`
+- `high_priority_open_count`
+- `last_generated_at`
+- `has_actionable_gap`
+- `actionable_gap_summary`
+
 ## 6. 前端设计
 
 ### 6.1 数据访问
@@ -292,6 +362,8 @@ fallback 仍保留：
 - `frontend/src/types/stock-analysis-thread-memory.ts`
 - `frontend/src/api/stock-analysis-thread-compression.ts`
 - `frontend/src/types/stock-analysis-thread-compression.ts`
+- `frontend/src/api/stock-analysis-research-task.ts`
+- `frontend/src/types/stock-analysis-research-task.ts`
 
 ### 6.2 工作区交互
 
@@ -299,14 +371,20 @@ fallback 仍保留：
 
 - 研究记忆面板
 - 对话压缩面板
+- 研究任务面板
 - 当前 active memory 摘要卡
 - 当前 active compression 摘要卡
+- assistant routing explanation
 - `生成研究记忆`
 - `整理当前对话`
+- `生成研究任务`
+- `新建手动任务`
 - `刷新当前研究记忆`
 - `刷新当前压缩摘要`
+- `完成 / 重开 / 忽略研究任务`
 - `查看记忆历史`
 - `查看压缩历史`
+- `查看历史任务`
 - 历史版本激活
 
 ### 6.3 消息区提示
@@ -325,6 +403,14 @@ assistant message 若使用 active compression，消息下方显示：
 - 覆盖到哪条消息
 - recent raw message 数量
 
+assistant message 若存在 routing metadata，消息下方显示：
+
+- 本轮问题类型
+- 本轮回答策略
+- routing reason
+- recommended next action
+- suggested task titles
+
 ### 6.4 Fork Dialog 联动
 
 fork dialog 新增：
@@ -341,6 +427,9 @@ fork dialog 新增：
 - `test_stock_analysis_thread_memory_router.py`
 - `test_stock_analysis_thread_compression_service.py`
 - `test_stock_analysis_thread_compression_router.py`
+- `test_stock_analysis_question_router_service.py`
+- `test_stock_analysis_research_task_service.py`
+- `test_stock_analysis_research_task_router.py`
 - `test_stock_analysis_context_assembler.py`
 - `test_stock_analysis_message_service.py`
 - `test_stock_analysis_workspace_service.py`
@@ -353,8 +442,12 @@ fork dialog 新增：
 - refresh 生成新版本
 - assembler 拼入 active memory
 - assembler 拼入 active compression 与 recent raw messages
+- assembler 拼入 question routing block
 - message metadata 标记 used active memory
 - message metadata 标记 used active compression
+- message metadata 带出 routing fields
 - compression recommendation 正确
+- generate 从 memory / compression / compare / refresh / routing 中抽任务
+- research task dedupe / complete / reopen / dismiss 正确
 - compare 模式保留 compared tickers
 - fork thread + `seed_from_active_memory`

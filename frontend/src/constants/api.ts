@@ -185,6 +185,13 @@ const STOCK_ANALYSIS_QUERY_KEYS = {
     threadId,
     compressionId,
   ],
+  researchTasks: (threadId: number) => ["stock-analysis", "research-tasks", threadId],
+  researchTaskDetail: (threadId: number, taskId: number) => [
+    "stock-analysis",
+    "research-task-detail",
+    threadId,
+    taskId,
+  ],
 } as const;
 
 const SYSTEM_QUERY_KEYS = {

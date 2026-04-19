@@ -21,6 +21,10 @@ from .stock_analysis_refresh_service import (
     StockAnalysisRefreshService,
     get_stock_analysis_refresh_service,
 )
+from .stock_analysis_question_router_service import (
+    StockAnalysisQuestionRouterService,
+    get_stock_analysis_question_router_service,
+)
 from .stock_analysis_thread_memory_service import (
     StockAnalysisThreadMemoryService,
     get_stock_analysis_thread_memory_service,
@@ -90,6 +94,12 @@ class StockAnalysisMessageResult(BaseModel):
     uncompressed_message_count: int = 0
     estimated_history_size: int = 0
     active_compression_stale: bool = False
+    question_intent: str | None = None
+    response_strategy: str | None = None
+    routing_reason: str | None = None
+    recommended_next_action: str | None = None
+    followup_candidates: list[str]
+    suggested_task_titles: list[str]
     user_message: dict[str, Any]
     assistant_message: dict[str, Any]
 
@@ -103,6 +113,7 @@ class StockAnalysisMessageService:
         tool_planner: Optional[StockAnalysisToolPlanner] = None,
         tooling_service: Optional[StockAnalysisToolingService] = None,
         refresh_service: Optional[StockAnalysisRefreshService] = None,
+        question_router_service: Optional[StockAnalysisQuestionRouterService] = None,
         thread_memory_service: Optional[StockAnalysisThreadMemoryService] = None,
         thread_compression_service: Optional[
             StockAnalysisThreadCompressionService
@@ -116,6 +127,9 @@ class StockAnalysisMessageService:
         self.tool_planner = tool_planner or get_stock_analysis_tool_planner()
         self.tooling_service = tooling_service or get_stock_analysis_tooling_service()
         self.refresh_service = refresh_service or get_stock_analysis_refresh_service()
+        self.question_router_service = (
+            question_router_service or get_stock_analysis_question_router_service()
+        )
         self.thread_memory_service = (
             thread_memory_service or get_stock_analysis_thread_memory_service()
         )
@@ -192,14 +206,6 @@ class StockAnalysisMessageService:
         )
         active_compression = compression_state["active_compression"]
         recent_raw_messages = list(compression_state["recent_raw_messages"] or [])
-        assembled = self.context_assembler.assemble(
-            thread=thread,
-            context_cards=context_cards,
-            active_memory=active_memory,
-            active_compression=active_compression,
-            recent_raw_messages=recent_raw_messages,
-            user_question=message,
-        )
         history_items = await self.conversation_service.core_conversation_service.get_conversation_items(
             conversation_id=thread_obj.conversation_id,
             limit=20,
@@ -209,6 +215,25 @@ class StockAnalysisMessageService:
             for item in history_items
             if str(item.event) == str(NotifyResponseEvent.MESSAGE)
         ]
+        question_routing = self.question_router_service.route_question(
+            thread=thread,
+            context_cards=context_cards,
+            active_memory=active_memory,
+            active_compression=active_compression,
+            conversation_history=history_messages,
+            user_message=message.strip(),
+            force_tooling=force_tooling,
+            refresh_before_answer=refresh_before_answer,
+        )
+        assembled = self.context_assembler.assemble(
+            thread=thread,
+            context_cards=context_cards,
+            active_memory=active_memory,
+            active_compression=active_compression,
+            question_routing=question_routing.model_dump(),
+            recent_raw_messages=recent_raw_messages,
+            user_question=message,
+        )
         planner_result = self.tool_planner.plan(
             thread=thread,
             context_cards=context_cards,
@@ -379,6 +404,18 @@ class StockAnalysisMessageService:
             "active_compression_stale": bool(
                 compression_state["active_compression_stale"]
             ),
+            "question_intent": question_routing.question_intent,
+            "response_strategy": question_routing.response_strategy,
+            "routing_reason": question_routing.routing_reason,
+            "recommended_next_action": question_routing.recommended_next_action,
+            "followup_candidates_json": json.dumps(
+                question_routing.followup_candidates,
+                ensure_ascii=False,
+            ),
+            "suggested_task_titles_json": json.dumps(
+                question_routing.suggested_task_titles,
+                ensure_ascii=False,
+            ),
             "thread_id": thread_id,
         }
         assistant_item = await self.conversation_service.core_conversation_service.add_item(
@@ -473,6 +510,12 @@ class StockAnalysisMessageService:
             ),
             estimated_history_size=int(compression_state["estimated_history_size"] or 0),
             active_compression_stale=bool(compression_state["active_compression_stale"]),
+            question_intent=question_routing.question_intent,
+            response_strategy=question_routing.response_strategy,
+            routing_reason=question_routing.routing_reason,
+            recommended_next_action=question_routing.recommended_next_action,
+            followup_candidates=question_routing.followup_candidates,
+            suggested_task_titles=question_routing.suggested_task_titles,
             user_message=self._serialize_message_item(user_item),
             assistant_message=self._serialize_message_item(assistant_item),
         )
@@ -663,6 +706,12 @@ class StockAnalysisMessageService:
                 "uncompressed_message_count": 0,
                 "estimated_history_size": 0,
                 "active_compression_stale": False,
+                "question_intent": None,
+                "response_strategy": None,
+                "routing_reason": None,
+                "recommended_next_action": None,
+                "followup_candidates": [],
+                "suggested_task_titles": [],
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -804,6 +853,21 @@ class StockAnalysisMessageService:
             ),
             "active_compression_stale": StockAnalysisMessageService._parse_bool(
                 metadata.get("active_compression_stale")
+            ),
+            "question_intent": str(metadata.get("question_intent") or "").strip() or None,
+            "response_strategy": str(metadata.get("response_strategy") or "").strip()
+            or None,
+            "routing_reason": str(metadata.get("routing_reason") or "").strip()
+            or None,
+            "recommended_next_action": str(
+                metadata.get("recommended_next_action") or ""
+            ).strip()
+            or None,
+            "followup_candidates": StockAnalysisMessageService._parse_json_list(
+                metadata.get("followup_candidates_json")
+            ),
+            "suggested_task_titles": StockAnalysisMessageService._parse_json_list(
+                metadata.get("suggested_task_titles_json")
             ),
         }
 

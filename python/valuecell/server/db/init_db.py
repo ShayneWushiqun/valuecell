@@ -37,6 +37,9 @@ from valuecell.server.db.models.stock_analysis_thread import StockAnalysisThread
 from valuecell.server.db.models.stock_analysis_thread_compression import (
     StockAnalysisThreadCompression,
 )
+from valuecell.server.db.models.stock_analysis_research_task import (
+    StockAnalysisResearchTask,
+)
 from valuecell.server.db.models.stock_analysis_thread_memory import (
     StockAnalysisThreadMemory,
 )

@@ -11,6 +11,11 @@ type StockAnalysisThreadSummaryProps = {
   activeCompressionStale: boolean;
   uncompressedMessageCount: number;
   compressionReason?: string | null;
+  openResearchTaskCount: number;
+  highPriorityResearchTaskCount: number;
+  lastResearchTaskGenerateAt?: string | null;
+  hasActionableTaskGap: boolean;
+  actionableTaskGapSummary?: string | null;
   lastRefreshAt?: string | null;
   lastRefreshSummary?: string | null;
 };
@@ -33,6 +38,11 @@ export function StockAnalysisThreadSummary({
   activeCompressionStale,
   uncompressedMessageCount,
   compressionReason,
+  openResearchTaskCount,
+  highPriorityResearchTaskCount,
+  lastResearchTaskGenerateAt,
+  hasActionableTaskGap,
+  actionableTaskGapSummary,
   lastRefreshAt,
   lastRefreshSummary,
 }: StockAnalysisThreadSummaryProps) {
@@ -53,11 +63,16 @@ export function StockAnalysisThreadSummary({
         <Badge variant="outline">
           未压缩消息 {uncompressedMessageCount}
         </Badge>
+        <Badge variant="outline">Open tasks {openResearchTaskCount}</Badge>
+        <Badge variant="outline">High tasks {highPriorityResearchTaskCount}</Badge>
         <Badge variant={compressionRecommended ? "secondary" : "outline"}>
           {compressionRecommended ? "建议压缩" : "当前无需压缩"}
         </Badge>
         <Badge variant={activeCompressionStale ? "secondary" : "outline"}>
           {activeCompressionStale ? "压缩偏旧" : "压缩可用"}
+        </Badge>
+        <Badge variant={hasActionableTaskGap ? "secondary" : "outline"}>
+          {hasActionableTaskGap ? "存在任务 gap" : "当前任务 gap 可控"}
         </Badge>
       </div>
       <div className="mt-3 space-y-2 text-sm">
@@ -65,6 +80,10 @@ export function StockAnalysisThreadSummary({
           最近一次批量刷新：{formatTime(lastRefreshAt)}
         </p>
         <p>{lastRefreshSummary || "当前还没有批量刷新记录。"}</p>
+        <p className="text-muted-foreground">
+          最近一次任务生成：{formatTime(lastResearchTaskGenerateAt)}
+        </p>
+        <p>{actionableTaskGapSummary || "当前还没有需要立即处理的 research task gap。"}</p>
         <p className="text-muted-foreground">
           {compressionReason || "当前线程如果继续增长，可手动整理对话。"}
         </p>

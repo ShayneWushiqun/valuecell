@@ -23,6 +23,14 @@ import {
   useRefreshStockAnalysisThreadMemory,
 } from "@/api/stock-analysis-thread-memory";
 import {
+  useCompleteStockAnalysisResearchTask,
+  useCreateStockAnalysisResearchTask,
+  useDismissStockAnalysisResearchTask,
+  useGenerateStockAnalysisResearchTasks,
+  useGetStockAnalysisResearchTasks,
+  useReopenStockAnalysisResearchTask,
+} from "@/api/stock-analysis-research-task";
+import {
   useCreateStockAnalysisMessage,
   useCreateStockAnalysisThread,
   useDeleteStockAnalysisContext,
@@ -46,6 +54,7 @@ import { StockAnalysisCompressionPanel } from "@/app/home/components/stock-analy
 import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
 import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
 import { StockAnalysisMemoryPanel } from "@/app/home/components/stock-analysis-memory-panel";
+import { StockAnalysisResearchTaskPanel } from "@/app/home/components/stock-analysis-research-task-panel";
 import { StockAnalysisRefreshSummary } from "@/app/home/components/stock-analysis-refresh-summary";
 import { StockAnalysisThreadSummary } from "@/app/home/components/stock-analysis-thread-summary";
 import { useGetThemeRadarOverview } from "@/api/theme-radar";
@@ -86,6 +95,7 @@ import type {
   StockAnalysisCompareTarget,
   StockAnalysisThread,
 } from "@/types/stock-analysis-thread";
+import type { StockAnalysisResearchTask } from "@/types/stock-analysis-research-task";
 
 const FOCUS_OPTIONS = [
   "ticker",
@@ -236,6 +246,8 @@ export default function StockAnalysis() {
     useGetStockAnalysisThreadMemories(selectedThreadId);
   const { data: compressionData, isLoading: compressionsLoading } =
     useGetStockAnalysisThreadCompressions(selectedThreadId);
+  const { data: researchTaskData, isLoading: researchTasksLoading } =
+    useGetStockAnalysisResearchTasks(selectedThreadId);
   const { data: tradingRuns } = useGetTradingAgentsRuns();
   const { data: holdingOverview } = useGetHoldingLifecycleOverview();
   const { data: opportunityOverview } = useGetOpportunityCandidates();
@@ -261,6 +273,11 @@ export default function StockAnalysis() {
   const captureThreadMemory = useCaptureStockAnalysisThreadMemory();
   const activateThreadMemory = useActivateStockAnalysisThreadMemory();
   const refreshThreadMemory = useRefreshStockAnalysisThreadMemory();
+  const generateResearchTasks = useGenerateStockAnalysisResearchTasks();
+  const createResearchTask = useCreateStockAnalysisResearchTask();
+  const completeResearchTask = useCompleteStockAnalysisResearchTask();
+  const reopenResearchTask = useReopenStockAnalysisResearchTask();
+  const dismissResearchTask = useDismissStockAnalysisResearchTask();
   const saveEvidence = useSaveStockAnalysisEvidence();
   const updateCompareTargets = useUpdateStockAnalysisCompareTargets();
   const forkThread = useForkStockAnalysisThread();
@@ -278,6 +295,7 @@ export default function StockAnalysis() {
   const threadMemories = memoryData?.items || [];
   const activeCompression = compressionData?.active_compression || null;
   const threadCompressions = compressionData?.items || [];
+  const threadResearchTasks = researchTaskData?.items || [];
   const contextTitleMap = useMemo(
     () => new Map(contextItems.map((item) => [item.context_id, item.title])),
     [contextItems],
@@ -710,6 +728,80 @@ export default function StockAnalysis() {
       toast.success("已切换当前对话压缩摘要");
     } catch {
       toast.error("切换对话压缩失败");
+    }
+  };
+
+  const handleGenerateResearchTasks = async () => {
+    if (!currentThread) return;
+    try {
+      const response = await generateResearchTasks.mutateAsync({
+        threadId: currentThread.thread_id,
+      });
+      toast.success(response.data.summary || "已从当前线程生成研究任务");
+    } catch {
+      toast.error("生成研究任务失败");
+    }
+  };
+
+  const handleCreateResearchTask = async (draft: {
+    title: string;
+    summary: string;
+    task_type: StockAnalysisResearchTask["task_type"];
+    priority: StockAnalysisResearchTask["priority"];
+    related_tickers_json: string[];
+    related_themes_json: string[];
+  }) => {
+    if (!currentThread) return;
+    try {
+      await createResearchTask.mutateAsync({
+        threadId: currentThread.thread_id,
+        data: {
+          ...draft,
+          source_kind: "manual",
+        },
+      });
+      toast.success("已创建手动研究任务");
+    } catch {
+      toast.error("创建研究任务失败");
+    }
+  };
+
+  const handleCompleteResearchTask = async (taskId: number) => {
+    if (!currentThread) return;
+    try {
+      await completeResearchTask.mutateAsync({
+        threadId: currentThread.thread_id,
+        taskId,
+      });
+      toast.success("已完成研究任务");
+    } catch {
+      toast.error("完成研究任务失败");
+    }
+  };
+
+  const handleReopenResearchTask = async (taskId: number) => {
+    if (!currentThread) return;
+    try {
+      await reopenResearchTask.mutateAsync({
+        threadId: currentThread.thread_id,
+        taskId,
+      });
+      toast.success("已重开研究任务");
+    } catch {
+      toast.error("重开研究任务失败");
+    }
+  };
+
+  const handleDismissResearchTask = async (taskId: number) => {
+    if (!currentThread) return;
+    try {
+      await dismissResearchTask.mutateAsync({
+        threadId: currentThread.thread_id,
+        taskId,
+      });
+      toast.success("已忽略研究任务");
+    } catch {
+      toast.error("忽略研究任务失败");
     }
   };
 
@@ -1160,6 +1252,19 @@ export default function StockAnalysis() {
                       compressionData?.uncompressed_message_count || 0
                     }
                     compressionReason={compressionData?.compression_reason || null}
+                    openResearchTaskCount={researchTaskData?.open_count || 0}
+                    highPriorityResearchTaskCount={
+                      researchTaskData?.high_priority_open_count || 0
+                    }
+                    lastResearchTaskGenerateAt={
+                      researchTaskData?.last_generated_at || null
+                    }
+                    hasActionableTaskGap={
+                      researchTaskData?.has_actionable_gap || false
+                    }
+                    actionableTaskGapSummary={
+                      researchTaskData?.actionable_gap_summary || null
+                    }
                     lastRefreshAt={lastRefreshRun?.generated_at || null}
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
@@ -1208,6 +1313,23 @@ export default function StockAnalysis() {
                     capturePending={captureThreadCompression.isPending}
                     refreshPending={refreshThreadCompression.isPending}
                     activatePending={activateThreadCompression.isPending}
+                  />
+
+                  <StockAnalysisResearchTaskPanel
+                    taskData={researchTaskData}
+                    isLoading={researchTasksLoading}
+                    generatePending={generateResearchTasks.isPending}
+                    createPending={createResearchTask.isPending}
+                    actionPending={
+                      completeResearchTask.isPending ||
+                      reopenResearchTask.isPending ||
+                      dismissResearchTask.isPending
+                    }
+                    onGenerate={() => void handleGenerateResearchTasks()}
+                    onCreate={(draft) => void handleCreateResearchTask(draft)}
+                    onComplete={(task) => void handleCompleteResearchTask(task.task_id)}
+                    onReopen={(task) => void handleReopenResearchTask(task.task_id)}
+                    onDismiss={(task) => void handleDismissResearchTask(task.task_id)}
                   />
 
                   <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
@@ -1340,6 +1462,46 @@ export default function StockAnalysis() {
                                             )
                                             .join("、")}
                                         </p>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                  {item.question_intent ||
+                                  item.response_strategy ||
+                                  item.recommended_next_action ? (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm">
+                                      <p className="font-medium">问题路由说明</p>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {item.question_intent ? (
+                                          <Badge variant="secondary">
+                                            问题类型：{item.question_intent}
+                                          </Badge>
+                                        ) : null}
+                                        {item.response_strategy ? (
+                                          <Badge variant="outline">
+                                            回答策略：{item.response_strategy}
+                                          </Badge>
+                                        ) : null}
+                                      </div>
+                                      <p className="mt-2 text-muted-foreground">
+                                        {item.routing_reason || "当前未提供额外路由说明。"}
+                                      </p>
+                                      {item.recommended_next_action ? (
+                                        <p className="mt-2 text-sm">
+                                          下一步建议：{item.recommended_next_action}
+                                        </p>
+                                      ) : null}
+                                      {item.suggested_task_titles.length ? (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          {item.suggested_task_titles.map((title) => (
+                                            <Badge
+                                              key={title}
+                                              variant="outline"
+                                              className="whitespace-normal"
+                                            >
+                                              {title}
+                                            </Badge>
+                                          ))}
+                                        </div>
                                       ) : null}
                                     </div>
                                   ) : null}

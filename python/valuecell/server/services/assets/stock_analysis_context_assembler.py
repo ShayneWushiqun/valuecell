@@ -11,6 +11,7 @@ class StockAnalysisContextAssembler:
         context_cards: Sequence[dict[str, Any]],
         active_memory: dict[str, Any] | None = None,
         active_compression: dict[str, Any] | None = None,
+        question_routing: dict[str, Any] | None = None,
         recent_raw_messages: Sequence[dict[str, Any]] | None = None,
         user_question: str,
     ) -> dict[str, Any]:
@@ -80,6 +81,10 @@ class StockAnalysisContextAssembler:
                 self._build_active_compression_block(
                     active_compression=active_compression
                 ),
+                "Question Routing",
+                self._build_question_routing_block(
+                    question_routing=question_routing
+                ),
                 "Recent Raw Messages",
                 self._build_recent_raw_messages_block(
                     recent_raw_messages=recent_raw_messages or []
@@ -93,6 +98,7 @@ class StockAnalysisContextAssembler:
                     stale_context_ids=stale_context_ids,
                     has_active_memory=active_memory is not None,
                     has_active_compression=active_compression is not None,
+                    question_routing=question_routing,
                 ),
             ]
         )
@@ -217,6 +223,7 @@ class StockAnalysisContextAssembler:
         stale_context_ids: Sequence[int],
         has_active_memory: bool,
         has_active_compression: bool,
+        question_routing: dict[str, Any] | None,
     ) -> str:
         rule_lines = [
             "- Answer from the explicit context cards first, then use active memory, active compression, and recent raw messages as supporting layers.",
@@ -233,6 +240,32 @@ class StockAnalysisContextAssembler:
             rule_lines.append(
                 "- Active conversation compression summarizes older message history. Use recent raw messages for the latest details."
             )
+        if question_routing:
+            strategy = str(question_routing.get("response_strategy") or "").strip()
+            if strategy == "answer_with_compare_focus":
+                rule_lines.append(
+                    "- Question routing requests compare focus. Organize the answer by comparison axes, primary vs secondary, and invalidation conditions."
+                )
+            elif strategy == "refresh_then_answer":
+                rule_lines.append(
+                    "- Question routing requests refresh awareness. Explain what should be refreshed before drawing stronger conclusions."
+                )
+            elif strategy == "tooling_then_answer":
+                rule_lines.append(
+                    "- Question routing signals evidence gap. Clarify which newer evidence is still required."
+                )
+            elif strategy == "restate_and_recheck":
+                rule_lines.append(
+                    "- Question routing requests thesis recheck. Restate the current thesis first, then challenge it with counterpoints."
+                )
+            elif strategy == "highlight_context_gap":
+                rule_lines.append(
+                    "- Question routing requests explicit gap handling. Lead with what context is missing before giving a tentative answer."
+                )
+            elif strategy == "suggest_research_tasks":
+                rule_lines.append(
+                    "- Question routing requests next-step organization. End with explicit next research tasks."
+                )
         if comparison_mode:
             rule_lines.append(
                 "- This thread is in explicit comparison mode. State which objects are being compared and their sources."
@@ -395,6 +428,32 @@ class StockAnalysisContextAssembler:
                 f"- {item.get('role') or '--'}[{item.get('item_id') or '--'}]: {item.get('content') or '--'}"
             )
         return "\n".join(lines)
+
+    @staticmethod
+    def _build_question_routing_block(
+        *, question_routing: dict[str, Any] | None
+    ) -> str:
+        if question_routing is None:
+            return "No explicit question routing guidance."
+        return "\n".join(
+            [
+                f"Question Intent: {question_routing.get('question_intent') or '--'}",
+                f"Response Strategy: {question_routing.get('response_strategy') or '--'}",
+                f"Routing Reason: {question_routing.get('routing_reason') or '--'}",
+                "Recommended Next Action: "
+                + str(question_routing.get("recommended_next_action") or "--"),
+                "Followup Candidates: "
+                + (
+                    "; ".join(list(question_routing.get("followup_candidates") or [])[:4])
+                    or "--"
+                ),
+                "Suggested Task Titles: "
+                + (
+                    "; ".join(list(question_routing.get("suggested_task_titles") or [])[:4])
+                    or "--"
+                ),
+            ]
+        )
 
     @staticmethod
     def _unique_list(values) -> list[str]:

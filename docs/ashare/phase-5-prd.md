@@ -2,11 +2,11 @@
 
 ## 1. 阶段名称
 
-`研究结论沉淀、线程记忆与 Context Compression MVP`
+`研究结论沉淀、线程记忆、Question Routing 与 Research Tasks MVP`
 
 ## 2. 阶段目标
 
-阶段五第一轮的目标，不是再加一个新的聊天框，而是把阶段四已经可用的股票分析线程升级成一个：
+阶段五的目标，不是再加一个新的聊天框，而是把阶段四已经可用的股票分析线程升级成一个：
 
 `可持续研究的显式研究对象`
 
@@ -33,7 +33,7 @@
 - assistant metadata 和消息区中的“本轮参考了当前线程研究记忆”说明
 - fork thread 时可选 `seed_from_active_memory`
 
-阶段五第一轮-B 本轮完成：
+阶段五第一轮-B 已完成：
 
 - 会话上下文压缩模型 `stock_analysis_thread_compression`
 - 显式 `capture / activate / refresh / history` compression API
@@ -42,6 +42,15 @@
 - 压缩建议规则、未压缩消息数、历史大小估算和 active compression 过旧判断
 - assistant metadata 和消息区中的“本轮参考了当前线程对话压缩摘要”说明
 
+阶段五第二轮 本轮完成：
+
+- 研究问题路由 `question_intent + response_strategy`
+- assistant metadata / 消息区中的路由解释、下一步建议和建议任务标题
+- 线程研究任务模型 `stock_analysis_research_task`
+- 显式 `list / detail / create / generate / complete / reopen / dismiss` API
+- research task panel、手动创建、从线程生成、完成 / 重开 / 忽略
+- 研究任务与 compare / refresh / active memory / active compression / routing suggestion 联动
+
 当前仍未落地：
 
 - 自动长期记忆系统
@@ -49,10 +58,11 @@
 - 自动周期性总结
 - 自动交易
 - 更复杂的研究归因与绩效反馈
+- 更强 planner 语义和多步工具编排
 
 ## 3. 产品核心问题
 
-阶段五第一轮需要解决的问题是：
+阶段五需要解决的问题是：
 
 - 线程聊久之后，如何把关键信息沉淀成结构化研究结论
 - 用户切回线程时，如何快速看到“当前结论”而不是重新翻完整历史
@@ -60,6 +70,8 @@
 - 历史研究结论如何保留版本，方便手动切换而不是被自动覆盖
 - 长消息历史如何被显式压缩，而不是把整段历史无限累加进 prompt
 - recent raw messages、active memory、active compression 如何在同一轮回答中分层协同
+- 用户每次追问属于哪类研究意图，以及当前最合适的响应策略是什么
+- 线程里下一步要研究什么，如何沉淀成显式、可操作的研究任务清单
 
 ## 4. 核心定位
 
@@ -67,7 +79,7 @@
 
 它的定位是：
 
-`线程级、显式可见、可手动控制的研究记忆与对话压缩层。`
+`线程级、显式可见、可手动控制的研究记忆、对话压缩、问题路由与研究任务层。`
 
 ## 5. 核心概念
 
@@ -120,6 +132,25 @@ capture 和 refresh 都生成新的显式快照，不覆盖旧历史。
 - 查看历史版本
 - 手动激活某个历史记忆或历史压缩摘要
 - 继续基于当前 active memory 和 active compression 研究
+
+### 5.6 Question Routing
+
+每次用户提问都要先进入稳定、可解释的研究语义路由，至少回答：
+
+- 这句是在总结、解释、比较、刷新、补证据、质疑还是定义下一步
+- 当前适合直接回答、先 refresh、先补数据、先提示 gap，还是先沉淀 research tasks
+- 为什么是这个判断
+- 建议用户下一步做什么
+
+### 5.7 Research Tasks
+
+线程研究任务不是黑盒自动待办，而是线程里的显式研究清单，至少包含：
+
+- 任务标题与摘要
+- 任务类型、优先级、状态
+- 来源：memory / compression / compare / refresh / assistant suggestion / manual
+- 关联 ticker / theme / context / memory / compression / message
+- 完成、重开、忽略等显式动作
 
 ## 6. 必做功能
 
@@ -227,6 +258,52 @@ capture 和 refresh 都生成新的显式快照，不覆盖旧历史。
 - active memory
 - active compression
 - recent raw messages
+- question routing
+- research tasks
+
+### 6.7 Question Routing
+
+阶段五第二轮必须提供独立的 question routing 输出结构，至少包含：
+
+- `question_intent`
+- `response_strategy`
+- `routing_reason`
+- `recommended_next_action`
+- `followup_candidates`
+- `suggested_task_titles`
+- `should_focus_compare_targets`
+- `should_revisit_active_memory`
+- `should_revisit_active_compression`
+
+当前阶段优先采用：
+
+- 规则优先
+- 结构化、可解释
+- 先与现有 tool planner 并存，不替代 `context_only / need_tooling / user_forced_tooling`
+
+### 6.8 Research Tasks
+
+阶段五第二轮必须提供独立持久化对象 `stock_analysis_research_task`，至少覆盖：
+
+- `task_id / thread_id / user_id`
+- `title / summary / task_type / status / priority`
+- `source_kind / source_ref`
+- `related_tickers_json / related_themes_json / related_context_ids_json`
+- `related_memory_id / related_compression_id / related_message_id`
+- `resolution_note / dismiss_reason`
+- `created_at / updated_at / completed_at / dismissed_at`
+
+必须提供以下显式动作：
+
+- `GET /api/v1/stock-analysis/threads/{thread_id}/research-tasks`
+- `GET /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/generate`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}/complete`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}/reopen`
+- `POST /api/v1/stock-analysis/threads/{thread_id}/research-tasks/{task_id}/dismiss`
+
+generate 必须是显式动作，只从当前线程已有结构中提取任务，不自动后台落库。
 
 ## 7. 本轮明确不做
 

@@ -66,6 +66,12 @@ export type StockAnalysisMessage = {
   uncompressed_message_count: number;
   estimated_history_size: number;
   active_compression_stale: boolean;
+  question_intent?: string | null;
+  response_strategy?: string | null;
+  routing_reason?: string | null;
+  recommended_next_action?: string | null;
+  followup_candidates: string[];
+  suggested_task_titles: string[];
 };
 
 export type StockAnalysisMessageList = {
@@ -140,6 +146,12 @@ export type StockAnalysisMessageCreateResult = {
   uncompressed_message_count: number;
   estimated_history_size: number;
   active_compression_stale: boolean;
+  question_intent?: string | null;
+  response_strategy?: string | null;
+  routing_reason?: string | null;
+  recommended_next_action?: string | null;
+  followup_candidates: string[];
+  suggested_task_titles: string[];
   user_message: StockAnalysisMessage;
   assistant_message: StockAnalysisMessage;
 };

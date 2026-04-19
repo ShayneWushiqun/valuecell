@@ -222,6 +222,64 @@ class FakeCompressionRecord:
         }
 
 
+@dataclass
+class FakeResearchTaskRecord:
+    id: int
+    thread_id: int
+    user_id: str
+    title: str
+    summary: str
+    task_type: str
+    status: str
+    priority: str
+    source_kind: str
+    source_ref: str | None
+    related_tickers_json: list[str]
+    related_themes_json: list[str]
+    related_context_ids_json: list[int]
+    related_memory_id: int | None
+    related_compression_id: int | None
+    related_message_id: str | None
+    resolution_note: str | None
+    dismiss_reason: str | None
+    created_at: Any = None
+    updated_at: Any = None
+    completed_at: Any = None
+    dismissed_at: Any = None
+
+    def __post_init__(self) -> None:
+        import datetime as dt
+
+        self.created_at = self.created_at or dt.datetime.now(dt.UTC)
+        self.updated_at = self.updated_at or dt.datetime.now(dt.UTC)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.id,
+            "thread_id": self.thread_id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "summary": self.summary,
+            "task_type": self.task_type,
+            "status": self.status,
+            "priority": self.priority,
+            "source_kind": self.source_kind,
+            "source_ref": self.source_ref,
+            "related_tickers_json": list(self.related_tickers_json),
+            "related_themes_json": list(self.related_themes_json),
+            "related_context_ids_json": list(self.related_context_ids_json),
+            "related_memory_id": self.related_memory_id,
+            "related_compression_id": self.related_compression_id,
+            "related_message_id": self.related_message_id,
+            "resolution_note": self.resolution_note,
+            "dismiss_reason": self.dismiss_reason,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "dismissed_at": self.dismissed_at.isoformat() if self.dismissed_at else None,
+        }
+
+
 class FakeThreadRepository:
     def __init__(self) -> None:
         self.items: list[FakeThreadRecord] = []
@@ -488,6 +546,61 @@ class FakeThreadCompressionRepository:
                 item.is_active = False
                 count += 1
         return count
+
+
+class FakeResearchTaskRepository:
+    def __init__(self) -> None:
+        self.items: list[FakeResearchTaskRecord] = []
+        self.next_id = 1
+
+    def list_tasks(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        status: str | None = None,
+        limit: int = 200,
+    ):
+        result = [
+            item
+            for item in self.items
+            if item.user_id == user_id and item.thread_id == thread_id
+        ]
+        if status:
+            result = [item for item in result if item.status == status]
+        result.sort(key=lambda item: (item.updated_at, item.id), reverse=True)
+        return result[:limit]
+
+    def get_task_by_id(self, *, user_id: str, thread_id: int, task_id: int):
+        for item in self.items:
+            if item.user_id == user_id and item.thread_id == thread_id and item.id == task_id:
+                return item
+        return None
+
+    def create_task(self, payload: dict[str, Any]):
+        item = FakeResearchTaskRecord(id=self.next_id, **payload)
+        self.next_id += 1
+        self.items.append(item)
+        return item
+
+    def update_task(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        task_id: int,
+        payload: dict[str, Any],
+    ):
+        item = self.get_task_by_id(
+            user_id=user_id,
+            thread_id=thread_id,
+            task_id=task_id,
+        )
+        if item is None:
+            return None
+        for key, value in payload.items():
+            setattr(item, key, value)
+        return item
 
 
 class FakeConversationManager:

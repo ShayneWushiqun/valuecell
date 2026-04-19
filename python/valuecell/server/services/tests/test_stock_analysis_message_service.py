@@ -10,6 +10,9 @@ from valuecell.core.types import NotifyResponseEvent, Role
 from valuecell.server.services.assets.stock_analysis_message_service import (
     StockAnalysisMessageService,
 )
+from valuecell.server.api.schemas.stock_analysis_question_router import (
+    StockAnalysisQuestionRoutingData,
+)
 from valuecell.server.services.assets.stock_analysis_refresh_service import (
     StockAnalysisRefreshService,
 )
@@ -195,6 +198,22 @@ class FakeThreadCompressionService:
             "estimated_history_size": self.estimated_history_size,
             "active_compression_stale": self.active_compression_stale,
         }
+
+
+class FakeQuestionRouterService:
+    def route_question(self, **kwargs) -> StockAnalysisQuestionRoutingData:
+        del kwargs
+        return StockAnalysisQuestionRoutingData(
+            question_intent="define_next_step",
+            response_strategy="suggest_research_tasks",
+            routing_reason="识别为 define_next_step；因此采用 suggest_research_tasks",
+            recommended_next_action="从当前线程生成研究任务",
+            followup_candidates=["先梳理未完成问题"],
+            suggested_task_titles=["梳理当前线程的下一步研究清单"],
+            should_focus_compare_targets=False,
+            should_revisit_active_memory=False,
+            should_revisit_active_compression=False,
+        )
 
 
 @pytest.mark.asyncio
@@ -706,6 +725,51 @@ async def test_stock_analysis_message_service_refreshes_stale_contexts_before_an
     assert history is not None
     assert history["items"][1]["refreshed_before_answer"] is True
     assert history["items"][1]["refresh_run_summary"] is not None
+
+
+@pytest.mark.asyncio
+async def test_stock_analysis_message_service_exposes_question_routing_metadata(
+    monkeypatch,
+) -> None:
+    conversation_service = FakeConversationServiceForMessages()
+    workspace_service = StockAnalysisWorkspaceService(
+        stock_analysis_thread_repository=cast(Any, FakeThreadRepository()),
+        analysis_context_card_repository=cast(Any, FakeContextRepository()),
+        conversation_service=cast(Any, conversation_service),
+    )
+    thread = await workspace_service.create_thread(
+        user_id="default_user",
+        title="路由提示",
+        focus_type="mixed",
+    )
+    service = StockAnalysisMessageService(
+        stock_analysis_workspace_service=workspace_service,
+        conversation_service=cast(Any, conversation_service),
+        tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
+        tooling_service=FakeToolingService(),
+        question_router_service=FakeQuestionRouterService(),
+        thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
+    )
+    monkeypatch.setattr(service, "_generate_answer", _fake_answer)
+
+    result = await service.send_message(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+        message="接下来这一条线程还要研究什么？",
+    )
+    history = await service.list_messages(
+        user_id="default_user",
+        thread_id=thread["thread_id"],
+    )
+
+    assert result is not None
+    assert result.question_intent == "define_next_step"
+    assert result.response_strategy == "suggest_research_tasks"
+    assert result.suggested_task_titles == ["梳理当前线程的下一步研究清单"]
+    assert history is not None
+    assert history["items"][1]["question_intent"] == "define_next_step"
+    assert history["items"][1]["recommended_next_action"] == "从当前线程生成研究任务"
 
 
 @pytest.mark.asyncio
