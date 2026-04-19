@@ -288,6 +288,75 @@ async def test_create_plan_handles_malformed_response(monkeypatch: pytest.Monkey
     assert malformed_content in plan.guidance_message
 
 
+@pytest.mark.asyncio
+async def test_create_plan_falls_back_when_response_format_is_unsupported(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    fallback_payload = """
+    ```json
+    {
+      "adequate": true,
+      "reason": "fallback ok",
+      "guidance_message": null,
+      "tasks": [
+        {
+          "title": "Research task",
+          "query": "Run research",
+          "agent_name": "ResearchAgent",
+          "pattern": "once",
+          "schedule_config": null
+        }
+      ]
+    }
+    ```
+    """
+
+    class FakeAgent:
+        init_calls = 0
+
+        def __init__(self, *args, **kwargs):
+            FakeAgent.init_calls += 1
+            self.mode = "structured" if FakeAgent.init_calls == 1 else "fallback"
+            self.model = SimpleNamespace(id="fake-model", provider="fake-provider")
+
+        def run(self, *args, **kwargs):
+            if self.mode == "structured":
+                raise RuntimeError(
+                    "The parameter response_format.type specified in the request "
+                    "are not valid: json_object is not supported by this model."
+                )
+            return SimpleNamespace(
+                is_paused=False,
+                tools_requiring_user_input=[],
+                tools=[],
+                content=fallback_payload,
+            )
+
+    monkeypatch.setattr(planner_mod, "Agent", FakeAgent)
+    monkeypatch.setattr(
+        model_utils_mod, "get_model_for_agent", lambda *args, **kwargs: "stub-model"
+    )
+    monkeypatch.setattr(planner_mod, "agent_debug_mode_enabled", lambda: False)
+
+    research_card = SimpleNamespace(name="ResearchAgent", description="Research")
+    planner = ExecutionPlanner(StubConnections({"ResearchAgent": research_card}))
+
+    user_input = UserInput(
+        query="Need research fallback",
+        target_agent_name="ResearchAgent",
+        meta=UserInputMetadata(conversation_id="conv-fallback", user_id="user-fallback"),
+    )
+
+    async def callback(_):
+        raise AssertionError("callback should not be invoked")
+
+    plan = await planner.create_plan(user_input, callback, "thread-fallback")
+
+    assert plan.guidance_message == "fallback ok"
+    assert len(plan.tasks) == 1
+    assert plan.tasks[0].agent_name == "ResearchAgent"
+
+
 def test_tool_get_agent_description_dict_and_missing(monkeypatch: pytest.MonkeyPatch):
     """Cover dict formatting branch and not-found fallback in agent description."""
 

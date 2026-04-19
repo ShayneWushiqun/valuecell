@@ -88,6 +88,7 @@ class ExecutionPlanner:
         self.agent_connections = agent_connections
         # Lazy initialize agent to avoid startup failures when API keys are missing
         self.agent = None
+        self.fallback_agent = None
 
     def _get_or_init_agent(self) -> Optional[Agent]:
         """Create the planning agent on first use.
@@ -127,6 +128,42 @@ class ExecutionPlanner:
         except Exception as exc:
             logger.exception("Failed to initialize planner agent: %s", exc)
             self.agent = None
+            return None
+
+    def _get_or_init_fallback_agent(self) -> Optional[Agent]:
+        """Create a plain-text fallback planner agent on first use."""
+        if self.fallback_agent is not None:
+            return self.fallback_agent
+
+        try:
+            model = model_utils_mod.get_model_for_agent("super_agent")
+            self.fallback_agent = Agent(
+                model=model,
+                tools=[
+                    self.tool_get_agent_description,
+                    self.tool_get_enabled_agents,
+                ],
+                debug_mode=agent_debug_mode_enabled(),
+                instructions=[
+                    PLANNER_INSTRUCTION,
+                    (
+                        "Return valid JSON object only. "
+                        "Do not use markdown fences. "
+                        f"Schema: {PLANNER_EXPECTED_OUTPUT}"
+                    ),
+                ],
+                markdown=False,
+                db=InMemoryDb(),
+                add_datetime_to_context=True,
+                add_history_to_context=True,
+                num_history_runs=5,
+                read_chat_history=True,
+                enable_session_summaries=True,
+            )
+            return self.fallback_agent
+        except Exception as exc:
+            logger.exception("Failed to initialize fallback planner agent: %s", exc)
+            self.fallback_agent = None
             return None
 
     async def create_plan(
@@ -212,51 +249,59 @@ class ExecutionPlanner:
         except Exception:
             model_description = "unknown model/provider"
         try:
-            run_response = agent.run(
-                PlannerInput(
+            run_response = await self._run_agent(
+                agent=agent,
+                planner_input=PlannerInput(
                     target_agent_name=user_input.target_agent_name,
                     query=user_input.query,
                 ),
-                session_id=conversation_id,
+                conversation_id=conversation_id,
                 user_id=user_input.meta.user_id,
+                user_input_callback=user_input_callback,
             )
         except Exception as exc:
-            logger.exception("Planner run failed: %s", exc)
-            return [], (
-                f"Planner encountered an error during execution: {exc}. "
-                f"Please check the capabilities of your model `{model_description}` and try again later."
-            )
+            if self._is_response_format_unsupported_error(exc):
+                logger.warning(
+                    "Planner model {} does not support structured response_format; "
+                    "falling back to plain-text JSON parsing",
+                    model_description,
+                )
+                fallback_agent = self._get_or_init_fallback_agent()
+                if fallback_agent is None:
+                    return [], (
+                        "Planner is unavailable: failed to initialize fallback mode. "
+                        "Please configure a valid API key or provider settings and retry."
+                    )
+                try:
+                    run_response = await self._run_agent(
+                        agent=fallback_agent,
+                        planner_input=PlannerInput(
+                            target_agent_name=user_input.target_agent_name,
+                            query=user_input.query,
+                        ),
+                        conversation_id=conversation_id,
+                        user_id=user_input.meta.user_id,
+                        user_input_callback=user_input_callback,
+                    )
+                except Exception as fallback_exc:
+                    logger.exception("Fallback planner run failed: %s", fallback_exc)
+                    return [], (
+                        f"Planner encountered an error during execution: {fallback_exc}. "
+                        f"Please check the capabilities of your model `{model_description}` and try again later."
+                    )
+            else:
+                logger.exception("Planner run failed: %s", exc)
+                return [], (
+                    f"Planner encountered an error during execution: {exc}. "
+                    f"Please check the capabilities of your model `{model_description}` and try again later."
+                )
 
-        # Handle user input requests through Human-in-the-Loop workflow
-        while run_response.is_paused:
-            for tool in run_response.tools_requiring_user_input:
-                input_schema = tool.user_input_schema
-
-                for field in input_schema:
-                    # Use callback for async user input
-                    # TODO: prompt options if available
-                    request = UserInputRequest(field.description)
-                    await user_input_callback(request)
-                    user_value = await request.wait_for_response()
-                    field.value = user_value
-
-            # Continue agent execution with updated inputs
-            run_response = agent.continue_run(
-                # TODO: rollback to `run_id=run_response.run_id` when bug fixed by Agno
-                run_response=run_response,
-                updated_tools=run_response.tools,
-            )
-
-            if not run_response.is_paused:
-                break
-
-        # Parse planning result and create tasks
-        plan_raw = run_response.content
-        if not isinstance(plan_raw, PlannerResponse):
+        plan_raw = self._parse_planner_response_content(run_response.content)
+        if plan_raw is None:
             return (
                 [],
                 (
-                    f"Planner produced a malformed response: `{plan_raw}`. "
+                    f"Planner produced a malformed response: `{run_response.content}`. "
                     f"Please check the capabilities of your model `{model_description}` and try again later."
                 ),
             )
@@ -309,6 +354,86 @@ class ExecutionPlanner:
             )
 
         return tasks, guidance_message  # Return tasks with no guidance message
+
+    async def _run_agent(
+        self,
+        agent: Agent,
+        planner_input: PlannerInput,
+        conversation_id: str,
+        user_id: str,
+        user_input_callback: Callable,
+    ):
+        run_response = agent.run(
+            planner_input,
+            session_id=conversation_id,
+            user_id=user_id,
+        )
+
+        while run_response.is_paused:
+            for tool in run_response.tools_requiring_user_input:
+                input_schema = tool.user_input_schema
+
+                for field in input_schema:
+                    request = UserInputRequest(field.description)
+                    await user_input_callback(request)
+                    user_value = await request.wait_for_response()
+                    field.value = user_value
+
+            run_response = agent.continue_run(
+                run_response=run_response,
+                updated_tools=run_response.tools,
+            )
+            if not run_response.is_paused:
+                break
+
+        return run_response
+
+    def _parse_planner_response_content(
+        self, content: object
+    ) -> PlannerResponse | None:
+        if isinstance(content, PlannerResponse):
+            return content
+        if isinstance(content, dict):
+            try:
+                return PlannerResponse.model_validate(content)
+            except Exception:
+                return None
+
+        raw_content = str(content).strip()
+        if not raw_content:
+            return None
+
+        try:
+            return PlannerResponse.model_validate_json(
+                self._extract_json_payload(raw_content)
+            )
+        except Exception:
+            return None
+
+    def _is_response_format_unsupported_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        return "response_format.type" in message and (
+            "not supported" in message or "not valid" in message
+        )
+
+    def _extract_json_payload(self, text: str) -> str:
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            blocks = stripped.split("```")
+            for block in blocks:
+                candidate = block.strip()
+                if not candidate:
+                    continue
+                if candidate.startswith("json"):
+                    candidate = candidate[4:].strip()
+                if candidate.startswith("{") and candidate.endswith("}"):
+                    return candidate
+
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return stripped[start : end + 1]
+        return stripped
 
     def _create_task(
         self,

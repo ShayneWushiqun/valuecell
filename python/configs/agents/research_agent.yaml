@@ -9,12 +9,8 @@ enabled: true
 models:
   # Primary model for reasoning and generation
   primary:
-    model_id: "google/gemini-2.5-flash"
-    provider: "openrouter"
-    # Provider-specific model mappings for fallback
-    provider_models:
-      siliconflow: "Qwen/Qwen3-235B-A22B-Thinking-2507"
-      google: "gemini-2.5-flash"
+    model_id: "doubao-seed-2.0-pro"
+    provider: "openai-compatible"
     parameters:
       # temperature: 0.7
       # max_tokens: 8192
@@ -22,11 +18,8 @@ models:
   # Embedding model for knowledge base
   # Note: If not specified, will auto-select from available providers
   embedding:
-    model_id: "Qwen/Qwen3-Embedding-4B"  # Optional, uses provider default
-    provider: "siliconflow"  # Must explicitly specify provider
-    # Provider-specific embedding model mappings for fallback
-    provider_models:
-      google: "gemini-embedding-001"
+    model_id: "text-embedding-v4"  # Optional, uses provider default
+    provider: "openai-compatible"  # Must explicitly specify provider
     parameters:
       dimensions: ${EMBEDDER_DIMENSION:2560}
       # encoding_format: "float"
@@ -44,4 +37,3 @@ env_overrides:
   EMBEDDER_MODEL_ID: "models.embedding.model_id"
   EMBEDDER_MODEL_PROVIDER: "models.embedding.provider"
   EMBEDDER_DIMENSION: "models.embedding.parameters.dimensions"
-

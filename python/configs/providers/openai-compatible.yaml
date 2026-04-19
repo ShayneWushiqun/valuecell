@@ -9,12 +9,22 @@ defaults:
   temperature: 0.7
   max_tokens: 4096
 models:
-- id: qwen3-max
-  name: Qwen3 Max
-  context_length: 256000
-  description: Qwen3 Max model
 - id: doubao-seed-2.0-pro
   name: doubao-seed-2.0-pro
+- id: doubao-seed-2.0-lite
+  name: doubao-seed-2.0-lite
+- id: deepseek-v3.2
+  name: deepseek-v3.2
+- id: kimi-k2.5
+  name: kimi-k2.5
+- id: glm-4.7
+  name: glm-4.7
+- id: minimax-m2.5
+  name: minimax-m2.5
+- id: doubao-seed-code
+  name: doubao-seed-code
+- id: doubao-seed-2.0-code
+  name: doubao-seed-2.0-code
 embedding:
   default_model: text-embedding-v4
   defaults:

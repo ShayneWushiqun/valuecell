@@ -185,6 +185,10 @@ export class SSEClient {
       }
     } catch (error) {
       this.setReadyState(SSEReadyState.CLOSED);
+      if (error instanceof Error && error.name === "AbortError") {
+        this.handlers.onClose?.();
+        return;
+      }
       this.handlers.onError?.(error as Error);
     } finally {
       reader.releaseLock();

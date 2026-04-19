@@ -4,6 +4,7 @@ import { type FC, memo } from "react";
 import { TIME_FORMATS, TimeUtils } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { ReportRendererProps } from "@/types/renderer";
+import { normalizeReportContent } from "./report-content";
 
 const ReportRenderer: FC<ReportRendererProps> = ({
   content,
@@ -11,6 +12,7 @@ const ReportRenderer: FC<ReportRendererProps> = ({
   isActive,
 }) => {
   const { title, create_time, data } = parse(content);
+  const normalizedData = normalizeReportContent(data);
 
   return (
     <div
@@ -19,7 +21,7 @@ const ReportRenderer: FC<ReportRendererProps> = ({
         "flex h-full min-w-96 items-center justify-between gap-2 rounded-xl px-4 py-5",
         "cursor-pointer border-gradient transition-all duration-200",
       )}
-      onClick={() => onOpen?.(data)}
+      onClick={() => onOpen?.(normalizedData)}
     >
       {/* Left side: Icon and text */}
       <div className="flex items-center gap-2">

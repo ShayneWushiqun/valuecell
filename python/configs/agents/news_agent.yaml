@@ -18,14 +18,8 @@ enabled: true
 models:
   # Primary model for news analysis, summarization, and query processing
   primary:
-    model_id: "qwen/qwen3-max"
-    provider: "openrouter"  # Must explicitly specify provider (not null)
-
-    # Provider-specific model mappings for fallback
-    # Used when primary provider fails and fallback is attempted
-    provider_models:
-      siliconflow: "Qwen/Qwen3-235B-A22B-Thinking-2507"  # Strong reasoning for news analysis
-      google: "gemini-2.5-flash"  # Fast and efficient for news processing
+    model_id: "doubao-seed-2.0-pro"
+    provider: "openai-compatible"  # Must explicitly specify provider (not null)
 
     parameters:
       # temperature: 0.3  # Lower temperature for more factual news reporting
@@ -34,12 +28,8 @@ models:
   # Web search model for real-time information gathering
   # Uses specialized models optimized for web search and real-time data
   search:
-    model_id: "perplexity/sonar"
-    provider: "openrouter"
-
-    # Provider-specific search model mappings
-    provider_models:
-      google: "gemini-2.5-flash"  # With search grounding enabled
+    model_id: "doubao-seed-2.0-lite"
+    provider: "openai-compatible"
 
     parameters:
       # max_tokens: 2048  # Optimized for search result processing

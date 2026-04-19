@@ -92,3 +92,33 @@ async def test_start_planning_task_uses_asyncio_create_task(
     assert scheduled_tasks, "expected create_task to be invoked"
     await asyncio.sleep(0)
     task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_start_planning_task_returns_guidance_for_unavailable_target():
+    fake_planner = SimpleNamespace(create_plan=AsyncMock(return_value="plan"))
+    agent_connections = Mock()
+    agent_connections.get_planable_agent_cards.return_value = {
+        "ResearchAgent": object(),
+        "NewsAgent": object(),
+    }
+    agent_connections.is_planner_passthrough.return_value = False
+    service = PlanService(
+        agent_connections=agent_connections,
+        execution_planner=fake_planner,
+    )
+
+    user_input = UserInput(
+        query="hello",
+        target_agent_name="AShareAgent",
+        meta=UserInputMetadata(conversation_id="conv-disabled", user_id="user-disabled"),
+    )
+
+    task = service.start_planning_task(user_input, "thread-disabled", AsyncMock())
+    plan = await task
+
+    fake_planner.create_plan.assert_not_called()
+    assert plan.tasks == []
+    assert plan.guidance_message
+    assert "AShareAgent" in plan.guidance_message
+    assert "ResearchAgent" in plan.guidance_message

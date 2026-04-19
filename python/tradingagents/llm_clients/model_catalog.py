@@ -79,14 +79,24 @@ MODEL_OPTIONS: ProviderModeOptions = {
     },
     "openai_compatible": {
         "quick": [
+            ("Doubao Seed 2.0 Lite (Volcengine)", "doubao-seed-2.0-lite"),
             ("Doubao Seed 2.0 Pro (Volcengine)", "doubao-seed-2.0-pro"),
-            ("DeepSeek Chat V3", "deepseek-chat"),
-            ("Qwen Plus", "qwen-plus"),
+            ("DeepSeek V3.2 (Volcengine)", "deepseek-v3.2"),
+            ("GLM-4.7 (Volcengine)", "glm-4.7"),
+            ("Kimi K2.5 (Volcengine)", "kimi-k2.5"),
+            ("MiniMax M2.5 (Volcengine)", "minimax-m2.5"),
+            ("Doubao Seed Code (Volcengine)", "doubao-seed-code"),
+            ("Doubao Seed 2.0 Code (Volcengine)", "doubao-seed-2.0-code"),
         ],
         "deep": [
             ("Doubao Seed 2.0 Pro (Volcengine)", "doubao-seed-2.0-pro"),
-            ("DeepSeek Chat V3", "deepseek-chat"),
-            ("Qwen Plus", "qwen-plus"),
+            ("DeepSeek V3.2 (Volcengine)", "deepseek-v3.2"),
+            ("Kimi K2.5 (Volcengine)", "kimi-k2.5"),
+            ("GLM-4.7 (Volcengine)", "glm-4.7"),
+            ("MiniMax M2.5 (Volcengine)", "minimax-m2.5"),
+            ("Doubao Seed 2.0 Code (Volcengine)", "doubao-seed-2.0-code"),
+            ("Doubao Seed Code (Volcengine)", "doubao-seed-code"),
+            ("Doubao Seed 2.0 Lite (Volcengine)", "doubao-seed-2.0-lite"),
         ],
     },
 }

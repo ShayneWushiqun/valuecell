@@ -95,6 +95,10 @@ class PlanService:
         agent_name = (user_input.target_agent_name or "").strip()
         is_passthrough = False
         if agent_name:
+            if not self._is_target_agent_available(agent_name):
+                return asyncio.create_task(
+                    self._create_unavailable_target_plan(user_input)
+                )
             try:
                 is_passthrough = bool(
                     self._agent_connections.is_planner_passthrough(agent_name)
@@ -145,3 +149,33 @@ class PlanService:
         )
         plan.tasks = [task]
         return plan
+
+    async def _create_unavailable_target_plan(
+        self, user_input: UserInput
+    ) -> ExecutionPlan:
+        """Return a no-task plan when the requested target agent is unavailable."""
+        conversation_id = user_input.meta.conversation_id
+        available_agents = sorted(self._agent_connections.get_planable_agent_cards().keys())
+        available_list = ", ".join(available_agents) if available_agents else "none"
+        target_agent_name = user_input.target_agent_name or ""
+        plan = ExecutionPlan(
+            plan_id=generate_uuid("plan"),
+            conversation_id=conversation_id,
+            user_id=user_input.meta.user_id,
+            orig_query=user_input.query,
+            created_at=datetime.now().isoformat(),
+            guidance_message=(
+                f"Target agent `{target_agent_name}` is unavailable or disabled. "
+                f"Available agents: {available_list}."
+            ),
+        )
+        return plan
+
+    def _is_target_agent_available(self, agent_name: str) -> bool:
+        """Return True when the provided target agent can be planned/executed."""
+        if not agent_name:
+            return False
+        try:
+            return agent_name in self._agent_connections.get_planable_agent_cards()
+        except Exception:
+            return False

@@ -174,7 +174,7 @@
       "deepseek": "深度求索",
       "google": "谷歌云",
       "openai": "OpenAI",
-      "openai-compatible": "OpenAI兼容API",
+      "openai-compatible": "火山方舟（兼容 API）",
       "openrouter": "OpenRouter",
       "siliconflow": "硅基流动"
     },

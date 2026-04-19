@@ -103,10 +103,11 @@ def create_models_router() -> APIRouter:
     def _preferred_provider_order(names: List[str]) -> List[str]:
         """Return providers ordered with preferred defaults first.
 
-        Ensures 'openrouter' is first and 'siliconflow' is second when present,
+        Ensures 'openai-compatible' is first, followed by 'openrouter' and
+        'siliconflow' when present,
         followed by the remaining providers in their original order.
         """
-        preferred = ["openrouter", "siliconflow"]
+        preferred = ["openai-compatible", "openrouter", "siliconflow"]
         seen = set()
         ordered: List[str] = []
 
@@ -130,6 +131,7 @@ def create_models_router() -> APIRouter:
             "google": "https://aistudio.google.com/app/api-keys",
             "openrouter": "https://openrouter.ai/settings/keys",
             "openai": "https://platform.openai.com/api-keys",
+            "openai-compatible": "https://console.volcengine.com/ark",
             "azure": "https://azure.microsoft.com/en-us/products/ai-foundry/models/openai/",
             "siliconflow": "https://cloud.siliconflow.cn/account/ak",
             "deepseek": "https://platform.deepseek.com/api_keys",
@@ -284,6 +286,7 @@ def create_models_router() -> APIRouter:
                 base_url=cfg.base_url,
                 is_default=(cfg.name == manager.primary_provider),
                 default_model_id=cfg.default_model,
+                api_key_url=_api_key_url_for(cfg.name),
                 models=models_items,
             )
             return SuccessResponse.create(
@@ -325,7 +328,9 @@ def create_models_router() -> APIRouter:
                     _refresh_configs()
                     return SuccessResponse.create(
                         data=ModelItem(
-                            model_id=payload.model_id, model_name=m.get("name")
+                            model_id=payload.model_id,
+                            model_name=m.get("name"),
+                            metadata=None,
                         ),
                         msg=(
                             "Model already exists; updated model_name if provided"
@@ -346,6 +351,7 @@ def create_models_router() -> APIRouter:
                 data=ModelItem(
                     model_id=payload.model_id,
                     model_name=payload.model_name or payload.model_id,
+                    metadata=None,
                 ),
                 msg="Model added"
                 + ("; set as default model" if not existing_default else ""),
@@ -472,6 +478,7 @@ def create_models_router() -> APIRouter:
                 base_url=cfg.base_url,
                 is_default=(cfg.name == manager.primary_provider),
                 default_model_id=cfg.default_model,
+                api_key_url=_api_key_url_for(cfg.name),
                 models=models_items,
             )
             return SuccessResponse.create(

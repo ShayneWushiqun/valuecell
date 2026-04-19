@@ -129,11 +129,11 @@ class ConfigManager:
             if enabled_providers:
                 # Priority order for auto-selection
                 preferred_order = [
+                    "openai-compatible",
                     "openrouter",
                     "siliconflow",
                     "google",
                     "openai",
-                    "openai-compatible",
                     "azure",
                     "ollama",
                 ]

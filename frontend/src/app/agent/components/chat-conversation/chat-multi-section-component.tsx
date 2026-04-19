@@ -2,6 +2,7 @@ import { parse } from "best-effort-json-parser";
 import { type FC, memo } from "react";
 import BackButton from "@/components/valuecell/button/back-button";
 import { MarkdownRenderer } from "@/components/valuecell/renderer";
+import { normalizeReportContent } from "@/components/valuecell/renderer/report-content";
 import { useMultiSection } from "@/provider/multi-section-provider";
 import type { MultiSectionComponentType } from "@/types/agent";
 
@@ -9,6 +10,7 @@ import type { MultiSectionComponentType } from "@/types/agent";
 const ReportComponent: FC<{ content: string }> = ({ content }) => {
   const { closeSection } = useMultiSection();
   const { title, data } = parse(content);
+  const normalizedData = normalizeReportContent(data);
 
   return (
     <>
@@ -16,7 +18,7 @@ const ReportComponent: FC<{ content: string }> = ({ content }) => {
         <BackButton onClick={closeSection} />
         <h4 className="font-semibold text-lg">{title}</h4>
       </header>
-      <MarkdownRenderer content={data} />
+      <MarkdownRenderer content={normalizedData} />
     </>
   );
 };

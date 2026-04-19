@@ -86,7 +86,7 @@ const CommonAgentAreaContent: FC<CommonAgentAreaProps> = ({ agentName }) => {
   }, [conversationId, taskList, dispatchAgentStoreHistory]);
 
   // Initialize SSE connection using the useSSE hook
-  const { connect, close, isStreaming } = useSSE({
+  const { connect, isStreaming } = useSSE({
     url: getServerUrl("/agents/stream"),
     handlers: {
       onData: (sseData: SSEData) => {
@@ -122,7 +122,6 @@ const CommonAgentAreaContent: FC<CommonAgentAreaProps> = ({ agentName }) => {
             break;
 
           case "done":
-            close();
             break;
 
           // All message-related events are handled by the store
@@ -146,6 +145,13 @@ const CommonAgentAreaContent: FC<CommonAgentAreaProps> = ({ agentName }) => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: connect is no need to be in dependencies
   const sendMessage = useCallback(
     async (message: string) => {
+      if (!agent?.enabled) {
+        toast.error("当前 Agent 不可用，请切换到其他 Agent。", {
+          closeButton: true,
+        });
+        navigate("/", { replace: true });
+        return;
+      }
       try {
         const request: AgentStreamRequest = {
           query: message,
@@ -163,7 +169,7 @@ const CommonAgentAreaContent: FC<CommonAgentAreaProps> = ({ agentName }) => {
         console.error("Failed to send message:", error);
       }
     },
-    [agentName, conversationId],
+    [agent?.enabled, agentName, conversationId, navigate],
   );
 
   useEffect(() => {
@@ -199,7 +205,7 @@ const CommonAgentAreaContent: FC<CommonAgentAreaProps> = ({ agentName }) => {
   }, []);
 
   if (isLoadingAgent) return null;
-  if (!agent) return <Navigate to="/" replace />;
+  if (!agent || !agent.enabled) return <Navigate to="/" replace />;
 
   // Check if conversation has any messages
   const hasMessages =
