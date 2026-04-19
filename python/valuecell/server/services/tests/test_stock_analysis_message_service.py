@@ -83,13 +83,12 @@ class FakeConversationServiceForMessages(FakeConversationService):
 async def _fake_answer(
     *,
     assembled_context: str,
-    history_messages,
     user_question: str,
     mode: str,
     tool_reason: str | None,
     tooling_result: StockAnalysisToolingResult,
 ) -> str:
-    del assembled_context, history_messages, user_question, tool_reason
+    del assembled_context, user_question, tool_reason
     return f"回答依据：{tooling_result.answer_basis}。模式：{mode}"
 
 
@@ -164,6 +163,40 @@ class FakeThreadMemoryService:
         return self.active_memory
 
 
+class FakeThreadCompressionService:
+    def __init__(
+        self,
+        active_compression: dict[str, Any] | None = None,
+        *,
+        recent_raw_messages: list[dict[str, Any]] | None = None,
+        compression_recommended: bool = False,
+        compression_reason: str | None = None,
+        uncompressed_message_count: int = 0,
+        estimated_history_size: int = 0,
+        active_compression_stale: bool = False,
+    ) -> None:
+        self.active_compression = active_compression
+        self.recent_raw_messages = recent_raw_messages or []
+        self.compression_recommended = compression_recommended
+        self.compression_reason = compression_reason
+        self.uncompressed_message_count = uncompressed_message_count
+        self.estimated_history_size = estimated_history_size
+        self.active_compression_stale = active_compression_stale
+
+    async def get_prompt_context_state(self, *, user_id: str, thread_id: int, recent_limit: int = 8):
+        del user_id, thread_id, recent_limit
+        return {
+            "active_compression": self.active_compression,
+            "recent_raw_messages": self.recent_raw_messages,
+            "recent_raw_message_count": len(self.recent_raw_messages),
+            "compression_recommended": self.compression_recommended,
+            "compression_reason": self.compression_reason,
+            "uncompressed_message_count": self.uncompressed_message_count,
+            "estimated_history_size": self.estimated_history_size,
+            "active_compression_stale": self.active_compression_stale,
+        }
+
+
 @pytest.mark.asyncio
 async def test_stock_analysis_message_service_reads_thread_conversation_and_persists_history(
     monkeypatch,
@@ -195,6 +228,7 @@ async def test_stock_analysis_message_service_reads_thread_conversation_and_pers
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
     monkeypatch.setattr(
         service,
@@ -244,6 +278,7 @@ async def test_stock_analysis_message_service_keeps_context_only_without_externa
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=tooling,
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
 
     called = {"count": 0}
@@ -251,13 +286,12 @@ async def test_stock_analysis_message_service_keeps_context_only_without_externa
     async def fake_answer(
         *,
         assembled_context: str,
-        history_messages,
         user_question: str,
         mode: str,
         tool_reason: str | None,
         tooling_result: StockAnalysisToolingResult,
     ) -> str:
-        del assembled_context, history_messages, user_question, mode, tool_reason, tooling_result
+        del assembled_context, user_question, mode, tool_reason, tooling_result
         called["count"] += 1
         return "回答依据：当前上下文。缺少更多卡片。"
 
@@ -301,6 +335,7 @@ async def test_stock_analysis_message_service_switches_history_by_thread(monkeyp
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
     monkeypatch.setattr(
         service,
@@ -356,6 +391,7 @@ async def test_stock_analysis_message_service_force_tooling_enters_user_forced_m
         tool_planner=FakePlanner(USER_FORCED_TOOLING_MODE),
         tooling_service=tooling,
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -410,6 +446,7 @@ async def test_stock_analysis_message_service_need_tooling_returns_metadata(
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -489,6 +526,7 @@ async def test_stock_analysis_message_service_returns_comparison_metadata(
         tool_planner=FakePlanner(CONTEXT_ONLY_MODE),
         tooling_service=FakeToolingService(),
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -562,6 +600,28 @@ async def test_stock_analysis_message_service_marks_active_memory_usage(
                 "next_data_to_check_json": ["最新价格动作"],
             }
         ),
+        thread_compression_service=FakeThreadCompressionService(
+            {
+                "compression_id": 4,
+                "version": 2,
+                "title": "当前对话压缩",
+                "updated_at": "2026-04-19T10:05:00Z",
+                "covered_until_message_id": "item_2",
+                "covered_message_count": 14,
+                "summary": "较早历史已压缩。",
+                "current_focus": "继续沿着主线判断。",
+                "resolved_topics_json": ["早期问题已处理。"],
+                "open_questions_json": ["仍需确认最新价格动作。"],
+                "recent_compare_notes_json": [],
+                "recent_refresh_notes_json": [],
+                "recent_tooling_notes_json": [],
+                "recent_evidence_notes_json": [],
+            },
+            recent_raw_messages=[
+                {"item_id": "item_15", "role": "user", "content": "继续基于当前线程回答。"}
+            ],
+            compression_recommended=False,
+        ),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -582,6 +642,9 @@ async def test_stock_analysis_message_service_marks_active_memory_usage(
     assert history is not None
     assert history["items"][1]["used_active_memory"] is True
     assert history["items"][1]["active_memory_title"] == "当前研究记忆"
+    assert history["items"][1]["used_active_compression"] is True
+    assert history["items"][1]["active_compression_title"] == "当前对话压缩"
+    assert history["items"][1]["recent_raw_message_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -619,6 +682,7 @@ async def test_stock_analysis_message_service_refreshes_stale_contexts_before_an
         tooling_service=FakeToolingService(),
         refresh_service=refresh_service,
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 
@@ -667,6 +731,7 @@ async def test_stock_analysis_message_service_can_save_temporary_evidence_as_con
         tool_planner=FakePlanner(NEED_TOOLING_MODE),
         tooling_service=FakeToolingService(),
         thread_memory_service=FakeThreadMemoryService(),
+        thread_compression_service=FakeThreadCompressionService(),
     )
     monkeypatch.setattr(service, "_generate_answer", _fake_answer)
 

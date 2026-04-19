@@ -25,6 +25,10 @@ from .stock_analysis_thread_memory_service import (
     StockAnalysisThreadMemoryService,
     get_stock_analysis_thread_memory_service,
 )
+from .stock_analysis_thread_compression_service import (
+    StockAnalysisThreadCompressionService,
+    get_stock_analysis_thread_compression_service,
+)
 from .stock_analysis_tooling_service import (
     StockAnalysisToolingResult,
     StockAnalysisToolingService,
@@ -73,6 +77,19 @@ class StockAnalysisMessageResult(BaseModel):
     active_memory_title: str | None = None
     active_memory_updated_at: str | None = None
     active_memory_version: int | None = None
+    used_active_compression: bool = False
+    active_compression_id: int | None = None
+    active_compression_title: str | None = None
+    active_compression_updated_at: str | None = None
+    active_compression_version: int | None = None
+    active_compression_covered_until_message_id: str | None = None
+    active_compression_covered_message_count: int | None = None
+    recent_raw_message_count: int = 0
+    compression_recommended: bool = False
+    compression_reason: str | None = None
+    uncompressed_message_count: int = 0
+    estimated_history_size: int = 0
+    active_compression_stale: bool = False
     user_message: dict[str, Any]
     assistant_message: dict[str, Any]
 
@@ -87,6 +104,9 @@ class StockAnalysisMessageService:
         tooling_service: Optional[StockAnalysisToolingService] = None,
         refresh_service: Optional[StockAnalysisRefreshService] = None,
         thread_memory_service: Optional[StockAnalysisThreadMemoryService] = None,
+        thread_compression_service: Optional[
+            StockAnalysisThreadCompressionService
+        ] = None,
     ) -> None:
         self.stock_analysis_workspace_service = (
             stock_analysis_workspace_service or StockAnalysisWorkspaceService()
@@ -98,6 +118,10 @@ class StockAnalysisMessageService:
         self.refresh_service = refresh_service or get_stock_analysis_refresh_service()
         self.thread_memory_service = (
             thread_memory_service or get_stock_analysis_thread_memory_service()
+        )
+        self.thread_compression_service = (
+            thread_compression_service
+            or get_stock_analysis_thread_compression_service()
         )
 
     async def list_messages(
@@ -162,10 +186,18 @@ class StockAnalysisMessageService:
             user_id=user_id,
             thread_id=thread_id,
         )
+        compression_state = await self.thread_compression_service.get_prompt_context_state(
+            user_id=user_id,
+            thread_id=thread_id,
+        )
+        active_compression = compression_state["active_compression"]
+        recent_raw_messages = list(compression_state["recent_raw_messages"] or [])
         assembled = self.context_assembler.assemble(
             thread=thread,
             context_cards=context_cards,
             active_memory=active_memory,
+            active_compression=active_compression,
+            recent_raw_messages=recent_raw_messages,
             user_question=message,
         )
         history_items = await self.conversation_service.core_conversation_service.get_conversation_items(
@@ -218,7 +250,6 @@ class StockAnalysisMessageService:
 
         assistant_text = await self._generate_answer(
             assembled_context=assembled["prompt_context"],
-            history_messages=history_messages,
             user_question=message.strip(),
             mode=planner_result.mode,
             tool_reason=planner_result.tool_reason,
@@ -305,6 +336,49 @@ class StockAnalysisMessageService:
             "active_memory_version": int(active_memory.get("version") or 0)
             if active_memory
             else 0,
+            "used_active_compression": assembled["used_active_compression"],
+            "active_compression_id": int(active_compression.get("compression_id") or 0)
+            if active_compression
+            else 0,
+            "active_compression_title": str(active_compression.get("title") or "").strip()
+            if active_compression
+            else "",
+            "active_compression_updated_at": str(
+                active_compression.get("updated_at") or ""
+            ).strip()
+            if active_compression
+            else "",
+            "active_compression_version": int(active_compression.get("version") or 0)
+            if active_compression
+            else 0,
+            "active_compression_covered_until_message_id": str(
+                active_compression.get("covered_until_message_id") or ""
+            ).strip()
+            if active_compression
+            else "",
+            "active_compression_covered_message_count": int(
+                active_compression.get("covered_message_count") or 0
+            )
+            if active_compression
+            else 0,
+            "recent_raw_message_count": int(
+                compression_state["recent_raw_message_count"] or 0
+            ),
+            "compression_recommended": bool(
+                compression_state["compression_recommended"]
+            ),
+            "compression_reason": str(
+                compression_state.get("compression_reason") or ""
+            ).strip(),
+            "uncompressed_message_count": int(
+                compression_state["uncompressed_message_count"] or 0
+            ),
+            "estimated_history_size": int(
+                compression_state["estimated_history_size"] or 0
+            ),
+            "active_compression_stale": bool(
+                compression_state["active_compression_stale"]
+            ),
             "thread_id": thread_id,
         }
         assistant_item = await self.conversation_service.core_conversation_service.add_item(
@@ -362,6 +436,43 @@ class StockAnalysisMessageService:
             active_memory_version=int(active_memory.get("version") or 0)
             if active_memory
             else None,
+            used_active_compression=assembled["used_active_compression"],
+            active_compression_id=int(active_compression.get("compression_id") or 0)
+            if active_compression
+            else None,
+            active_compression_title=str(active_compression.get("title") or "").strip()
+            or None
+            if active_compression
+            else None,
+            active_compression_updated_at=str(
+                active_compression.get("updated_at") or ""
+            ).strip()
+            or None
+            if active_compression
+            else None,
+            active_compression_version=int(active_compression.get("version") or 0)
+            if active_compression
+            else None,
+            active_compression_covered_until_message_id=str(
+                active_compression.get("covered_until_message_id") or ""
+            ).strip()
+            or None
+            if active_compression
+            else None,
+            active_compression_covered_message_count=int(
+                active_compression.get("covered_message_count") or 0
+            )
+            if active_compression
+            else None,
+            recent_raw_message_count=int(compression_state["recent_raw_message_count"] or 0),
+            compression_recommended=bool(compression_state["compression_recommended"]),
+            compression_reason=str(compression_state.get("compression_reason") or "").strip()
+            or None,
+            uncompressed_message_count=int(
+                compression_state["uncompressed_message_count"] or 0
+            ),
+            estimated_history_size=int(compression_state["estimated_history_size"] or 0),
+            active_compression_stale=bool(compression_state["active_compression_stale"]),
             user_message=self._serialize_message_item(user_item),
             assistant_message=self._serialize_message_item(assistant_item),
         )
@@ -446,26 +557,18 @@ class StockAnalysisMessageService:
         self,
         *,
         assembled_context: str,
-        history_messages: list[dict[str, Any]],
         user_question: str,
         mode: str,
         tool_reason: str | None,
         tooling_result: StockAnalysisToolingResult,
     ) -> str:
         model = get_model_for_agent("research_agent")
-        history_block = "\n".join(
-            f"{item['role']}: {item['content']}"
-            for item in history_messages[-8:]
-            if str(item.get("content") or "").strip()
-        )
         evidence_block = self._build_evidence_prompt_block(tooling_result)
         prompt = "\n\n".join(
             [
                 "You are a stock analysis workspace assistant.",
                 f"Current Mode: {mode}",
                 assembled_context,
-                "Conversation History",
-                history_block or "No previous messages.",
                 "Temporary Evidence",
                 evidence_block,
                 "Current User Question",
@@ -547,6 +650,19 @@ class StockAnalysisMessageService:
                 "active_memory_title": None,
                 "active_memory_updated_at": None,
                 "active_memory_version": None,
+                "used_active_compression": False,
+                "active_compression_id": None,
+                "active_compression_title": None,
+                "active_compression_updated_at": None,
+                "active_compression_version": None,
+                "active_compression_covered_until_message_id": None,
+                "active_compression_covered_message_count": None,
+                "recent_raw_message_count": 0,
+                "compression_recommended": False,
+                "compression_reason": None,
+                "uncompressed_message_count": 0,
+                "estimated_history_size": 0,
+                "active_compression_stale": False,
             }
         metadata = StockAnalysisMessageService._parse_metadata(item.metadata)
         payload = StockAnalysisMessageService._parse_payload(item.payload)
@@ -638,6 +754,56 @@ class StockAnalysisMessageService:
             or None,
             "active_memory_version": StockAnalysisMessageService._parse_optional_int(
                 metadata.get("active_memory_version")
+            ),
+            "used_active_compression": StockAnalysisMessageService._parse_bool(
+                metadata.get("used_active_compression")
+            ),
+            "active_compression_id": StockAnalysisMessageService._parse_optional_int(
+                metadata.get("active_compression_id")
+            ),
+            "active_compression_title": str(
+                metadata.get("active_compression_title") or ""
+            ).strip()
+            or None,
+            "active_compression_updated_at": str(
+                metadata.get("active_compression_updated_at") or ""
+            ).strip()
+            or None,
+            "active_compression_version": StockAnalysisMessageService._parse_optional_int(
+                metadata.get("active_compression_version")
+            ),
+            "active_compression_covered_until_message_id": str(
+                metadata.get("active_compression_covered_until_message_id") or ""
+            ).strip()
+            or None,
+            "active_compression_covered_message_count": StockAnalysisMessageService._parse_optional_int(
+                metadata.get("active_compression_covered_message_count")
+            ),
+            "recent_raw_message_count": int(
+                StockAnalysisMessageService._parse_optional_int(
+                    metadata.get("recent_raw_message_count")
+                )
+                or 0
+            ),
+            "compression_recommended": StockAnalysisMessageService._parse_bool(
+                metadata.get("compression_recommended")
+            ),
+            "compression_reason": str(metadata.get("compression_reason") or "").strip()
+            or None,
+            "uncompressed_message_count": int(
+                StockAnalysisMessageService._parse_optional_int(
+                    metadata.get("uncompressed_message_count")
+                )
+                or 0
+            ),
+            "estimated_history_size": int(
+                StockAnalysisMessageService._parse_optional_int(
+                    metadata.get("estimated_history_size")
+                )
+                or 0
+            ),
+            "active_compression_stale": StockAnalysisMessageService._parse_bool(
+                metadata.get("active_compression_stale")
             ),
         }
 

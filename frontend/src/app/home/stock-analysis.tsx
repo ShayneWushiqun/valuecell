@@ -11,6 +11,12 @@ import { useGetHoldingLifecycleOverview } from "@/api/holding-lifecycle";
 import { useGetOpportunityCandidates } from "@/api/opportunity-pool";
 import { useGetRiskSizingSummary } from "@/api/risk-sizing";
 import {
+  useActivateStockAnalysisThreadCompression,
+  useCaptureStockAnalysisThreadCompression,
+  useGetStockAnalysisThreadCompressions,
+  useRefreshStockAnalysisThreadCompression,
+} from "@/api/stock-analysis-thread-compression";
+import {
   useActivateStockAnalysisThreadMemory,
   useCaptureStockAnalysisThreadMemory,
   useGetStockAnalysisThreadMemories,
@@ -36,6 +42,7 @@ import {
   useUpdateStockAnalysisThread,
 } from "@/api/stock-analysis";
 import { StockAnalysisCompareTray } from "@/app/home/components/stock-analysis-compare-tray";
+import { StockAnalysisCompressionPanel } from "@/app/home/components/stock-analysis-compression-panel";
 import { StockAnalysisContextCard } from "@/app/home/components/stock-analysis-context-card";
 import { StockAnalysisForkDialog } from "@/app/home/components/stock-analysis-fork-dialog";
 import { StockAnalysisMemoryPanel } from "@/app/home/components/stock-analysis-memory-panel";
@@ -227,6 +234,8 @@ export default function StockAnalysis() {
     useGetStockAnalysisCompareTargets(selectedThreadId);
   const { data: memoryData, isLoading: memoriesLoading } =
     useGetStockAnalysisThreadMemories(selectedThreadId);
+  const { data: compressionData, isLoading: compressionsLoading } =
+    useGetStockAnalysisThreadCompressions(selectedThreadId);
   const { data: tradingRuns } = useGetTradingAgentsRuns();
   const { data: holdingOverview } = useGetHoldingLifecycleOverview();
   const { data: opportunityOverview } = useGetOpportunityCandidates();
@@ -246,6 +255,9 @@ export default function StockAnalysis() {
   const refreshContext = useRefreshStockAnalysisContext();
   const importContext = useImportStockAnalysisContext();
   const createMessage = useCreateStockAnalysisMessage();
+  const captureThreadCompression = useCaptureStockAnalysisThreadCompression();
+  const activateThreadCompression = useActivateStockAnalysisThreadCompression();
+  const refreshThreadCompression = useRefreshStockAnalysisThreadCompression();
   const captureThreadMemory = useCaptureStockAnalysisThreadMemory();
   const activateThreadMemory = useActivateStockAnalysisThreadMemory();
   const refreshThreadMemory = useRefreshStockAnalysisThreadMemory();
@@ -264,6 +276,8 @@ export default function StockAnalysis() {
     compareTargetData?.compare_targets || currentThread?.compare_targets_json || [];
   const activeMemory = memoryData?.active_memory || null;
   const threadMemories = memoryData?.items || [];
+  const activeCompression = compressionData?.active_compression || null;
+  const threadCompressions = compressionData?.items || [];
   const contextTitleMap = useMemo(
     () => new Map(contextItems.map((item) => [item.context_id, item.title])),
     [contextItems],
@@ -658,6 +672,44 @@ export default function StockAnalysis() {
       toast.success("已切换当前线程研究记忆");
     } catch {
       toast.error("切换研究记忆失败");
+    }
+  };
+
+  const handleCaptureThreadCompression = async () => {
+    if (!currentThread) return;
+    try {
+      await captureThreadCompression.mutateAsync({
+        threadId: currentThread.thread_id,
+      });
+      toast.success("已整理当前线程对话");
+    } catch {
+      toast.error("整理当前对话失败");
+    }
+  };
+
+  const handleRefreshThreadCompression = async (compressionId: number) => {
+    if (!currentThread) return;
+    try {
+      await refreshThreadCompression.mutateAsync({
+        threadId: currentThread.thread_id,
+        compressionId,
+      });
+      toast.success("已刷新当前对话压缩摘要");
+    } catch {
+      toast.error("刷新对话压缩失败");
+    }
+  };
+
+  const handleActivateThreadCompression = async (compressionId: number) => {
+    if (!currentThread) return;
+    try {
+      await activateThreadCompression.mutateAsync({
+        threadId: currentThread.thread_id,
+        compressionId,
+      });
+      toast.success("已切换当前对话压缩摘要");
+    } catch {
+      toast.error("切换对话压缩失败");
     }
   };
 
@@ -1096,6 +1148,18 @@ export default function StockAnalysis() {
                     staleCount={staleContextCount}
                     refreshRecommendedCount={refreshRecommendedCount}
                     savedEvidenceCount={savedEvidenceCount}
+                    activeMemoryAvailable={!!activeMemory}
+                    activeCompressionAvailable={!!activeCompression}
+                    compressionRecommended={
+                      compressionData?.compression_recommended || false
+                    }
+                    activeCompressionStale={
+                      compressionData?.active_compression_stale || false
+                    }
+                    uncompressedMessageCount={
+                      compressionData?.uncompressed_message_count || 0
+                    }
+                    compressionReason={compressionData?.compression_reason || null}
                     lastRefreshAt={lastRefreshRun?.generated_at || null}
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
@@ -1112,6 +1176,38 @@ export default function StockAnalysis() {
                     capturePending={captureThreadMemory.isPending}
                     refreshPending={refreshThreadMemory.isPending}
                     activatePending={activateThreadMemory.isPending}
+                  />
+
+                  <StockAnalysisCompressionPanel
+                    activeCompression={activeCompression}
+                    compressions={threadCompressions.filter(
+                      (item) =>
+                        item.compression_id !== activeCompression?.compression_id,
+                    )}
+                    compressionRecommended={
+                      compressionData?.compression_recommended || false
+                    }
+                    compressionReason={compressionData?.compression_reason || null}
+                    uncompressedMessageCount={
+                      compressionData?.uncompressed_message_count || 0
+                    }
+                    estimatedHistorySize={
+                      compressionData?.estimated_history_size || 0
+                    }
+                    activeCompressionStale={
+                      compressionData?.active_compression_stale || false
+                    }
+                    isLoading={compressionsLoading}
+                    onCapture={() => void handleCaptureThreadCompression()}
+                    onRefresh={(compressionId) =>
+                      void handleRefreshThreadCompression(compressionId)
+                    }
+                    onActivate={(compressionId) =>
+                      void handleActivateThreadCompression(compressionId)
+                    }
+                    capturePending={captureThreadCompression.isPending}
+                    refreshPending={refreshThreadCompression.isPending}
+                    activatePending={activateThreadCompression.isPending}
                   />
 
                   <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
@@ -1260,6 +1356,33 @@ export default function StockAnalysis() {
                                           : ""}
                                         {item.active_memory_updated_at
                                           ? ` · 更新于 ${formatTime(item.active_memory_updated_at)}`
+                                          : ""}
+                                      </p>
+                                    </div>
+                                  ) : null}
+                                  {item.used_active_compression ? (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm">
+                                      <p className="font-medium">对话压缩使用说明</p>
+                                      <p className="mt-1 text-muted-foreground">
+                                        本轮回答参考了当前线程对话压缩摘要
+                                        {item.active_compression_title
+                                          ? `：${item.active_compression_title}`
+                                          : ""}
+                                        {item.active_compression_version
+                                          ? ` · v${item.active_compression_version}`
+                                          : ""}
+                                        {item.active_compression_updated_at
+                                          ? ` · 更新于 ${formatTime(item.active_compression_updated_at)}`
+                                          : ""}
+                                        {item.active_compression_covered_until_message_id
+                                          ? ` · 覆盖到 ${item.active_compression_covered_until_message_id}`
+                                          : ""}
+                                        {typeof item.active_compression_covered_message_count ===
+                                        "number"
+                                          ? ` · 覆盖 ${item.active_compression_covered_message_count} 条消息`
+                                          : ""}
+                                        {item.recent_raw_message_count
+                                          ? ` · 保留最近 ${item.recent_raw_message_count} 条原始消息`
                                           : ""}
                                       </p>
                                     </div>

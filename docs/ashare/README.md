@@ -120,7 +120,7 @@ ValueCell 当前已经具备以下基础能力：
 
 因此目前的真实状态应理解为：
 
-`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP、A 股每日决策总控台 MVP、每日快照/复盘中心 MVP、题材雷达中心 MVP、观察池中心 MVP，以及阶段三第一波的持仓周期中心 MVP、卖点与风险中心 MVP、决策记录沉淀 MVP、阶段三第二波的统一事件模型 MVP、决策时间窗上下文 MVP、决策上下文页 MVP 已完成。阶段四核心 MVP 已完成六轮：覆盖股票分析工作区骨架、多模块 context import、多轮聊天、tooling / refresh / evidence / compare / fork / refresh-before-answer 编排；阶段五第一轮也已完成显式线程研究记忆 MVP。当前系统完整链路已升级为“市场 / 总控台 -> 题材雷达 -> 观察池 -> 机会池 -> 提醒 -> 持仓周期 -> 卖点与风险 -> 决策上下文 -> 复盘 -> 研究线程聊天工作区 -> 线程研究记忆”，并具备日级快照沉淀、关键决策记录回看、重点标的事件归一、10/20/40 日时间窗解释、显式上下文研究线程和显式研究记忆，但自动长期记忆、真实 LLM 裁决与自动交易仍未开始。`
+`阶段一首页工作台已收敛到位，阶段二 MVP 规则版闭环、策略偏好模板、提醒中心持久化 MVP、Agent 裁决上下文 MVP、Agent 裁决接口 MVP、持仓卖点/减仓裁决 MVP、A 股每日决策总控台 MVP、每日快照/复盘中心 MVP、题材雷达中心 MVP、观察池中心 MVP，以及阶段三第一波的持仓周期中心 MVP、卖点与风险中心 MVP、决策记录沉淀 MVP、阶段三第二波的统一事件模型 MVP、决策时间窗上下文 MVP、决策上下文页 MVP 已完成。阶段四核心 MVP 已完成六轮：覆盖股票分析工作区骨架、多模块 context import、多轮聊天、tooling / refresh / evidence / compare / fork / refresh-before-answer 编排；阶段五第一轮-A 已完成显式线程研究记忆 MVP，第一轮-B 已完成 context compression。当前系统完整链路已升级为“市场 / 总控台 -> 题材雷达 -> 观察池 -> 机会池 -> 提醒 -> 持仓周期 -> 卖点与风险 -> 决策上下文 -> 复盘 -> 研究线程聊天工作区 -> 线程研究记忆 / 对话压缩”，并具备日级快照沉淀、关键决策记录回看、重点标的事件归一、10/20/40 日时间窗解释、显式上下文研究线程、显式研究记忆与显式对话压缩，但自动长期记忆、真实 LLM 裁决与自动交易仍未开始。`
 
 如果继续往下推进，下一阶段的重点不应再只是“更多页面或更多规则”，而应进入：
 
@@ -517,13 +517,14 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - 已完成外部 provider 编排再收口，能说明 provider attempts、成功 provider 和 fallback chain
 - 当前仍未接自动交易、自动长期记忆、更强 planner 语义和更复杂的 SSE 工具可视化
 
-### 阶段五：研究结论沉淀与线程记忆 MVP
+### 阶段五：研究结论沉淀、线程记忆与 Context Compression MVP
 
 目标：
 
 - 让线程研究过程可以沉淀成显式可见、可版本化的研究记忆快照
+- 让较长聊天历史被显式压缩，而不是无限累加进 prompt
 - 让用户切回线程时，不必只靠很长的历史消息回忆上下文
-- 让后续问答可以在显式上下文卡片之外，额外参考当前 active memory
+- 让后续问答基于 `active memory + active compression + recent raw messages` 分层协同
 - 继续保持显式、可手动控制，不做黑盒自动长期记忆
 
 交付文档：
@@ -531,13 +532,21 @@ A 股短周期里，单独看“今天情绪强还是弱”还不够。
 - [阶段五需求文档](./phase-5-prd.md)
 - [阶段五技术方案](./phase-5-tech-design.md)
 
-当前阶段五第一轮已完成到：
+当前阶段五第一轮-A 已完成到：
 
 - 已新增 `stock_analysis_thread_memory` 线程级研究记忆快照模型、仓储、capture / activate / refresh / history API
 - 已支持基于线程标题、显式上下文、compare targets、最近关键问答、refresh 摘要和临时 evidence 摘要生成研究记忆
 - 已支持 active memory 显式参与 prompt context，并在 assistant metadata / 消息区说明本轮使用了哪份记忆
 - 已在工作区中新增研究记忆面板、历史列表和版本切换入口
 - 已支持 fork thread 时可选 `seed_from_active_memory`
+
+当前阶段五第一轮-B 已完成到：
+
+- 已新增 `stock_analysis_thread_compression` 会话压缩模型、仓储、capture / activate / refresh / history API
+- 已支持基于最近消息、compare targets、refresh / tooling / evidence 摘要与 active memory 生成对话压缩摘要
+- 已支持 assembler 以 `explicit context cards -> compare targets -> active memory -> active compression -> recent raw messages` 的分层结构组装 prompt
+- 已支持 active compression 显式参与 prompt context，并在 assistant metadata / 消息区说明本轮使用了哪份压缩摘要
+- 已在工作区中新增 compression panel、历史列表、版本切换、压缩建议和未压缩消息统计
 - 当前仍未做自动长期记忆系统、更强 planner 语义、自动交易和更复杂的研究归因 / 绩效反馈
 
 ## 7. 推荐执行顺序

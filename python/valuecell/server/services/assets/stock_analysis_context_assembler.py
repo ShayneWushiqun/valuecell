@@ -10,6 +10,8 @@ class StockAnalysisContextAssembler:
         thread: dict[str, Any],
         context_cards: Sequence[dict[str, Any]],
         active_memory: dict[str, Any] | None = None,
+        active_compression: dict[str, Any] | None = None,
+        recent_raw_messages: Sequence[dict[str, Any]] | None = None,
         user_question: str,
     ) -> dict[str, Any]:
         pinned_cards = [item for item in context_cards if bool(item.get("is_pinned"))]
@@ -59,13 +61,13 @@ class StockAnalysisContextAssembler:
             [
                 "Thread Overview",
                 self._build_thread_overview(thread=thread),
-                "Comparison Targets",
+                "Explicit Context Cards",
+                self._build_context_cards_block(ordered_cards),
+                "Compare Targets",
                 self._build_compare_targets_block(
                     compare_targets=compare_targets,
                     context_cards=ordered_cards,
                 ),
-                "Context Cards",
-                self._build_context_cards_block(ordered_cards),
                 "Ticker Focus",
                 self._build_focus_block("Tickers", ticker_refs),
                 "Theme Focus",
@@ -74,6 +76,14 @@ class StockAnalysisContextAssembler:
                 self._build_freshness_block(ordered_cards),
                 "Thread Active Research Memory",
                 self._build_active_memory_block(active_memory=active_memory),
+                "Thread Active Conversation Compression",
+                self._build_active_compression_block(
+                    active_compression=active_compression
+                ),
+                "Recent Raw Messages",
+                self._build_recent_raw_messages_block(
+                    recent_raw_messages=recent_raw_messages or []
+                ),
                 "Current User Question",
                 user_question.strip(),
                 "Response Rules",
@@ -82,6 +92,7 @@ class StockAnalysisContextAssembler:
                     comparison_mode=len(compare_targets) >= 2,
                     stale_context_ids=stale_context_ids,
                     has_active_memory=active_memory is not None,
+                    has_active_compression=active_compression is not None,
                 ),
             ]
         )
@@ -98,6 +109,8 @@ class StockAnalysisContextAssembler:
             "stale_context_ids": stale_context_ids,
             "refresh_recommended_context_ids": refresh_recommended_context_ids,
             "used_active_memory": active_memory is not None,
+            "used_active_compression": active_compression is not None,
+            "recent_raw_message_count": len(list(recent_raw_messages or [])),
         }
 
     @staticmethod
@@ -203,9 +216,10 @@ class StockAnalysisContextAssembler:
         comparison_mode: bool,
         stale_context_ids: Sequence[int],
         has_active_memory: bool,
+        has_active_compression: bool,
     ) -> str:
         rule_lines = [
-            "- Answer only from the explicit context cards and conversation history.",
+            "- Answer from the explicit context cards first, then use active memory, active compression, and recent raw messages as supporting layers.",
             "- Do not claim any external market data, news, tool result, or fresh quote that is not in the context.",
             "- If context is insufficient, say what is missing clearly.",
             "- Prefer structured reasoning and comparison over vague narrative.",
@@ -214,6 +228,10 @@ class StockAnalysisContextAssembler:
         if has_active_memory:
             rule_lines.append(
                 "- Active research memory is a thread-level summary only. Explicit context cards and current comparison targets override it when conflicts appear."
+            )
+        if has_active_compression:
+            rule_lines.append(
+                "- Active conversation compression summarizes older message history. Use recent raw messages for the latest details."
             )
         if comparison_mode:
             rule_lines.append(
@@ -307,6 +325,76 @@ class StockAnalysisContextAssembler:
                 ),
             ]
         )
+
+    @staticmethod
+    def _build_active_compression_block(
+        *, active_compression: dict[str, Any] | None
+    ) -> str:
+        if active_compression is None:
+            return "No active conversation compression."
+        return "\n".join(
+            [
+                f"Compression ID: {active_compression.get('compression_id')}",
+                f"Version: {active_compression.get('version') or '--'}",
+                f"Title: {active_compression.get('title') or '--'}",
+                f"Updated At: {active_compression.get('updated_at') or '--'}",
+                f"Current Focus: {active_compression.get('current_focus') or '--'}",
+                f"Covered Until Message ID: {active_compression.get('covered_until_message_id') or '--'}",
+                f"Covered Message Count: {active_compression.get('covered_message_count') or 0}",
+                f"Summary: {active_compression.get('summary') or '--'}",
+                "Resolved Topics: "
+                + (
+                    "; ".join(list(active_compression.get("resolved_topics_json") or [])[:4])
+                    or "--"
+                ),
+                "Open Questions: "
+                + (
+                    "; ".join(list(active_compression.get("open_questions_json") or [])[:4])
+                    or "--"
+                ),
+                "Recent Compare Notes: "
+                + (
+                    "; ".join(
+                        list(active_compression.get("recent_compare_notes_json") or [])[:3]
+                    )
+                    or "--"
+                ),
+                "Recent Refresh Notes: "
+                + (
+                    "; ".join(
+                        list(active_compression.get("recent_refresh_notes_json") or [])[:3]
+                    )
+                    or "--"
+                ),
+                "Recent Tooling Notes: "
+                + (
+                    "; ".join(
+                        list(active_compression.get("recent_tooling_notes_json") or [])[:3]
+                    )
+                    or "--"
+                ),
+                "Recent Evidence Notes: "
+                + (
+                    "; ".join(
+                        list(active_compression.get("recent_evidence_notes_json") or [])[:3]
+                    )
+                    or "--"
+                ),
+            ]
+        )
+
+    @staticmethod
+    def _build_recent_raw_messages_block(
+        *, recent_raw_messages: Sequence[dict[str, Any]]
+    ) -> str:
+        if not recent_raw_messages:
+            return "No recent raw messages."
+        lines: list[str] = []
+        for item in recent_raw_messages:
+            lines.append(
+                f"- {item.get('role') or '--'}[{item.get('item_id') or '--'}]: {item.get('content') or '--'}"
+            )
+        return "\n".join(lines)
 
     @staticmethod
     def _unique_list(values) -> list[str]:

@@ -178,6 +178,13 @@ const STOCK_ANALYSIS_QUERY_KEYS = {
     threadId,
     memoryId,
   ],
+  compressions: (threadId: number) => ["stock-analysis", "compressions", threadId],
+  compressionDetail: (threadId: number, compressionId: number) => [
+    "stock-analysis",
+    "compression-detail",
+    threadId,
+    compressionId,
+  ],
 } as const;
 
 const SYSTEM_QUERY_KEYS = {

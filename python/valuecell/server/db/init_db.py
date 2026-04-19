@@ -34,6 +34,9 @@ from valuecell.server.db.models.decision_outcome_review import DecisionOutcomeRe
 from valuecell.server.db.models.decision_record import DecisionRecord
 from valuecell.server.db.models.short_cycle_context_event import ShortCycleContextEvent
 from valuecell.server.db.models.stock_analysis_thread import StockAnalysisThread
+from valuecell.server.db.models.stock_analysis_thread_compression import (
+    StockAnalysisThreadCompression,
+)
 from valuecell.server.db.models.stock_analysis_thread_memory import (
     StockAnalysisThreadMemory,
 )

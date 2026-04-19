@@ -52,6 +52,26 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
             "next_questions_json": ["刷新后谁更优先？"],
             "next_data_to_check_json": ["最新价格动作"],
         },
+        active_compression={
+            "compression_id": 5,
+            "version": 2,
+            "title": "当前对话压缩",
+            "updated_at": "2026-04-19T10:10:00Z",
+            "current_focus": "继续比较谁更优先",
+            "covered_until_message_id": "item_12",
+            "covered_message_count": 12,
+            "summary": "较早历史对话已压缩。",
+            "resolved_topics_json": ["早期比较结论已讨论。"],
+            "open_questions_json": ["最新承接谁更强？"],
+            "recent_compare_notes_json": ["最近比较了两只票。"],
+            "recent_refresh_notes_json": ["已刷新 1 张上下文卡片。"],
+            "recent_tooling_notes_json": ["补了价格动作。"],
+            "recent_evidence_notes_json": ["行情补充：补最近 5 日日线。"],
+        },
+        recent_raw_messages=[
+            {"item_id": "item_13", "role": "user", "content": "最近承接谁更强？"},
+            {"item_id": "item_14", "role": "assistant", "content": "先看中军强度。"},
+        ],
         context_cards=[
             {
                 "context_id": 10,
@@ -88,13 +108,19 @@ def test_stock_analysis_context_assembler_builds_prompt_without_deleted_cards() 
     assert result["used_context_ids"] == [10, 11]
     assert result["comparison_mode"] is True
     assert result["used_active_memory"] is True
+    assert result["used_active_compression"] is True
+    assert result["recent_raw_message_count"] == 2
     assert result["compared_tickers"] == ["SZSE:300308", "SZSE:000001"]
     assert result["stale_context_ids"] == [11]
     assert "AI算力题材摘要" in result["prompt_context"]
-    assert "Comparison Targets" in result["prompt_context"]
+    assert "Compare Targets" in result["prompt_context"]
     assert "Current Context Refresh Status" in result["prompt_context"]
     assert "Thread Active Research Memory" in result["prompt_context"]
+    assert "Thread Active Conversation Compression" in result["prompt_context"]
+    assert "Recent Raw Messages" in result["prompt_context"]
     assert "Memory ID: 8" in result["prompt_context"]
+    assert "Compression ID: 5" in result["prompt_context"]
+    assert "item_13" in result["prompt_context"]
     assert "source=holding" in result["prompt_context"]
     assert "已删除卡片" not in result["prompt_context"]
     assert "比较中际旭创和平安银行" in result["prompt_context"]

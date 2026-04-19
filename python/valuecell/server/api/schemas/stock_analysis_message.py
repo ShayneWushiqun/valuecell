@@ -41,6 +41,19 @@ class StockAnalysisMessageItemData(BaseModel):
     active_memory_title: str | None = None
     active_memory_updated_at: str | None = None
     active_memory_version: int | None = None
+    used_active_compression: bool = False
+    active_compression_id: int | None = None
+    active_compression_title: str | None = None
+    active_compression_updated_at: str | None = None
+    active_compression_version: int | None = None
+    active_compression_covered_until_message_id: str | None = None
+    active_compression_covered_message_count: int | None = None
+    recent_raw_message_count: int = 0
+    compression_recommended: bool = False
+    compression_reason: str | None = None
+    uncompressed_message_count: int = 0
+    estimated_history_size: int = 0
+    active_compression_stale: bool = False
 
 
 class StockAnalysisMessageListData(BaseModel):
@@ -89,5 +102,18 @@ class StockAnalysisMessageCreateData(BaseModel):
     active_memory_title: str | None = None
     active_memory_updated_at: str | None = None
     active_memory_version: int | None = None
+    used_active_compression: bool = False
+    active_compression_id: int | None = None
+    active_compression_title: str | None = None
+    active_compression_updated_at: str | None = None
+    active_compression_version: int | None = None
+    active_compression_covered_until_message_id: str | None = None
+    active_compression_covered_message_count: int | None = None
+    recent_raw_message_count: int = 0
+    compression_recommended: bool = False
+    compression_reason: str | None = None
+    uncompressed_message_count: int = 0
+    estimated_history_size: int = 0
+    active_compression_stale: bool = False
     user_message: StockAnalysisMessageItemData
     assistant_message: StockAnalysisMessageItemData

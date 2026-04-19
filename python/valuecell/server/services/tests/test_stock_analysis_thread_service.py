@@ -158,6 +158,70 @@ class FakeMemoryRecord:
         }
 
 
+@dataclass
+class FakeCompressionRecord:
+    id: int
+    thread_id: int
+    user_id: str
+    conversation_id: str
+    title: str
+    summary: str
+    current_focus: str
+    covered_until_message_id: str | None
+    covered_message_count: int
+    source_message_ids_json: list[str]
+    resolved_topics_json: list[str]
+    open_questions_json: list[str]
+    recent_compare_notes_json: list[str]
+    recent_refresh_notes_json: list[str]
+    recent_tooling_notes_json: list[str]
+    recent_evidence_notes_json: list[str]
+    active_memory_id: int | None
+    focus_tickers_json: list[str]
+    focus_themes_json: list[str]
+    compared_tickers_json: list[str]
+    next_questions_json: list[str]
+    compression_reason: str
+    is_active: bool
+    created_at: Any = None
+    updated_at: Any = None
+
+    def __post_init__(self) -> None:
+        import datetime as dt
+
+        self.created_at = self.created_at or dt.datetime.now(dt.UTC)
+        self.updated_at = self.updated_at or dt.datetime.now(dt.UTC)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "compression_id": self.id,
+            "thread_id": self.thread_id,
+            "user_id": self.user_id,
+            "conversation_id": self.conversation_id,
+            "title": self.title,
+            "summary": self.summary,
+            "current_focus": self.current_focus,
+            "covered_until_message_id": self.covered_until_message_id,
+            "covered_message_count": self.covered_message_count,
+            "source_message_ids_json": list(self.source_message_ids_json),
+            "resolved_topics_json": list(self.resolved_topics_json),
+            "open_questions_json": list(self.open_questions_json),
+            "recent_compare_notes_json": list(self.recent_compare_notes_json),
+            "recent_refresh_notes_json": list(self.recent_refresh_notes_json),
+            "recent_tooling_notes_json": list(self.recent_tooling_notes_json),
+            "recent_evidence_notes_json": list(self.recent_evidence_notes_json),
+            "active_memory_id": self.active_memory_id,
+            "focus_tickers_json": list(self.focus_tickers_json),
+            "focus_themes_json": list(self.focus_themes_json),
+            "compared_tickers_json": list(self.compared_tickers_json),
+            "next_questions_json": list(self.next_questions_json),
+            "compression_reason": self.compression_reason,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+
 class FakeThreadRepository:
     def __init__(self) -> None:
         self.items: list[FakeThreadRecord] = []
@@ -334,6 +398,91 @@ class FakeThreadMemoryRepository:
             if item.user_id != user_id or item.thread_id != thread_id:
                 continue
             if exclude_memory_id is not None and item.id == exclude_memory_id:
+                continue
+            if item.is_active:
+                item.is_active = False
+                count += 1
+        return count
+
+
+class FakeThreadCompressionRepository:
+    def __init__(self) -> None:
+        self.items: list[FakeCompressionRecord] = []
+        self.next_id = 1
+
+    def list_compressions(self, *, user_id: str, thread_id: int, limit: int = 100):
+        result = [
+            item
+            for item in self.items
+            if item.user_id == user_id and item.thread_id == thread_id
+        ]
+        result.sort(key=lambda item: (item.created_at, item.id), reverse=True)
+        return result[:limit]
+
+    def get_compression_by_id(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        compression_id: int,
+    ):
+        for item in self.items:
+            if (
+                item.user_id == user_id
+                and item.thread_id == thread_id
+                and item.id == compression_id
+            ):
+                return item
+        return None
+
+    def get_active_compression(self, *, user_id: str, thread_id: int):
+        candidates = [
+            item
+            for item in self.items
+            if item.user_id == user_id
+            and item.thread_id == thread_id
+            and bool(item.is_active)
+        ]
+        candidates.sort(key=lambda item: (item.updated_at, item.id), reverse=True)
+        return candidates[0] if candidates else None
+
+    def create_compression(self, payload: dict[str, Any]):
+        item = FakeCompressionRecord(id=self.next_id, **payload)
+        self.next_id += 1
+        self.items.append(item)
+        return item
+
+    def update_compression(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        compression_id: int,
+        payload: dict[str, Any],
+    ):
+        item = self.get_compression_by_id(
+            user_id=user_id,
+            thread_id=thread_id,
+            compression_id=compression_id,
+        )
+        if item is None:
+            return None
+        for key, value in payload.items():
+            setattr(item, key, value)
+        return item
+
+    def deactivate_thread_compressions(
+        self,
+        *,
+        user_id: str,
+        thread_id: int,
+        exclude_compression_id: int | None = None,
+    ) -> int:
+        count = 0
+        for item in self.items:
+            if item.user_id != user_id or item.thread_id != thread_id:
+                continue
+            if exclude_compression_id is not None and item.id == exclude_compression_id:
                 continue
             if item.is_active:
                 item.is_active = False

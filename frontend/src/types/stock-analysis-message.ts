@@ -53,6 +53,19 @@ export type StockAnalysisMessage = {
   active_memory_title?: string | null;
   active_memory_updated_at?: string | null;
   active_memory_version?: number | null;
+  used_active_compression: boolean;
+  active_compression_id?: number | null;
+  active_compression_title?: string | null;
+  active_compression_updated_at?: string | null;
+  active_compression_version?: number | null;
+  active_compression_covered_until_message_id?: string | null;
+  active_compression_covered_message_count?: number | null;
+  recent_raw_message_count: number;
+  compression_recommended: boolean;
+  compression_reason?: string | null;
+  uncompressed_message_count: number;
+  estimated_history_size: number;
+  active_compression_stale: boolean;
 };
 
 export type StockAnalysisMessageList = {
@@ -114,6 +127,19 @@ export type StockAnalysisMessageCreateResult = {
   active_memory_title?: string | null;
   active_memory_updated_at?: string | null;
   active_memory_version?: number | null;
+  used_active_compression: boolean;
+  active_compression_id?: number | null;
+  active_compression_title?: string | null;
+  active_compression_updated_at?: string | null;
+  active_compression_version?: number | null;
+  active_compression_covered_until_message_id?: string | null;
+  active_compression_covered_message_count?: number | null;
+  recent_raw_message_count: number;
+  compression_recommended: boolean;
+  compression_reason?: string | null;
+  uncompressed_message_count: number;
+  estimated_history_size: number;
+  active_compression_stale: boolean;
   user_message: StockAnalysisMessage;
   assistant_message: StockAnalysisMessage;
 };
