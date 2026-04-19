@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { API_QUERY_KEYS } from "@/constants/api";
 import { type ApiResponse, apiClient } from "@/lib/api-client";
 import type {
@@ -27,6 +32,9 @@ type TaskStatePayload = {
   note?: string;
 };
 
+const TASK_STALE_TIME_MS = 30 * 1000;
+const TASK_GC_TIME_MS = 30 * 60 * 1000;
+
 const invalidateResearchTaskQueries = (
   queryClient: ReturnType<typeof useQueryClient>,
   threadId: number,
@@ -36,15 +44,23 @@ const invalidateResearchTaskQueries = (
   });
 };
 
-export const useGetStockAnalysisResearchTasks = (threadId?: number | null) =>
+export const useGetStockAnalysisResearchTasks = (
+  threadId?: number | null,
+  enabled = true,
+) =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.researchTasks(threadId || 0),
-    enabled: !!threadId,
+    enabled: enabled && !!threadId,
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisResearchTaskList>>(
         `stock-analysis/threads/${threadId}/research-tasks`,
       ),
     select: (response) => response.data,
+    placeholderData: keepPreviousData,
+    staleTime: TASK_STALE_TIME_MS,
+    gcTime: TASK_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 export const useGenerateStockAnalysisResearchTasks = () => {

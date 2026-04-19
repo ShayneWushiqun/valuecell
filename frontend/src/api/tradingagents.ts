@@ -21,12 +21,17 @@ export const useCreateTradingAgentsRun = () => {
   });
 };
 
-export const useGetTradingAgentsRuns = () => {
+export const useGetTradingAgentsRuns = (enabled = true) => {
   return useQuery({
     queryKey: API_QUERY_KEYS.TRADINGAGENTS.runList,
+    enabled,
     queryFn: () =>
       apiClient.get<ApiResponse<TradingAgentsRunList>>("/tradingagents/runs"),
     select: (response) => response.data,
+    staleTime: 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     refetchInterval: (query) =>
       query.state.data?.data.running_count ? 3000 : false,
   });

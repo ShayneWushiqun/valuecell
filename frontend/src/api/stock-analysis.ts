@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { API_QUERY_KEYS } from "@/constants/api";
 import { type ApiResponse, apiClient } from "@/lib/api-client";
 import type {
@@ -99,17 +104,34 @@ type ForkThreadPayload = {
   focus_type_override?: string;
 };
 
+const LONG_STALE_TIME_MS = 5 * 60 * 1000;
+const MEDIUM_STALE_TIME_MS = 60 * 1000;
+const SHORT_STALE_TIME_MS = 20 * 1000;
+const STOCK_ANALYSIS_GC_TIME_MS = 30 * 60 * 1000;
+
+type StockAnalysisQueryOptions = {
+  enabled?: boolean;
+};
+
 export const useGetStockAnalysisThreads = () =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.threads,
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisThreadList>>("stock-analysis/threads"),
     select: (response) => response.data,
+    staleTime: MEDIUM_STALE_TIME_MS,
+    gcTime: STOCK_ANALYSIS_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-export const useGetStockAnalysisWorkspaceOverview = (threadId?: number | null) =>
+export const useGetStockAnalysisWorkspaceOverview = (
+  threadId?: number | null,
+  options?: StockAnalysisQueryOptions,
+) =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.overview(threadId || 0),
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisWorkspaceOverview>>(
         threadId
@@ -117,39 +139,68 @@ export const useGetStockAnalysisWorkspaceOverview = (threadId?: number | null) =
           : "stock-analysis/workspace/overview",
       ),
     select: (response) => response.data,
+    placeholderData: keepPreviousData,
+    staleTime: MEDIUM_STALE_TIME_MS,
+    gcTime: STOCK_ANALYSIS_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-export const useGetStockAnalysisContexts = (threadId?: number | null) =>
+export const useGetStockAnalysisContexts = (
+  threadId?: number | null,
+  options?: StockAnalysisQueryOptions,
+) =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.contexts(threadId || 0),
-    enabled: !!threadId,
+    enabled: (options?.enabled ?? true) && !!threadId,
     queryFn: () =>
       apiClient.get<ApiResponse<AnalysisContextCardList>>(
         `stock-analysis/threads/${threadId}/contexts`,
       ),
     select: (response) => response.data,
+    placeholderData: keepPreviousData,
+    staleTime: MEDIUM_STALE_TIME_MS,
+    gcTime: STOCK_ANALYSIS_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-export const useGetStockAnalysisMessages = (threadId?: number | null) =>
+export const useGetStockAnalysisMessages = (
+  threadId?: number | null,
+  options?: StockAnalysisQueryOptions,
+) =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.messages(threadId || 0),
-    enabled: !!threadId,
+    enabled: (options?.enabled ?? true) && !!threadId,
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisMessageList>>(
         `stock-analysis/threads/${threadId}/messages`,
       ),
     select: (response) => response.data,
+    placeholderData: keepPreviousData,
+    staleTime: SHORT_STALE_TIME_MS,
+    gcTime: STOCK_ANALYSIS_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-export const useGetStockAnalysisCompareTargets = (threadId?: number | null) =>
+export const useGetStockAnalysisCompareTargets = (
+  threadId?: number | null,
+  options?: StockAnalysisQueryOptions,
+) =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.compareTargets(threadId || 0),
-    enabled: !!threadId,
+    enabled: (options?.enabled ?? true) && !!threadId,
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisCompareTargetList>>(
         `stock-analysis/threads/${threadId}/compare-targets`,
       ),
     select: (response) => response.data,
+    placeholderData: keepPreviousData,
+    staleTime: MEDIUM_STALE_TIME_MS,
+    gcTime: STOCK_ANALYSIS_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 export const useCreateStockAnalysisThread = () => {

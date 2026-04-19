@@ -28,6 +28,52 @@ const formatTime = (value?: string | null) => {
   return date.toLocaleString("zh-CN");
 };
 
+const resolveRefreshStatus = (
+  item: AnalysisContextCard,
+  recentRefreshState?: StockAnalysisContextCardProps["recentRefreshState"],
+) => {
+  if (recentRefreshState?.status === "refreshed") {
+    return {
+      label: "刚刚更新",
+      description: recentRefreshState.reason || "内容已刷新，可继续参考",
+      variant: "outline" as const,
+    };
+  }
+  if (recentRefreshState?.status === "failed") {
+    return {
+      label: "刷新失败",
+      description: recentRefreshState.reason || "稍后可重试刷新",
+      variant: "destructive" as const,
+    };
+  }
+  if (recentRefreshState?.status === "skipped") {
+    return {
+      label: "本轮未刷新",
+      description: recentRefreshState.reason || "这张卡片本轮没有更新",
+      variant: "outline" as const,
+    };
+  }
+  if (!item.refresh_supported) {
+    return {
+      label: "暂不支持刷新",
+      description: "当前只能继续参考已有结果",
+      variant: "outline" as const,
+    };
+  }
+  if (item.is_stale) {
+    return {
+      label: "内容偏旧",
+      description: "建议刷新后再继续使用",
+      variant: "destructive" as const,
+    };
+  }
+  return {
+    label: "可直接参考",
+    description: "当前时效可接受",
+    variant: "secondary" as const,
+  };
+};
+
 export function StockAnalysisContextCard({
   item,
   isSelectedForFork,
@@ -41,37 +87,28 @@ export function StockAnalysisContextCard({
   onRemoveFromCompare,
   onForkSingle,
 }: StockAnalysisContextCardProps) {
+  const refreshStatus = resolveRefreshStatus(item, recentRefreshState);
+
   return (
     <div className="rounded-xl border p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">{item.context_type}</Badge>
             <Badge variant="outline">{item.source_module}</Badge>
+            {item.is_pinned ? <Badge variant="secondary">置顶</Badge> : null}
             {item.freshness_label ? (
               <Badge variant={item.is_stale ? "destructive" : "outline"}>
                 {item.freshness_label}
               </Badge>
             ) : null}
-            {item.refresh_recommended ? (
-              <Badge variant="outline">建议刷新</Badge>
-            ) : null}
-            {item.is_pinned ? <Badge variant="outline">Pinned</Badge> : null}
-            {recentRefreshState?.status === "refreshed" ? (
-              <Badge variant="outline">刚刷新</Badge>
-            ) : null}
-            {recentRefreshState?.status === "failed" ? (
-              <Badge variant="destructive">最近批量刷新失败</Badge>
-            ) : null}
-            {recentRefreshState?.status === "skipped" ? (
-              <Badge variant="outline">最近批量刷新跳过</Badge>
-            ) : null}
+            <Badge variant={refreshStatus.variant}>{refreshStatus.label}</Badge>
           </div>
           <div>
             <p className="font-medium text-sm">{item.title}</p>
             {item.subtitle ? (
               <p className="mt-1 text-muted-foreground text-xs">{item.subtitle}</p>
             ) : null}
+            <p className="mt-1 text-muted-foreground text-xs">{refreshStatus.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -82,7 +119,7 @@ export function StockAnalysisContextCard({
           />
         </div>
       </div>
-      <p className="mt-3 text-sm">{item.summary}</p>
+      <p className="mt-3 line-clamp-2 text-sm">{item.summary}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {item.ticker_refs_json.map((ref) => (
           <Badge key={ref} variant="outline">
@@ -97,20 +134,14 @@ export function StockAnalysisContextCard({
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {item.generated_at ? (
-          <Badge variant="outline">生成时间：{formatTime(item.generated_at)}</Badge>
+          <Badge variant="outline">更新于 {formatTime(item.generated_at)}</Badge>
         ) : null}
         {item.data_time ? (
-          <Badge variant="outline">数据时间：{formatTime(item.data_time)}</Badge>
+          <Badge variant="outline">数据时间 {formatTime(item.data_time)}</Badge>
         ) : null}
-        <Badge variant="outline">
-          {item.refresh_supported ? "支持刷新" : "不支持直接刷新"}
-        </Badge>
       </div>
       {item.staleness_hint ? (
         <p className="mt-3 text-muted-foreground text-xs">{item.staleness_hint}</p>
-      ) : null}
-      {recentRefreshState?.reason ? (
-        <p className="mt-2 text-muted-foreground text-xs">{recentRefreshState.reason}</p>
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
@@ -127,7 +158,7 @@ export function StockAnalysisContextCard({
           onClick={() => onRefresh(item.context_id)}
         >
           <RefreshCw className="size-4" />
-          刷新
+          立即刷新
         </Button>
         <Button
           size="sm"
@@ -137,7 +168,7 @@ export function StockAnalysisContextCard({
           }
         >
           <Plus className="size-4" />
-          {isInCompare ? "移出对比" : "加入对比"}
+          {isInCompare ? "移出对比" : "加入当前对比"}
         </Button>
         <Button size="sm" variant="outline" onClick={() => onForkSingle(item)}>
           <GitBranchPlus className="size-4" />

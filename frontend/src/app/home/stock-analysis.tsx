@@ -1,5 +1,13 @@
 import BackButton from "@valuecell/button/back-button";
-import { Copy, Plus, RefreshCw, Send, Trash2, Zap } from "lucide-react";
+import {
+  Copy,
+  Plus,
+  RefreshCw,
+  Send,
+  Trash2,
+  TriangleAlert,
+  Zap,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -67,10 +75,13 @@ import { StockAnalysisMemoryPanel } from "@/app/home/components/stock-analysis-m
 import { StockAnalysisResearchTaskPanel } from "@/app/home/components/stock-analysis-research-task-panel";
 import { StockAnalysisRefreshSummary } from "@/app/home/components/stock-analysis-refresh-summary";
 import { StockAnalysisThreadSummary } from "@/app/home/components/stock-analysis-thread-summary";
+import { StockAnalysisThreadHero } from "@/app/home/components/stock-analysis-thread-hero";
 import { StockAnalysisValidationSummary } from "@/app/home/components/stock-analysis-validation-summary";
+import { StockAnalysisSectionState } from "@/app/home/components/stock-analysis-section-state";
 import { useGetThemeRadarOverview } from "@/api/theme-radar";
 import { useGetTradingAgentsRuns } from "@/api/tradingagents";
 import { useGetWatchlistCenterOverview } from "@/api/watchlist-center";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,6 +108,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type {
   AnalysisContextCard,
@@ -255,39 +267,128 @@ export default function StockAnalysis() {
   const [lastRefreshRun, setLastRefreshRun] =
     useState<StockAnalysisRefreshRunResult | null>(null);
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<number | null>(null);
+  const [secondaryTab, setSecondaryTab] = useState("assistant");
+  const [lastActionMessage, setLastActionMessage] = useState<string | null>(null);
   const [recentContextRefreshState, setRecentContextRefreshState] = useState<
     Record<number, { status: "refreshed" | "skipped" | "failed"; reason?: string | null }>
   >({});
   const autoImportKeyRef = useRef<string | null>(null);
   const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
 
-  const { data: overview, isLoading, isError } =
-    useGetStockAnalysisWorkspaceOverview(selectedThreadId);
-  const { data: contexts, isLoading: contextsLoading } =
-    useGetStockAnalysisContexts(selectedThreadId);
-  const { data: messages, isLoading: messagesLoading } =
-    useGetStockAnalysisMessages(selectedThreadId);
-  const { data: compareTargetData } =
+  const {
+    data: overview,
+    isLoading,
+    isError,
+    isFetching: overviewRefreshing,
+    refetch: refetchOverview,
+  } = useGetStockAnalysisWorkspaceOverview(selectedThreadId);
+  const {
+    data: contexts,
+    isLoading: contextsLoading,
+    isFetching: contextsRefreshing,
+    isError: contextsError,
+    refetch: refetchContexts,
+  } = useGetStockAnalysisContexts(selectedThreadId);
+  const {
+    data: messages,
+    isLoading: messagesLoading,
+    isFetching: messagesRefreshing,
+    isError: messagesError,
+    refetch: refetchMessages,
+  } = useGetStockAnalysisMessages(selectedThreadId);
+  const { data: compareTargetData, isFetching: compareTargetsRefreshing } =
     useGetStockAnalysisCompareTargets(selectedThreadId);
-  const { data: memoryData, isLoading: memoriesLoading } =
-    useGetStockAnalysisThreadMemories(selectedThreadId);
-  const { data: compressionData, isLoading: compressionsLoading } =
-    useGetStockAnalysisThreadCompressions(selectedThreadId);
-  const { data: researchTaskData, isLoading: researchTasksLoading } =
-    useGetStockAnalysisResearchTasks(selectedThreadId);
-  const { data: researchFeedbackData, isLoading: researchFeedbackLoading } =
-    useGetStockAnalysisResearchFeedback(selectedThreadId);
-  const { data: globalOverview } = useGetStockAnalysisOverview();
-  const { data: tradingRuns } = useGetTradingAgentsRuns();
-  const { data: holdingOverview } = useGetHoldingLifecycleOverview();
-  const { data: opportunityOverview } = useGetOpportunityCandidates();
-  const { data: watchlistOverview } = useGetWatchlistCenterOverview();
-  const { data: themeOverview } = useGetThemeRadarOverview();
-  const { data: alertSummary } = useGetDecisionAlertSummary();
-  const { data: decisionWindows } = useGetDecisionContextWindows({ limit: 80 });
-  const { data: decisionReviews } = useGetDecisionOutcomeReviews({ limit: 60 });
-  const { data: decisionEffectiveness } = useGetDecisionEffectivenessSummary();
-  const { data: riskSizingSummary } = useGetRiskSizingSummary();
+  const {
+    data: memoryData,
+    isLoading: memoriesLoading,
+    isFetching: memoriesRefreshing,
+    isError: memoriesError,
+    refetch: refetchMemories,
+  } = useGetStockAnalysisThreadMemories(
+    selectedThreadId,
+    !!selectedThreadId && (secondaryTab === "assistant" || secondaryTab === "memory"),
+  );
+  const {
+    data: compressionData,
+    isLoading: compressionsLoading,
+    isFetching: compressionsRefreshing,
+    isError: compressionsError,
+    refetch: refetchCompressions,
+  } = useGetStockAnalysisThreadCompressions(
+    selectedThreadId,
+    !!selectedThreadId &&
+      (secondaryTab === "assistant" || secondaryTab === "compression"),
+  );
+  const {
+    data: researchTaskData,
+    isLoading: researchTasksLoading,
+    isFetching: researchTasksRefreshing,
+    isError: researchTasksError,
+    refetch: refetchResearchTasks,
+  } = useGetStockAnalysisResearchTasks(
+    selectedThreadId,
+    !!selectedThreadId && (secondaryTab === "assistant" || secondaryTab === "tasks"),
+  );
+  const {
+    data: researchFeedbackData,
+    isLoading: researchFeedbackLoading,
+    isFetching: researchFeedbackRefreshing,
+    isError: researchFeedbackError,
+    refetch: refetchResearchFeedback,
+  } = useGetStockAnalysisResearchFeedback(
+    selectedThreadId,
+    !!selectedThreadId && (secondaryTab === "assistant" || secondaryTab === "feedback"),
+  );
+  const { data: globalOverview, isFetching: globalOverviewRefreshing } =
+    useGetStockAnalysisOverview();
+
+  const isAddContextSourcePanelOpen = addContextOpen && !!selectedThreadId;
+  const shouldLoadTradingRuns =
+    isAddContextSourcePanelOpen && addContextSource === "tradingagents_run";
+  const shouldLoadHoldingOverview =
+    isAddContextSourcePanelOpen && addContextSource === "holding";
+  const shouldLoadOpportunityOverview =
+    isAddContextSourcePanelOpen && addContextSource === "opportunity";
+  const shouldLoadWatchlistOverview =
+    isAddContextSourcePanelOpen && addContextSource === "watchlist";
+  const shouldLoadThemeOverview =
+    isAddContextSourcePanelOpen && addContextSource === "theme";
+  const shouldLoadAlertSummary =
+    isAddContextSourcePanelOpen && addContextSource === "alert";
+  const shouldLoadDecisionWindows =
+    isAddContextSourcePanelOpen && addContextSource === "decision_context_window";
+  const shouldLoadDecisionReviews =
+    isAddContextSourcePanelOpen && addContextSource === "decision_outcome_review";
+  const shouldLoadDecisionEffectiveness =
+    isAddContextSourcePanelOpen && addContextSource === "decision_effectiveness";
+  const shouldLoadRiskSizing =
+    isAddContextSourcePanelOpen && addContextSource === "risk_sizing";
+
+  const { data: tradingRuns, isFetching: tradingRunsRefreshing } =
+    useGetTradingAgentsRuns(shouldLoadTradingRuns);
+  const { data: holdingOverview, isFetching: holdingOverviewRefreshing } =
+    useGetHoldingLifecycleOverview(shouldLoadHoldingOverview);
+  const { data: opportunityOverview, isFetching: opportunityOverviewRefreshing } =
+    useGetOpportunityCandidates(shouldLoadOpportunityOverview);
+  const { data: watchlistOverview, isFetching: watchlistOverviewRefreshing } =
+    useGetWatchlistCenterOverview(shouldLoadWatchlistOverview);
+  const { data: themeOverview, isFetching: themeOverviewRefreshing } =
+    useGetThemeRadarOverview(shouldLoadThemeOverview);
+  const { data: alertSummary, isFetching: alertSummaryRefreshing } =
+    useGetDecisionAlertSummary(shouldLoadAlertSummary);
+  const { data: decisionWindows, isFetching: decisionWindowsRefreshing } =
+    useGetDecisionContextWindows({ limit: 80, enabled: shouldLoadDecisionWindows });
+  const { data: decisionReviews, isFetching: decisionReviewsRefreshing } =
+    useGetDecisionOutcomeReviews({
+      limit: 60,
+      enabled: shouldLoadDecisionReviews,
+    });
+  const {
+    data: decisionEffectiveness,
+    isFetching: decisionEffectivenessRefreshing,
+  } = useGetDecisionEffectivenessSummary(shouldLoadDecisionEffectiveness);
+  const { data: riskSizingSummary, isFetching: riskSizingSummaryRefreshing } =
+    useGetRiskSizingSummary(shouldLoadRiskSizing);
   const createThread = useCreateStockAnalysisThread();
   const updateThread = useUpdateStockAnalysisThread();
   const deleteThread = useDeleteStockAnalysisThread();
@@ -327,9 +428,44 @@ export default function StockAnalysis() {
       ) || null,
     [currentThread?.thread_id, globalOverview?.thread_overview_items],
   );
+  const threadOverviewMap = useMemo(
+    () =>
+      new Map(
+        (globalOverview?.thread_overview_items || []).map((item) => [
+          item.thread_id,
+          item,
+        ]),
+      ),
+    [globalOverview?.thread_overview_items],
+  );
   const contextItems = contexts?.items || [];
   const compareTargets =
     compareTargetData?.compare_targets || currentThread?.compare_targets_json || [];
+  const sortedContextItems = useMemo(() => {
+    const compareRefs = new Set(
+      compareTargets.map((target) => `${target.target_type}:${target.ref}`),
+    );
+    const scoreForItem = (item: AnalysisContextCard) => {
+      const compareMatch = [
+        ...item.ticker_refs_json.map((ref) => `ticker:${ref}`),
+        ...item.theme_refs_json.map((ref) => `theme:${ref}`),
+      ].some((ref) => compareRefs.has(ref));
+      let score = 0;
+      if (item.is_pinned) score += 100;
+      if (compareMatch) score += 40;
+      if (item.context_type === "temporary_evidence_saved") score += 20;
+      if (item.refresh_recommended || item.is_stale) score -= 15;
+      return score;
+    };
+
+    return [...contextItems].sort((a, b) => {
+      const scoreDiff = scoreForItem(b) - scoreForItem(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      const bTime = b.generated_at ? new Date(b.generated_at).getTime() : 0;
+      const aTime = a.generated_at ? new Date(a.generated_at).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [compareTargets, contextItems]);
   const activeMemory = memoryData?.active_memory || null;
   const threadMemories = memoryData?.items || [];
   const activeCompression = compressionData?.active_compression || null;
@@ -450,6 +586,25 @@ export default function StockAnalysis() {
   const savedEvidenceCount = contextItems.filter(
     (item) => item.context_type === "temporary_evidence_saved",
   ).length;
+  const currentFocusSummary = useMemo(() => {
+    const parts = [
+      currentThread?.ticker_refs_json?.[0],
+      currentThread?.theme_refs_json?.[0],
+    ].filter(Boolean);
+    return parts[0] || "待明确";
+  }, [currentThread?.theme_refs_json, currentThread?.ticker_refs_json]);
+  const hasStaleContexts = staleContextCount > 0;
+  const sourceLoading =
+    tradingRunsRefreshing ||
+    holdingOverviewRefreshing ||
+    opportunityOverviewRefreshing ||
+    watchlistOverviewRefreshing ||
+    themeOverviewRefreshing ||
+    alertSummaryRefreshing ||
+    decisionWindowsRefreshing ||
+    decisionReviewsRefreshing ||
+    decisionEffectivenessRefreshing ||
+    riskSizingSummaryRefreshing;
 
   useEffect(() => {
     if (!selectedThreadId && overview?.current_thread?.thread_id) {
@@ -911,6 +1066,7 @@ export default function StockAnalysis() {
       });
       setSelectedFeedbackId(response.data.feedback.feedback_id);
       scrollToFeedbackPanel();
+      setLastActionMessage("已生成新的研究反馈，可在研究辅助区继续查看。");
       toast.success("已生成研究反馈");
     } catch {
       toast.error("生成研究反馈失败");
@@ -1081,6 +1237,7 @@ export default function StockAnalysis() {
           },
         ],
       });
+      setLastActionMessage("单张上下文卡片已刷新，右侧内容已同步更新。");
       toast.success("上下文卡片已刷新");
     } catch {
       toast.error("刷新上下文卡片失败");
@@ -1098,6 +1255,7 @@ export default function StockAnalysis() {
         },
       });
       applyRecentRefreshState(response.data);
+      setLastActionMessage(response.data.summary);
       if (response.data.failed_count) {
         toast.warning(response.data.summary);
       } else {
@@ -1122,6 +1280,7 @@ export default function StockAnalysis() {
         target_thread_id: currentThread.thread_id,
         mode: addContextMode,
       });
+      setLastActionMessage("上下文卡片已加入当前线程。");
       toast.success("上下文卡片已加入当前线程");
       setAddContextOpen(false);
     } catch {
@@ -1228,6 +1387,13 @@ export default function StockAnalysis() {
       }
       setMessageInput("");
       setActiveResearchTaskId(null);
+      setLastActionMessage(
+        refreshBeforeAnswer
+          ? "已先刷新过期上下文，再生成新的研究回答。"
+          : forceTooling
+            ? "已补充最新数据，再生成新的研究回答。"
+            : "已基于当前线程继续研究。",
+      );
       toast.success("研究消息已发送");
     } catch {
       toast.error("发送消息失败");
@@ -1281,16 +1447,24 @@ export default function StockAnalysis() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex min-h-96 items-center justify-center">
-          <Spinner className="size-6" />
-        </div>
-      ) : null}
+      <StockAnalysisSectionState
+        title="线程信息"
+        loadingText="正在加载股票分析工作区"
+        isLoading={isLoading}
+        hasData={!!overview}
+      />
 
       {!isLoading && (isError || !overview) ? (
-        <div className="rounded-xl border border-dashed p-6 text-muted-foreground text-sm">
-          当前无法加载股票分析工作区，请稍后再试。
-        </div>
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertTitle>当前无法加载股票分析工作区</AlertTitle>
+          <AlertDescription>
+            <p>请稍后重试；如果问题持续存在，可先回到研究总览或总控台。</p>
+            <Button size="sm" variant="outline" onClick={() => void refetchOverview()}>
+              重试
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {!isLoading && !isError && overview ? (
@@ -1298,49 +1472,57 @@ export default function StockAnalysis() {
           <Card className="min-h-0">
             <CardHeader>
               <CardTitle>研究线程</CardTitle>
-              <CardDescription>显式管理研究主题、焦点和 conversation 绑定。</CardDescription>
+              <CardDescription>先看标题、更新时间和线程健康，再决定切到哪个线程继续研究。</CardDescription>
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
-              <div className="space-y-3 rounded-xl border p-3">
-                <Input
-                  value={newTitle}
-                  onChange={(event) => setNewTitle(event.target.value)}
-                  placeholder="例如：追问 AI 算力主线分歧"
-                />
-                <Select value={newFocusType} onValueChange={setNewFocusType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="选择 focus_type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FOCUS_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={newTickerRefs}
-                  onChange={(event) => setNewTickerRefs(event.target.value)}
-                  placeholder="ticker refs，逗号分隔"
-                />
-                <Input
-                  value={newThemeRefs}
-                  onChange={(event) => setNewThemeRefs(event.target.value)}
-                  placeholder="theme refs，逗号分隔"
-                />
-                <Button
-                  className="w-full"
-                  onClick={handleCreateThread}
-                  disabled={createThread.isPending}
-                >
-                  {createThread.isPending ? "创建中..." : "新建分析线程"}
-                </Button>
-              </div>
+              <details className="rounded-xl border p-3">
+                <summary className="cursor-pointer font-medium text-sm">
+                  新建分析线程
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <Input
+                    value={newTitle}
+                    onChange={(event) => setNewTitle(event.target.value)}
+                    placeholder="例如：追问 AI 算力主线分歧"
+                  />
+                  <Select value={newFocusType} onValueChange={setNewFocusType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="选择 focus_type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FOCUS_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={newTickerRefs}
+                    onChange={(event) => setNewTickerRefs(event.target.value)}
+                    placeholder="股票代码，逗号分隔"
+                  />
+                  <Input
+                    value={newThemeRefs}
+                    onChange={(event) => setNewThemeRefs(event.target.value)}
+                    placeholder="主题关键词，逗号分隔"
+                  />
+                  <Button
+                    className="w-full"
+                    onClick={handleCreateThread}
+                    disabled={createThread.isPending}
+                  >
+                    {createThread.isPending ? "创建中..." : "新建分析线程"}
+                  </Button>
+                </div>
+              </details>
 
               <div className="scroll-container min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {threads.length ? (
                   threads.map((thread) => (
+                    (() => {
+                      const threadOverviewItem = threadOverviewMap.get(thread.thread_id);
+                      return (
                     <div
                       key={thread.thread_id}
                       className={`rounded-xl border p-3 ${
@@ -1358,11 +1540,16 @@ export default function StockAnalysis() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-medium text-sm">{thread.title}</p>
-                          <Badge variant="outline">{thread.focus_type}</Badge>
+                          <Badge variant="outline">
+                            {threadOverviewItem?.thread_health_status || "进行中"}
+                          </Badge>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2 text-muted-foreground text-xs">
                           <span>更新于 {formatTime(thread.updated_at)}</span>
                           <span>{thread.context_count} 张上下文卡片</span>
+                          {threadOverviewItem?.latest_conflict_level ? (
+                            <span>冲突 {threadOverviewItem.latest_conflict_level}</span>
+                          ) : null}
                         </div>
                       </button>
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -1391,6 +1578,8 @@ export default function StockAnalysis() {
                         </Button>
                       </div>
                     </div>
+                      );
+                    })()
                   ))
                 ) : (
                   <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
@@ -1409,58 +1598,44 @@ export default function StockAnalysis() {
             <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
               {currentThread ? (
                 <>
-                  <div className="rounded-xl border p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-lg">{currentThread.title}</p>
-                      <Badge variant="secondary">{currentThread.focus_type}</Badge>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {currentThread.ticker_refs_json.map((item) => (
-                        <Button
-                          key={item}
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void handleAddCompareTarget(buildManualCompareTarget("ticker", item))
-                          }
-                        >
-                          {item}
-                        </Button>
-                      ))}
-                      {currentThread.theme_refs_json.map((item) => (
-                        <Button
-                          key={item}
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void handleAddCompareTarget(buildManualCompareTarget("theme", item))
-                          }
-                        >
-                          {item}
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-muted-foreground text-xs">
-                      点击 ticker / theme 可直接加入当前 compare targets。
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">默认模式：context_only</Badge>
-                      <Badge variant="outline">可切换：need_tooling / user_forced_tooling</Badge>
-                      <Badge variant="outline">
-                        conversation_id: {currentThread.conversation_id}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <StockAnalysisCompareTray
-                    compareTargets={compareTargets}
-                    isMutating={updateCompareTargets.isPending}
-                    onFork={() => openForkDialog()}
-                    onRemove={(target) => void handleRemoveCompareTarget(target)}
+                  <StockAnalysisThreadHero
+                    title={currentThread.title}
+                    focusType={currentThread.focus_type}
+                    tickers={currentThread.ticker_refs_json}
+                    themes={currentThread.theme_refs_json}
+                    threadHealthStatus={currentThreadOverview?.thread_health_status || null}
+                    threadHealthScore={currentThreadOverview?.thread_health_score ?? null}
+                    nextAction={currentThreadOverview?.next_best_action || null}
+                    nextActionReason={currentThreadOverview?.next_best_action_reason || null}
+                    onAddTicker={(ticker) =>
+                      void handleAddCompareTarget(
+                        buildManualCompareTarget("ticker", ticker),
+                      )
+                    }
+                    onAddTheme={(theme) =>
+                      void handleAddCompareTarget(buildManualCompareTarget("theme", theme))
+                    }
                   />
+
+                  <StockAnalysisSectionState
+                    title="线程信息"
+                    loadingText="正在后台刷新线程摘要"
+                    isRefreshing={
+                      !!overview &&
+                      (overviewRefreshing ||
+                        compareTargetsRefreshing ||
+                        globalOverviewRefreshing)
+                    }
+                    hasData={!!overview}
+                  />
+
+                  {lastActionMessage ? (
+                    <Alert>
+                      <TriangleAlert className="size-4" />
+                      <AlertTitle>最近一次操作</AlertTitle>
+                      <AlertDescription>{lastActionMessage}</AlertDescription>
+                    </Alert>
+                  ) : null}
 
                   <StockAnalysisThreadSummary
                     threadHealthStatus={currentThreadOverview?.thread_health_status || null}
@@ -1537,95 +1712,45 @@ export default function StockAnalysis() {
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
 
-                  <StockAnalysisResearchTaskPanel
-                    taskData={researchTaskData}
-                    currentFocusTickers={latestFocusTickers}
-                    currentFocusThemes={latestFocusThemes}
-                    relatedTaskIds={latestRelatedTaskIds}
-                    activeResearchTaskId={activeResearchTaskId}
-                    preferredEvidenceOrder={
-                      latestAssistantMessage?.preferred_evidence_order || []
-                    }
-                    isLoading={researchTasksLoading}
-                    generatePending={generateResearchTasks.isPending}
-                    createPending={createResearchTask.isPending}
-                    actionPending={
-                      completeResearchTask.isPending ||
-                      reopenResearchTask.isPending ||
-                      dismissResearchTask.isPending
-                    }
-                    onGenerate={() => void handleGenerateResearchTasks()}
-                    onCreate={(draft) => void handleCreateResearchTask(draft)}
-                    onResearch={(task) => void handleResearchFromTask(task)}
-                    onComplete={(task) => void handleCompleteResearchTask(task.task_id)}
-                    onReopen={(task) => void handleReopenResearchTask(task.task_id)}
-                    onDismiss={(task) => void handleDismissResearchTask(task.task_id)}
-                  />
-
-                  <div ref={feedbackPanelRef}>
-                    <StockAnalysisFeedbackPanel
-                      feedbackData={researchFeedbackData}
-                      isLoading={researchFeedbackLoading}
-                      capturePending={captureResearchFeedback.isPending}
-                      refreshPending={refreshResearchFeedback.isPending}
-                      selectedFeedbackId={selectedFeedbackId}
-                      onCaptureLatest={() => void handleCaptureResearchFeedback()}
-                      onRefresh={(feedbackId) =>
-                        void handleRefreshResearchFeedback(feedbackId)
-                      }
-                    />
-                  </div>
-
-                  <StockAnalysisMemoryPanel
-                    activeMemory={activeMemory}
-                    memories={threadMemories.filter(
-                      (item) => item.memory_id !== activeMemory?.memory_id,
-                    )}
-                    isLoading={memoriesLoading}
-                    onCapture={() => void handleCaptureThreadMemory()}
-                    onRefresh={(memoryId) => void handleRefreshThreadMemory(memoryId)}
-                    onActivate={(memoryId) => void handleActivateThreadMemory(memoryId)}
-                    capturePending={captureThreadMemory.isPending}
-                    refreshPending={refreshThreadMemory.isPending}
-                    activatePending={activateThreadMemory.isPending}
-                  />
-
-                  <StockAnalysisCompressionPanel
-                    activeCompression={activeCompression}
-                    compressions={threadCompressions.filter(
-                      (item) =>
-                        item.compression_id !== activeCompression?.compression_id,
-                    )}
-                    compressionRecommended={
-                      compressionData?.compression_recommended || false
-                    }
-                    compressionReason={compressionData?.compression_reason || null}
-                    uncompressedMessageCount={
-                      compressionData?.uncompressed_message_count || 0
-                    }
-                    estimatedHistorySize={
-                      compressionData?.estimated_history_size || 0
-                    }
-                    activeCompressionStale={
-                      compressionData?.active_compression_stale || false
-                    }
-                    isLoading={compressionsLoading}
-                    onCapture={() => void handleCaptureThreadCompression()}
-                    onRefresh={(compressionId) =>
-                      void handleRefreshThreadCompression(compressionId)
-                    }
-                    onActivate={(compressionId) =>
-                      void handleActivateThreadCompression(compressionId)
-                    }
-                    capturePending={captureThreadCompression.isPending}
-                    refreshPending={refreshThreadCompression.isPending}
-                    activatePending={activateThreadCompression.isPending}
-                  />
-
-                  <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
-
                   <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
-                    <p className="font-medium text-sm">研究线程聊天</p>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-sm">继续研究</p>
+                        <p className="mt-1 text-muted-foreground text-xs">
+                          当前研究对象：{currentFocusSummary}
+                          {hasStaleContexts
+                            ? " · 当前有部分上下文较旧，必要时先刷新再继续。"
+                            : " · 当前可直接基于已挂载上下文继续。"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => openForkDialog()}
+                          disabled={forkThread.isPending}
+                        >
+                          <Zap className="size-4" />
+                          分叉线程
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setAddContextOpen(true)}
+                        >
+                          <Plus className="size-4" />
+                          添加上下文
+                        </Button>
+                      </div>
+                    </div>
+                    <StockAnalysisSectionState
+                      title="聊天记录"
+                      loadingText="正在加载线程消息"
+                      isLoading={messagesLoading}
+                      isRefreshing={!!messages?.items.length && messagesRefreshing}
+                      hasData={!!messages?.items.length}
+                      isError={messagesError}
+                      errorText="加载聊天记录失败，请稍后重试。"
+                      onRetry={() => void refetchMessages()}
+                    />
                     <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
                       <div className="scroll-container flex-1 space-y-3 overflow-y-auto rounded-xl border p-4">
                         {messagesLoading ? (
@@ -2295,6 +2420,224 @@ export default function StockAnalysis() {
                       </div>
                     </div>
                   </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>研究辅助</CardTitle>
+                      <CardDescription>
+                        任务、反馈、研究记忆、对话整理和高级说明收在这里，默认不打断主聊天区。
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Tabs value={secondaryTab} onValueChange={setSecondaryTab}>
+                        <TabsList className="flex h-auto w-full flex-wrap justify-start">
+                          <TabsTrigger value="assistant">研究辅助</TabsTrigger>
+                          <TabsTrigger value="memory">研究记忆</TabsTrigger>
+                          <TabsTrigger value="compression">对话整理</TabsTrigger>
+                          <TabsTrigger value="compare">对比与刷新</TabsTrigger>
+                          <TabsTrigger value="advanced">高级说明</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="assistant" className="space-y-4 pt-4">
+                          <StockAnalysisSectionState
+                            title="研究辅助"
+                            loadingText="正在加载研究任务与反馈"
+                            isLoading={researchTasksLoading || researchFeedbackLoading}
+                            isRefreshing={
+                              (!!researchTaskData || !!researchFeedbackData) &&
+                              (researchTasksRefreshing || researchFeedbackRefreshing)
+                            }
+                            hasData={
+                              !!researchTaskData ||
+                              !!researchFeedbackData ||
+                              !!threadResearchTasks.length ||
+                              !!threadResearchFeedback.length
+                            }
+                            isError={researchTasksError || researchFeedbackError}
+                            errorText="研究任务或反馈加载失败，请稍后重试。"
+                            onRetry={() => {
+                              void refetchResearchTasks();
+                              void refetchResearchFeedback();
+                            }}
+                          />
+                          <StockAnalysisResearchTaskPanel
+                            taskData={researchTaskData}
+                            currentFocusTickers={latestFocusTickers}
+                            currentFocusThemes={latestFocusThemes}
+                            relatedTaskIds={latestRelatedTaskIds}
+                            activeResearchTaskId={activeResearchTaskId}
+                            preferredEvidenceOrder={
+                              latestAssistantMessage?.preferred_evidence_order || []
+                            }
+                            isLoading={researchTasksLoading}
+                            generatePending={generateResearchTasks.isPending}
+                            createPending={createResearchTask.isPending}
+                            actionPending={
+                              completeResearchTask.isPending ||
+                              reopenResearchTask.isPending ||
+                              dismissResearchTask.isPending
+                            }
+                            onGenerate={() => void handleGenerateResearchTasks()}
+                            onCreate={(draft) => void handleCreateResearchTask(draft)}
+                            onResearch={(task) => void handleResearchFromTask(task)}
+                            onComplete={(task) => void handleCompleteResearchTask(task.task_id)}
+                            onReopen={(task) => void handleReopenResearchTask(task.task_id)}
+                            onDismiss={(task) => void handleDismissResearchTask(task.task_id)}
+                          />
+                          <div ref={feedbackPanelRef}>
+                            <StockAnalysisFeedbackPanel
+                              feedbackData={researchFeedbackData}
+                              isLoading={researchFeedbackLoading}
+                              capturePending={captureResearchFeedback.isPending}
+                              refreshPending={refreshResearchFeedback.isPending}
+                              selectedFeedbackId={selectedFeedbackId}
+                              onCaptureLatest={() => void handleCaptureResearchFeedback()}
+                              onRefresh={(feedbackId) =>
+                                void handleRefreshResearchFeedback(feedbackId)
+                              }
+                            />
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="memory" className="space-y-4 pt-4">
+                          <StockAnalysisSectionState
+                            title="研究记忆"
+                            loadingText="正在加载研究记忆"
+                            isLoading={memoriesLoading}
+                            isRefreshing={!!memoryData && memoriesRefreshing}
+                            hasData={!!memoryData || !!activeMemory || !!threadMemories.length}
+                            isError={memoriesError}
+                            errorText="研究记忆加载失败，请稍后重试。"
+                            onRetry={() => void refetchMemories()}
+                          />
+                          <StockAnalysisMemoryPanel
+                            activeMemory={activeMemory}
+                            memories={threadMemories.filter(
+                              (item) => item.memory_id !== activeMemory?.memory_id,
+                            )}
+                            isLoading={memoriesLoading}
+                            onCapture={() => void handleCaptureThreadMemory()}
+                            onRefresh={(memoryId) => void handleRefreshThreadMemory(memoryId)}
+                            onActivate={(memoryId) => void handleActivateThreadMemory(memoryId)}
+                            capturePending={captureThreadMemory.isPending}
+                            refreshPending={refreshThreadMemory.isPending}
+                            activatePending={activateThreadMemory.isPending}
+                          />
+                        </TabsContent>
+                        <TabsContent value="compression" className="space-y-4 pt-4">
+                          <StockAnalysisSectionState
+                            title="对话整理"
+                            loadingText="正在加载对话整理信息"
+                            isLoading={compressionsLoading}
+                            isRefreshing={!!compressionData && compressionsRefreshing}
+                            hasData={
+                              !!compressionData ||
+                              !!activeCompression ||
+                              !!threadCompressions.length
+                            }
+                            isError={compressionsError}
+                            errorText="对话整理信息加载失败，请稍后重试。"
+                            onRetry={() => void refetchCompressions()}
+                          />
+                          <StockAnalysisCompressionPanel
+                            activeCompression={activeCompression}
+                            compressions={threadCompressions.filter(
+                              (item) => item.compression_id !== activeCompression?.compression_id,
+                            )}
+                            compressionRecommended={
+                              compressionData?.compression_recommended || false
+                            }
+                            compressionReason={compressionData?.compression_reason || null}
+                            uncompressedMessageCount={
+                              compressionData?.uncompressed_message_count || 0
+                            }
+                            estimatedHistorySize={
+                              compressionData?.estimated_history_size || 0
+                            }
+                            activeCompressionStale={
+                              compressionData?.active_compression_stale || false
+                            }
+                            isLoading={compressionsLoading}
+                            onCapture={() => void handleCaptureThreadCompression()}
+                            onRefresh={(compressionId) =>
+                              void handleRefreshThreadCompression(compressionId)
+                            }
+                            onActivate={(compressionId) =>
+                              void handleActivateThreadCompression(compressionId)
+                            }
+                            capturePending={captureThreadCompression.isPending}
+                            refreshPending={refreshThreadCompression.isPending}
+                            activatePending={activateThreadCompression.isPending}
+                          />
+                        </TabsContent>
+                        <TabsContent value="compare" className="space-y-4 pt-4">
+                          <StockAnalysisCompareTray
+                            compareTargets={compareTargets}
+                            isMutating={updateCompareTargets.isPending}
+                            onFork={() => openForkDialog()}
+                            onRemove={(target) => void handleRemoveCompareTarget(target)}
+                          />
+                          <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
+                        </TabsContent>
+                        <TabsContent value="advanced" className="space-y-4 pt-4">
+                          {latestAssistantMessage ? (
+                            <>
+                              <StockAnalysisExecutionTrace
+                                questionIntent={latestAssistantMessage.question_intent}
+                                responseStrategy={latestAssistantMessage.response_strategy}
+                                executionPlanSummary={
+                                  latestAssistantMessage.execution_plan_summary
+                                }
+                                executedSteps={latestAssistantMessage.executed_steps}
+                                skippedSteps={latestAssistantMessage.skipped_steps}
+                                failedSteps={latestAssistantMessage.failed_steps}
+                              />
+                              <StockAnalysisAdaptivePlan
+                                planningProfile={
+                                  latestAssistantMessage.adaptive_planning_profile
+                                }
+                                planningReasoning={
+                                  latestAssistantMessage.adaptive_planning_reasoning
+                                }
+                                preferredEvidenceOrder={
+                                  latestAssistantMessage.preferred_evidence_order
+                                }
+                                planningAdjustments={
+                                  latestAssistantMessage.planning_adjustments
+                                }
+                                processConfidenceHint={
+                                  latestAssistantMessage.process_confidence_hint
+                                }
+                                providerStopReason={
+                                  latestAssistantMessage.provider_stop_reason
+                                }
+                                providerSkippedReason={
+                                  latestAssistantMessage.provider_skipped_reason
+                                }
+                                evidencePlanSummary={
+                                  latestAssistantMessage.evidence_plan_summary
+                                }
+                              />
+                              <StockAnalysisEvidenceConflict
+                                evidenceConflictSummary={
+                                  latestAssistantMessage.evidence_conflict_summary
+                                }
+                                thesisConfidenceHint={
+                                  latestAssistantMessage.thesis_confidence_hint
+                                }
+                              />
+                              <StockAnalysisValidationSummary
+                                validationSummary={latestAssistantMessage.validation_summary}
+                                thesisChangeHint={latestAssistantMessage.thesis_change_hint}
+                              />
+                            </>
+                          ) : (
+                            <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
+                              等有新的研究回答后，这里会展示执行路径、规划摘要、冲突提示和结论校验。
+                            </div>
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    </CardContent>
+                  </Card>
                 </>
               ) : (
                 <div className="rounded-xl border border-dashed p-6 text-muted-foreground text-sm">
@@ -2310,7 +2653,7 @@ export default function StockAnalysis() {
                 <div>
                   <CardTitle>上下文卡片</CardTitle>
                   <CardDescription>
-                    统一管理基础上下文和高级研究卡片；长期挂载仍必须显式导入。
+                    优先看可直接参考的卡片；较旧或需要刷新的内容会自动排到后面。
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
@@ -2349,12 +2692,28 @@ export default function StockAnalysis() {
                 <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
                   先选中线程，再查看或管理上下文卡片。
                 </div>
-              ) : contextsLoading ? (
-                <div className="flex min-h-48 items-center justify-center">
-                  <Spinner className="size-5" />
-                </div>
-              ) : contextItems.length ? (
-                contextItems.map((item) => {
+              ) : (
+                <>
+                  <StockAnalysisSectionState
+                    title="上下文卡片"
+                    loadingText="正在加载上下文卡片"
+                    isLoading={contextsLoading}
+                    isRefreshing={!!contextItems.length && contextsRefreshing}
+                    hasData={!!contextItems.length}
+                    isError={contextsError}
+                    errorText="上下文卡片加载失败，请稍后重试。"
+                    onRetry={() => void refetchContexts()}
+                  />
+                  {lastRefreshRun ? (
+                    <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-xs">
+                      <p className="font-medium">最近一次批量刷新</p>
+                      <p className="mt-1 text-muted-foreground">
+                        {lastRefreshRun.summary || "已完成最近一轮刷新。"}
+                      </p>
+                    </div>
+                  ) : null}
+                  {sortedContextItems.length ? (
+                    sortedContextItems.map((item) => {
                   const compareTarget = buildCompareTargetFromCard(item);
                   const inCompare = compareTarget
                     ? compareTargetKeySet.has(compareTargetKey(compareTarget))
@@ -2386,11 +2745,13 @@ export default function StockAnalysis() {
                       onForkSingle={(card) => openForkDialog([card.context_id])}
                     />
                   );
-                })
-              ) : (
-                <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
-                  当前线程还没有上下文卡片。可先从 TradingAgents、机会池、观察池、持仓、题材雷达、提醒或高级研究卡片导入。
-                </div>
+                    })
+                  ) : (
+                    <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
+                      当前线程还没有上下文卡片。可先导入已有研究结果，或点击右上角“添加上下文”补齐基础信息。
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -2470,13 +2831,23 @@ export default function StockAnalysis() {
                   <SelectValue placeholder="选择导入模式" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="append">append</SelectItem>
-                  <SelectItem value="replace">replace</SelectItem>
+                  <SelectItem value="append">保留现有上下文并追加</SelectItem>
+                  <SelectItem value="replace">替换当前同类上下文</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-xl border p-3">
-              {contextSourceItems.length ? (
+              <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-muted-foreground text-xs">
+                只有你选中来源后，系统才会请求该来源的数据；未展开的来源不会预先加载。
+              </div>
+              {sourceLoading ? (
+                <StockAnalysisSectionState
+                  title="可导入来源"
+                  loadingText="正在加载当前来源可导入的数据"
+                  isLoading
+                  hasData={false}
+                />
+              ) : contextSourceItems.length ? (
                 contextSourceItems.map((item) => (
                   <div key={item.ref} className="rounded-xl border p-3">
                     <div className="flex items-start justify-between gap-3">
@@ -2498,7 +2869,7 @@ export default function StockAnalysis() {
                 ))
               ) : (
                 <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
-                  当前来源暂无可导入项。
+                  当前来源暂无可导入项，换一个来源试试，或稍后再刷新。
                 </div>
               )}
             </div>

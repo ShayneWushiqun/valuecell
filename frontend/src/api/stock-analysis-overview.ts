@@ -9,4 +9,8 @@ export const useGetStockAnalysisOverview = () =>
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisOverview>>("stock-analysis/overview"),
     select: (response) => response.data,
+    staleTime: 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });

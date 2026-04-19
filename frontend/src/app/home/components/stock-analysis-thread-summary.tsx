@@ -1,4 +1,6 @@
+import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type StockAnalysisThreadSummaryProps = {
   threadHealthStatus?: string | null;
@@ -80,87 +82,104 @@ export function StockAnalysisThreadSummary({
   lastRefreshAt,
   lastRefreshSummary,
 }: StockAnalysisThreadSummaryProps) {
+  const coreMetrics = [
+    {
+      label: "对比对象",
+      value: `${compareTargetCount}`,
+      hint: compareTargetCount ? "已显式管理" : "尚未添加",
+    },
+    {
+      label: "上下文状态",
+      value: staleCount ? `${staleCount} 张较旧` : "状态稳定",
+      hint: refreshRecommendedCount ? `${refreshRecommendedCount} 张建议刷新` : "暂无建议刷新",
+    },
+    {
+      label: "研究任务",
+      value: `${openResearchTaskCount} 项待处理`,
+      hint: highPriorityResearchTaskCount
+        ? `${highPriorityResearchTaskCount} 项高优先级`
+        : "暂无高优先级任务",
+    },
+    {
+      label: "冲突等级",
+      value: currentEvidenceConflictLevel || "未见明显冲突",
+      hint: currentPlanningProfile ? `当前策略：${currentPlanningProfile}` : "等待下一轮研究更新",
+    },
+    {
+      label: "研究记忆",
+      value: activeMemoryAvailable ? "可继续参考" : "尚未沉淀",
+      hint: activeCompressionAvailable ? "对话摘要可用" : "暂无对话摘要",
+    },
+    {
+      label: "最近刷新",
+      value: formatTime(lastRefreshAt),
+      hint: lastRefreshSummary || "还没有上下文刷新记录",
+    },
+  ];
+
   return (
     <div className="rounded-xl border p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">研究流摘要</Badge>
+        <Badge variant="secondary">线程摘要</Badge>
         {threadHealthStatus ? (
           <Badge variant="outline">
-            health {threadHealthStatus}
-            {typeof threadHealthScore === "number" ? ` / ${threadHealthScore}` : ""}
+            健康状态 {threadHealthStatus}
+            {typeof threadHealthScore === "number" ? ` · ${threadHealthScore}` : ""}
           </Badge>
         ) : null}
-        <Badge variant="outline">对比对象 {compareTargetCount}</Badge>
-        <Badge variant="outline">较旧上下文 {staleCount}</Badge>
-        <Badge variant="outline">建议刷新 {refreshRecommendedCount}</Badge>
-        <Badge variant="outline">Open tasks {openResearchTaskCount}</Badge>
-        <Badge variant="outline">High tasks {highPriorityResearchTaskCount}</Badge>
-        <Badge variant="outline">相关任务 {relatedTaskCount}</Badge>
-        {currentPlanningProfile ? (
-          <Badge variant="outline">planning {currentPlanningProfile}</Badge>
-        ) : null}
-        {currentEvidenceConflictLevel ? (
-          <Badge variant="outline">conflict {currentEvidenceConflictLevel}</Badge>
-        ) : null}
         {latestFeedbackAlignmentStatus ? (
-          <Badge variant="outline">feedback {latestFeedbackAlignmentStatus}</Badge>
-        ) : null}
-        {lastFeedbackOutcomeStatus ? (
-          <Badge variant="outline">outcome {lastFeedbackOutcomeStatus}</Badge>
-        ) : null}
-        {lastFeedbackProcessQualityStatus ? (
-          <Badge variant="outline">quality {lastFeedbackProcessQualityStatus}</Badge>
-        ) : null}
-        <Badge variant="outline">Research feedback {recentFeedbackCount}</Badge>
-        <Badge variant="outline">长期证据 {savedEvidenceCount}</Badge>
-        <Badge variant="outline">memory {activeMemoryAvailable ? "on" : "off"}</Badge>
-        <Badge variant="outline">
-          compression {activeCompressionAvailable ? "on" : "off"}
-        </Badge>
-        <Badge variant="outline">未压缩消息 {uncompressedMessageCount}</Badge>
-        <Badge variant={compressionRecommended ? "secondary" : "outline"}>
-          {compressionRecommended ? "建议压缩" : "当前无需压缩"}
-        </Badge>
-        <Badge variant={activeCompressionStale ? "secondary" : "outline"}>
-          {activeCompressionStale ? "压缩偏旧" : "压缩可用"}
-        </Badge>
-        <Badge variant={hasActionableTaskGap ? "secondary" : "outline"}>
-          {hasActionableTaskGap ? "存在任务 gap" : "当前任务 gap 可控"}
-        </Badge>
-        <Badge variant={lastExecutionTriggeredRefresh ? "secondary" : "outline"}>
-          {lastExecutionTriggeredRefresh ? "最近计划触发 refresh" : "最近计划未触发 refresh"}
-        </Badge>
-        <Badge variant={lastExecutionTriggeredTooling ? "secondary" : "outline"}>
-          {lastExecutionTriggeredTooling ? "最近计划触发 tooling" : "最近计划未触发 tooling"}
-        </Badge>
-        <Badge variant={lastExecutionTriggeredValidation ? "secondary" : "outline"}>
-          {lastExecutionTriggeredValidation ? "最近计划触发 validation" : "最近计划未触发 validation"}
-        </Badge>
-        <Badge variant={hasTrackingFollowupTasks ? "secondary" : "outline"}>
-          {hasTrackingFollowupTasks ? "存在继续跟踪建议" : "暂无继续跟踪建议"}
-        </Badge>
-        {recentFeedbackMethodBias ? (
-          <Badge variant="outline">反馈偏向 {recentFeedbackMethodBias}</Badge>
-        ) : null}
-        {recentResearchQualityTrend ? (
-          <Badge variant="outline">近期趋势 {recentResearchQualityTrend}</Badge>
+          <Badge variant="outline">近期反馈：{latestFeedbackAlignmentStatus}</Badge>
         ) : null}
       </div>
-      <div className="mt-3 space-y-2 text-sm">
-        <p className="text-muted-foreground">
-          最近一次批量刷新：{formatTime(lastRefreshAt)}
-        </p>
-        <p>{lastRefreshSummary || "当前还没有批量刷新记录。"}</p>
-        <p className="text-muted-foreground">
-          最近一次任务生成：{formatTime(lastResearchTaskGenerateAt)}
-        </p>
-        <p>{actionableTaskGapSummary || "当前还没有需要立即处理的 research task gap。"}</p>
-        <p>{lastValidationSummary || "当前还没有最近一轮 thesis validation 摘要。"}</p>
-        <p>{lastFeedbackSummary || "当前还没有研究反馈摘要。"}</p>
-        <p className="text-muted-foreground">
-          {compressionReason || "当前线程如果继续增长，可手动整理对话。"}
-        </p>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {coreMetrics.map((metric) => (
+          <div key={metric.label} className="rounded-lg border bg-muted/20 p-3">
+            <p className="text-muted-foreground text-xs">{metric.label}</p>
+            <p className="mt-1 font-medium text-sm">{metric.value}</p>
+            <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">{metric.hint}</p>
+          </div>
+        ))}
       </div>
+
+      <details className="mt-4 rounded-lg border border-dashed p-3">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-medium text-sm">
+          查看线程详情
+          <Button variant="ghost" size="icon" className="pointer-events-none size-7">
+            <ChevronDown className="size-4" />
+          </Button>
+        </summary>
+        <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+          <p>相关任务：{relatedTaskCount}</p>
+          <p>长期证据：{savedEvidenceCount}</p>
+          <p>最近任务生成：{formatTime(lastResearchTaskGenerateAt)}</p>
+          <p>
+            反馈数量：{recentFeedbackCount}
+            {lastFeedbackOutcomeStatus ? ` · 结果 ${lastFeedbackOutcomeStatus}` : ""}
+          </p>
+          <p>
+            对话整理：{compressionRecommended ? "建议重新整理" : "当前无需整理"}
+            {activeCompressionStale ? " · 当前摘要偏旧" : ""}
+          </p>
+          <p>
+            最近执行：{lastExecutionTriggeredRefresh ? "已做刷新" : "未做刷新"} /{" "}
+            {lastExecutionTriggeredTooling ? "已补数据" : "未补数据"} /{" "}
+            {lastExecutionTriggeredValidation ? "已校验" : "未校验"}
+          </p>
+          <p>{actionableTaskGapSummary || "当前没有明显的待补研究缺口。"}</p>
+          <p>{lastValidationSummary || "当前还没有最近一轮结论校验摘要。"}</p>
+          <p>{lastFeedbackSummary || "当前还没有研究反馈摘要。"}</p>
+          <p>{compressionReason || "当前线程如果继续增长，可手动整理对话。"}</p>
+          {lastFeedbackProcessQualityStatus ? (
+            <p>过程质量：{lastFeedbackProcessQualityStatus}</p>
+          ) : null}
+          {recentFeedbackMethodBias ? <p>近期方式偏好：{recentFeedbackMethodBias}</p> : null}
+          {recentResearchQualityTrend ? <p>近期研究趋势：{recentResearchQualityTrend}</p> : null}
+          <p>{hasTrackingFollowupTasks ? "存在继续跟踪建议。" : "暂无继续跟踪建议。"}</p>
+          <p>未压缩消息：{uncompressedMessageCount}</p>
+          <p>{hasActionableTaskGap ? "存在需要立即行动的任务缺口。" : "当前任务缺口可控。"}</p>
+        </div>
+      </details>
     </div>
   );
 }

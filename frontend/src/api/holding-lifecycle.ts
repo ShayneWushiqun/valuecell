@@ -6,14 +6,19 @@ import type {
   HoldingLifecycleOverview,
 } from "@/types/holding-lifecycle";
 
-export const useGetHoldingLifecycleOverview = () =>
+export const useGetHoldingLifecycleOverview = (enabled = true) =>
   useQuery({
     queryKey: API_QUERY_KEYS.HOLDING_LIFECYCLE.overview,
+    enabled,
     queryFn: () =>
       apiClient.get<ApiResponse<HoldingLifecycleOverview>>(
         "holding-lifecycle/overview",
       ),
     select: (response) => response.data,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 export const useGetHoldingLifecycleDetail = (

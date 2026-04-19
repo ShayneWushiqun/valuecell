@@ -8,12 +8,17 @@ import type {
   DecisionAlertSummary,
 } from "@/types/decision-alert";
 
-export const useGetDecisionAlertSummary = () =>
+export const useGetDecisionAlertSummary = (enabled = true) =>
   useQuery({
     queryKey: API_QUERY_KEYS.DECISION_ALERT.summary,
+    enabled,
     queryFn: () =>
       apiClient.get<ApiResponse<DecisionAlertSummary>>("decision-alerts/summary"),
     select: (response) => response.data,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 export const useGetDecisionAlerts = ({

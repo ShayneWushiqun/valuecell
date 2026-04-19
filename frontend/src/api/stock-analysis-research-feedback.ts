@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { API_QUERY_KEYS } from "@/constants/api";
 import { type ApiResponse, apiClient } from "@/lib/api-client";
 import type {
@@ -15,15 +20,26 @@ type CaptureResearchFeedbackPayload = {
   note?: string;
 };
 
-export const useGetStockAnalysisResearchFeedback = (threadId?: number | null) =>
+const FEEDBACK_STALE_TIME_MS = 60 * 1000;
+const FEEDBACK_GC_TIME_MS = 30 * 60 * 1000;
+
+export const useGetStockAnalysisResearchFeedback = (
+  threadId?: number | null,
+  enabled = true,
+) =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.researchFeedback(threadId || 0),
-    enabled: !!threadId,
+    enabled: enabled && !!threadId,
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisResearchFeedbackList>>(
         `stock-analysis/threads/${threadId}/research-feedback`,
       ),
     select: (response) => response.data,
+    placeholderData: keepPreviousData,
+    staleTime: FEEDBACK_STALE_TIME_MS,
+    gcTime: FEEDBACK_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 export const useGetStockAnalysisResearchFeedbackDetail = (

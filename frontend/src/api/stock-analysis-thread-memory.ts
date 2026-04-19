@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { API_QUERY_KEYS } from "@/constants/api";
 import { type ApiResponse, apiClient } from "@/lib/api-client";
 import type {
@@ -12,15 +17,26 @@ type CaptureMemoryPayload = {
   title?: string;
 };
 
-export const useGetStockAnalysisThreadMemories = (threadId?: number | null) =>
+const MEMORY_STALE_TIME_MS = 60 * 1000;
+const MEMORY_GC_TIME_MS = 30 * 60 * 1000;
+
+export const useGetStockAnalysisThreadMemories = (
+  threadId?: number | null,
+  enabled = true,
+) =>
   useQuery({
     queryKey: API_QUERY_KEYS.STOCK_ANALYSIS.memories(threadId || 0),
-    enabled: !!threadId,
+    enabled: enabled && !!threadId,
     queryFn: () =>
       apiClient.get<ApiResponse<StockAnalysisThreadMemoryList>>(
         `stock-analysis/threads/${threadId}/memories`,
       ),
     select: (response) => response.data,
+    placeholderData: keepPreviousData,
+    staleTime: MEMORY_STALE_TIME_MS,
+    gcTime: MEMORY_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 export const useGetStockAnalysisThreadMemory = (

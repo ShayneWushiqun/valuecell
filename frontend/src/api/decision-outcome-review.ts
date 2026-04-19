@@ -8,11 +8,13 @@ export const useGetDecisionOutcomeReviews = ({
   outcomeStatus,
   action,
   reviewHorizonDays,
+  enabled = true,
 }: {
   limit?: number;
   outcomeStatus?: string;
   action?: string;
   reviewHorizonDays?: number;
+  enabled?: boolean;
 }) => {
   const queryString = [
     `limit=${limit}`,
@@ -29,10 +31,15 @@ export const useGetDecisionOutcomeReviews = ({
     queryKey: API_QUERY_KEYS.DECISION_OUTCOME_REVIEW.list(
       `${outcomeStatus || "all"}:${action || "all"}:${reviewHorizonDays || 0}:${limit}`,
     ),
+    enabled,
     queryFn: () =>
       apiClient.get<ApiResponse<DecisionOutcomeReviewList>>(
         `decision-outcome-reviews?${queryString}`,
       ),
     select: (response) => response.data,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 };
