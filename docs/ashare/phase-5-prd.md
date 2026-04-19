@@ -2,7 +2,7 @@
 
 ## 1. 阶段名称
 
-`研究结论沉淀、线程记忆、Question Routing、Research Tasks、Research Feedback 与 Adaptive Planning MVP`
+`研究结论沉淀、线程记忆、Question Routing、Research Tasks、Research Feedback、Adaptive Planning 与 Global Research Overview MVP`
 
 ## 2. 阶段目标
 
@@ -75,13 +75,23 @@
 - `stronger task-driven execution`
 - assistant message 中的 adaptive planning / evidence conflict / provider stop explanation
 
+阶段五第六轮 本轮完成：
+
+- `global stock analysis overview`
+- `thread health`
+- `action queue`
+- `research quality summary`
+- `V1.5 product closeout`
+- `/home/stock-analysis-overview` 全局研究总览页
+- `GET /api/v1/stock-analysis/overview` 只读聚合 API
+
 当前仍未落地：
 
 - 自动长期记忆系统
 - 黑盒自动 memory 注入
 - 自动周期性总结
 - 自动交易
-- 更完整的全局绩效与研究看板
+- 更复杂的全局绩效与策略看板
 - 更强 autonomous multi-step planning
 
 ## 3. 产品核心问题

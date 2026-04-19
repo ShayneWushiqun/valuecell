@@ -249,8 +249,8 @@
 - 阶段四第四轮已完成第三层外部解释型补数第一版、临时证据保存为长期上下文、证据来源与时效说明
 - 阶段四第五轮已完成显式对比研究、线程分叉增强、上下文刷新与时效治理
 - 阶段四第六轮已完成批量 stale refresh、刷新后重答工作流、refresh diff 摘要、研究流摘要区和外部 provider 编排收口
-- 阶段四核心 MVP 已完成，阶段五第一轮-A 已完成显式线程研究记忆 MVP，第一轮-B 已完成 context compression，第二轮已完成 question routing 与 research tasks，第三轮已完成 execution planning / task-driven research / validation summary / execution trace，第四轮已完成 research feedback / research attribution / process adjustments / task follow-up suggestions，第五轮已完成 feedback-aware planning / evidence orchestration / evidence conflict summary / stronger task-driven execution
-- 当前仍未接自动长期记忆系统、自动交易、更强 autonomous multi-step planning、更完整的全局绩效与研究看板和更复杂的 SSE 工具可视化
+- 阶段四核心 MVP 已完成，阶段五第一轮-A 已完成显式线程研究记忆 MVP，第一轮-B 已完成 context compression，第二轮已完成 question routing 与 research tasks，第三轮已完成 execution planning / task-driven research / validation summary / execution trace，第四轮已完成 research feedback / research attribution / process adjustments / task follow-up suggestions，第五轮已完成 feedback-aware planning / evidence orchestration / evidence conflict summary / stronger task-driven execution，第六轮已完成 global stock analysis overview / thread health / action queue / research quality summary / V1.5 product closeout
+- 当前仍未接自动长期记忆系统、自动交易、更强 autonomous multi-step planning、更复杂的全局绩效与策略看板和更复杂的 SSE 工具可视化
 
 ## 6.2 当前阶段推进建议
 
@@ -322,11 +322,15 @@
   - 已新增 `adaptive_planning_profile / adaptive_planning_reasoning / preferred_evidence_order / planning_adjustments / evidence_plan_summary / evidence_conflict_summary / provider_stop_reason / provider_skipped_reason / process_confidence_hint / thesis_confidence_hint`
 - `/home/stock-analysis`
   - 已从骨架页升级为可用聊天工作区，支持“发送”“补数据后再回答”“刷新过期上下文后再回答”“保存为上下文”“compare tray”“分叉线程”“研究流摘要区”“研究记忆面板 / 历史版本 / 激活 / 刷新”“compression panel / 历史版本 / 激活 / 刷新”“research task panel / 生成 / 手动创建 / 完成 / 重开 / 忽略 / 围绕此任务继续研究 / planning influence 提示”“feedback panel / 历史列表 / 最新 feedback 摘要 / assistant message 生成反馈”“assistant routing explanation”“adaptive planning / evidence conflict 展示”“execution trace / validation / task suggestions”和“上下文刷新”
+- `/api/v1/stock-analysis/overview`
+  - 已可只读聚合全局 research overview，返回 thread overview、high conflict / refresh needed 线程、高优先级任务、research quality summary、planning profile summary 和 action queue
+- `/home/stock-analysis-overview`
+  - 已可作为 V1.5 全局研究总览页，帮助用户先判断“当前最值得先看的线程是什么”
 
 当前仍需留到下一轮的点：
 
 - 自动长期记忆系统、更细的 planner 语义
-- 更完整的全局绩效与研究看板
+- 更复杂的全局绩效与策略看板
 - 更强 autonomous multi-step planning
 - 更复杂的 SSE 工具过程可视化
 - 更强的第三层 provider 扩展与更多解释型来源

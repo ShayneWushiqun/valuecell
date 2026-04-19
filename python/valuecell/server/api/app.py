@@ -67,6 +67,7 @@ from .routers.stock_analysis_research_task import (
 from .routers.stock_analysis_research_feedback import (
     create_stock_analysis_research_feedback_router,
 )
+from .routers.stock_analysis_overview import create_stock_analysis_overview_router
 from .schemas import AppInfoData, SuccessResponse
 
 
@@ -294,6 +295,7 @@ def _add_routes(app: FastAPI, settings) -> None:
     app.include_router(create_stock_analysis_thread_router(), prefix=API_PREFIX)
     app.include_router(create_analysis_context_card_router(), prefix=API_PREFIX)
     app.include_router(create_stock_analysis_message_router(), prefix=API_PREFIX)
+    app.include_router(create_stock_analysis_overview_router(), prefix=API_PREFIX)
     app.include_router(create_stock_analysis_evidence_router(), prefix=API_PREFIX)
     app.include_router(create_stock_analysis_compare_router(), prefix=API_PREFIX)
     app.include_router(create_stock_analysis_thread_memory_router(), prefix=API_PREFIX)

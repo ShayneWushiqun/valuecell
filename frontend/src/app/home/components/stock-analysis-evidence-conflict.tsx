@@ -8,6 +8,14 @@ type StockAnalysisEvidenceConflictProps = {
 const toStringArray = (value: unknown) =>
   Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
 
+const toStringMap = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? Object.entries(value).map(([key, items]) => ({
+        key,
+        items: toStringArray(items),
+      }))
+    : [];
+
 export function StockAnalysisEvidenceConflict({
   evidenceConflictSummary,
   thesisConfidenceHint,
@@ -20,6 +28,9 @@ export function StockAnalysisEvidenceConflict({
   const opposing = toStringArray(evidenceConflictSummary.opposing_evidence);
   const risk = toStringArray(evidenceConflictSummary.risk_evidence);
   const neutral = toStringArray(evidenceConflictSummary.neutral_evidence);
+  const providerConflicts = toStringArray(evidenceConflictSummary.provider_conflicts);
+  const providerSupportMap = toStringMap(evidenceConflictSummary.provider_support_map);
+  const providerOpposingMap = toStringMap(evidenceConflictSummary.provider_opposing_map);
   const conflictReason = String(evidenceConflictSummary.conflict_reason || "");
   const resolutionSuggestion = String(
     evidenceConflictSummary.resolution_suggestion || "",
@@ -53,6 +64,32 @@ export function StockAnalysisEvidenceConflict({
         <p className="mt-2">
           <span className="font-medium">neutral:</span> {neutral.join("；")}
         </p>
+      ) : null}
+      {providerConflicts.length ? (
+        <p className="mt-2">
+          <span className="font-medium">provider conflicts:</span>{" "}
+          {providerConflicts.join("；")}
+        </p>
+      ) : null}
+      {providerSupportMap.length ? (
+        <div className="mt-2 space-y-1">
+          {providerSupportMap.map((item) => (
+            <p key={`support-${item.key}`}>
+              <span className="font-medium">support / {item.key}:</span>{" "}
+              {item.items.join("；")}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      {providerOpposingMap.length ? (
+        <div className="mt-2 space-y-1">
+          {providerOpposingMap.map((item) => (
+            <p key={`oppose-${item.key}`}>
+              <span className="font-medium">opposing / {item.key}:</span>{" "}
+              {item.items.join("；")}
+            </p>
+          ))}
+        </div>
       ) : null}
       {resolutionSuggestion ? (
         <p className="mt-2">

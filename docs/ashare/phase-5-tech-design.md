@@ -77,12 +77,24 @@
 - adaptive planning 驱动的 execution step 前置 / 跳过原因解释
 - assistant metadata 中的 `adaptive_planning_profile / preferred_evidence_order / evidence_plan_summary / evidence_conflict_summary / provider_stop_reason / provider_skipped_reason`
 
+阶段五第六轮 本轮新增：
+
+- `StockAnalysisOverviewService`
+- `stock_analysis_overview.py`
+- `stock_analysis_overview_service.py`
+- `global research overview`
+- `thread health`
+- `action queue`
+- `research quality summary`
+- `planning profile summary`
+- `/home/stock-analysis-overview` 全局研究总览页与线程页返回总览入口
+
 当前未实现：
 
 - 自动长期记忆系统
 - 更强 planner 语义
 - 自动交易
-- 更完整的全局绩效与研究看板
+- 更复杂的全局绩效与策略看板
 - 更强 autonomous multi-step planning
 
 ## 2. 设计原则

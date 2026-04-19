@@ -94,6 +94,9 @@ export default function Opportunities() {
                 <Link to="/home/risk-sizing">查看风控分仓建议</Link>
               </Button>
               <Button asChild variant="outline">
+                <Link to="/home/stock-analysis-overview">股票研究总览</Link>
+              </Button>
+              <Button asChild variant="outline">
                 <Link to="/home/stock-analysis">新建分析线程</Link>
               </Button>
             </div>

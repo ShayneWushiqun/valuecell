@@ -736,15 +736,27 @@ class StockAnalysisExecutionPlannerService:
         opposing = _unique_str_list(list((active_memory or {}).get("opposing_points_json") or [])[:2])
         risk = _unique_str_list(list((active_memory or {}).get("risk_points_json") or [])[:2])
         neutral: list[str] = []
+        provider_support_map: dict[str, list[str]] = {}
+        provider_opposing_map: dict[str, list[str]] = {}
+        provider_conflicts: list[str] = []
         for block in list(getattr(tooling_result, "temporary_evidence_blocks", []) or [])[:6]:
             title = _clean_text(block.get("title"))
             summary = _clean_text(block.get("summary"))
             evidence_text = _clean_text(f"{title}: {summary}")
             normalized = summary.lower()
+            provider_key = "internal_structured"
+            if "价格" in title or "日线" in title or "行情" in title:
+                provider_key = "market_price"
+            elif "新闻" in title:
+                provider_key = "external_news"
+            elif "外部" in title or "confirmation" in title:
+                provider_key = "external_confirmation"
             if any(token in normalized for token in ["走强", "修复", "确认", "改善", "加强", "支撑"]):
                 supporting.append(evidence_text)
+                provider_support_map.setdefault(provider_key, []).append(evidence_text)
             elif any(token in normalized for token in ["转弱", "回撤", "失效", "削弱", "分歧加大", "破位"]):
                 opposing.append(evidence_text)
+                provider_opposing_map.setdefault(provider_key, []).append(evidence_text)
             elif any(token in normalized for token in ["风险", "波动", "不确定", "分歧", "承压"]):
                 risk.append(evidence_text)
             else:
@@ -762,6 +774,31 @@ class StockAnalysisExecutionPlannerService:
             conflict_level = "medium"
         if len(opposing) >= 2 or (supporting and opposing and risk):
             conflict_level = "high"
+        internal_supports = provider_support_map.get("internal_structured", [])
+        market_supports = provider_support_map.get("market_price", [])
+        internal_or_market_supports = internal_supports or market_supports
+        for provider, provider_supports in provider_support_map.items():
+            if provider in provider_opposing_map:
+                provider_conflicts.append(
+                    f"{provider} 同时出现支持与反对信号。"
+                )
+            elif provider == "external_confirmation" and provider_supports and opposing:
+                provider_conflicts.append(
+                    "external_confirmation 与内部结构化/价格证据存在分歧。"
+                )
+            elif provider == "external_news" and provider_supports and opposing:
+                provider_conflicts.append(
+                    "external_news 与当前线程中的内部/价格证据出现分歧。"
+                )
+        for provider, provider_opposings in provider_opposing_map.items():
+            if provider == "external_confirmation" and provider_opposings and internal_or_market_supports:
+                provider_conflicts.append(
+                    "external_confirmation 反对当前 thesis，而 internal structured / market price 仍在提供支撑。"
+                )
+            if provider == "external_news" and provider_opposings and internal_or_market_supports:
+                provider_conflicts.append(
+                    "external_news 偏负面，但 internal structured / market price 仍未完全转弱。"
+                )
         conflict_reason = "当前证据整体一致，暂未发现明显冲突。"
         resolution_suggestion = "当前可以维持已有 thesis，但仍要保留保守语义。"
         should_weaken = False
@@ -781,138 +818,19 @@ class StockAnalysisExecutionPlannerService:
             opposing_evidence=opposing,
             risk_evidence=risk,
             neutral_evidence=neutral,
+            provider_conflicts=_unique_str_list(provider_conflicts)[:4],
+            provider_support_map={
+                key: _unique_str_list(value)[:3]
+                for key, value in provider_support_map.items()
+            },
+            provider_opposing_map={
+                key: _unique_str_list(value)[:3]
+                for key, value in provider_opposing_map.items()
+            },
             conflict_reason=conflict_reason,
             resolution_suggestion=resolution_suggestion,
             should_weaken_thesis=should_weaken,
             should_recheck_before_concluding=should_recheck,
-        )
-        steps.append(
-            self._make_step(
-                step_type="inspect_context_cards",
-                title="先读取当前显式上下文卡片",
-                reason="本轮回答仍以 explicit context cards 为第一依据。",
-                source="context_cards",
-                target_refs=[str(len(context_cards))],
-            )
-        )
-        if primary_compare_targets:
-            steps.append(
-                self._make_step(
-                    step_type="inspect_compare_targets",
-                    title="检查 compare targets",
-                    reason="当前线程存在显式对比主线，需要先确认主次和比较轴。",
-                    source="compare_targets",
-                    target_refs=list(primary_compare_targets),
-                )
-            )
-        if active_memory:
-            steps.append(
-                self._make_step(
-                    step_type="inspect_active_memory",
-                    title="回看 active memory",
-                    reason="线程研究记忆可提供 thesis、风险和下一步问题。",
-                    source="active_memory",
-                    target_refs=[str(active_memory.get("memory_id") or "")],
-                )
-            )
-        if active_compression:
-            steps.append(
-                self._make_step(
-                    step_type="inspect_active_compression",
-                    title="回看 active compression",
-                    reason="较早历史已被压缩，需要快速确认未完成问题和最近补数记录。",
-                    source="active_compression",
-                    target_refs=[str(active_compression.get("compression_id") or "")],
-                )
-            )
-        if open_tasks:
-            steps.append(
-                self._make_step(
-                    step_type="inspect_open_tasks",
-                    title="检查 open research tasks",
-                    reason="本轮需要判断哪些 task 与当前问题相关，并把 task 变成研究锚点。",
-                    source="research_tasks",
-                    target_refs=[str(item) for item in related_task_ids[:4]],
-                )
-            )
-        if requires_refresh:
-            steps.append(
-                self._make_step(
-                    step_type="refresh_stale_contexts",
-                    title="优先 refresh stale contexts",
-                    reason="当前线程存在 stale / refresh recommended 上下文，先刷新再做强结论更稳。",
-                    source="refresh",
-                    target_refs=[str(item.get("context_id") or "") for item in context_cards if bool(item.get("is_stale")) or bool(item.get("refresh_recommended"))][:6],
-                )
-            )
-        if requires_tooling:
-            steps.append(
-                self._make_step(
-                    step_type="collect_internal_structured_evidence",
-                    title="先看内部结构化证据",
-                    reason="优先复用系统内已有结构化结果，避免直接跳外部补数。",
-                    source="tooling",
-                    target_refs=list(focus_tickers[:4] or focus_themes[:4]),
-                )
-            )
-            if focus_tickers:
-                steps.append(
-                    self._make_step(
-                        step_type="collect_market_price_evidence",
-                        title="再补行情价格证据",
-                        reason="当前问题涉及 ticker 或比较主线，需要确认最近价格动作。",
-                        source="tooling",
-                        target_refs=list(focus_tickers[:4]),
-                    )
-                )
-            if _clean_text(question_routing.get("question_intent")) in {
-                "external_evidence_check",
-                "challenge_conclusion",
-                "update_thesis",
-            }:
-                steps.append(
-                    self._make_step(
-                        step_type="collect_external_evidence",
-                        title="必要时补外部证据",
-                        reason="当前问题指向外部验证或结论重审，需要保守补充外部证据。",
-                        source="tooling",
-                        target_refs=list(focus_tickers[:4] or focus_themes[:4]),
-                    )
-                )
-        if requires_validation:
-            steps.append(
-                self._make_step(
-                    step_type="validate_thesis",
-                    title="做 thesis validation",
-                    reason="本轮需要判断 thesis 是延续、弱化还是需要重审。",
-                    source="validation",
-                    target_refs=list(primary_compare_targets[:2] or focus_tickers[:2]),
-                )
-            )
-        steps.append(
-            self._make_step(
-                step_type="synthesize_answer",
-                title="整合回答",
-                reason="将上下文、任务、补数和 validation 汇总成最终回答。",
-                source="answer",
-                target_refs=list(focus_tickers[:2] or focus_themes[:2]),
-            )
-        )
-        if related_task_ids or _clean_text(question_routing.get("response_strategy")) == "suggest_research_tasks":
-            steps.append(
-                self._make_step(
-                    step_type="suggest_task_updates",
-                    title="给出 research task 处理建议",
-                    reason="本轮需要说明相关任务是否接近完成、继续保留还是应拆分。",
-                    source="research_tasks",
-                    target_refs=[str(item) for item in related_task_ids[:4]],
-                )
-            )
-        return sorted(
-            steps,
-            key=lambda item: STEP_ORDER.index(item.step_type)
-            if item.step_type in STEP_ORDER
-            else len(STEP_ORDER),
         )
 
     def _match_related_tasks(

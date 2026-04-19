@@ -9,6 +9,9 @@ class StockAnalysisEvidenceConflictSummaryData(BaseModel):
     opposing_evidence: list[str] = Field(default_factory=list)
     risk_evidence: list[str] = Field(default_factory=list)
     neutral_evidence: list[str] = Field(default_factory=list)
+    provider_conflicts: list[str] = Field(default_factory=list)
+    provider_support_map: dict[str, list[str]] = Field(default_factory=dict)
+    provider_opposing_map: dict[str, list[str]] = Field(default_factory=dict)
     conflict_reason: str = ""
     resolution_suggestion: str = ""
     should_weaken_thesis: bool = False

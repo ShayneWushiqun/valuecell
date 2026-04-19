@@ -35,6 +35,7 @@ import {
   useGetStockAnalysisResearchFeedback,
   useRefreshStockAnalysisResearchFeedback,
 } from "@/api/stock-analysis-research-feedback";
+import { useGetStockAnalysisOverview } from "@/api/stock-analysis-overview";
 import {
   useCreateStockAnalysisMessage,
   useCreateStockAnalysisThread,
@@ -276,6 +277,7 @@ export default function StockAnalysis() {
     useGetStockAnalysisResearchTasks(selectedThreadId);
   const { data: researchFeedbackData, isLoading: researchFeedbackLoading } =
     useGetStockAnalysisResearchFeedback(selectedThreadId);
+  const { data: globalOverview } = useGetStockAnalysisOverview();
   const { data: tradingRuns } = useGetTradingAgentsRuns();
   const { data: holdingOverview } = useGetHoldingLifecycleOverview();
   const { data: opportunityOverview } = useGetOpportunityCandidates();
@@ -318,6 +320,13 @@ export default function StockAnalysis() {
     if (!selectedThreadId) return overview?.current_thread || null;
     return threads.find((item) => item.thread_id === selectedThreadId) || null;
   }, [overview?.current_thread, selectedThreadId, threads]);
+  const currentThreadOverview = useMemo(
+    () =>
+      globalOverview?.thread_overview_items.find(
+        (item) => item.thread_id === currentThread?.thread_id,
+      ) || null,
+    [currentThread?.thread_id, globalOverview?.thread_overview_items],
+  );
   const contextItems = contexts?.items || [];
   const compareTargets =
     compareTargetData?.compare_targets || currentThread?.compare_targets_json || [];
@@ -1261,6 +1270,9 @@ export default function StockAnalysis() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
+            <Link to="/home/stock-analysis-overview">返回研究总览</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/agent/TradingAgents">去 TradingAgents</Link>
           </Button>
           <Button asChild variant="outline">
@@ -1451,6 +1463,8 @@ export default function StockAnalysis() {
                   />
 
                   <StockAnalysisThreadSummary
+                    threadHealthStatus={currentThreadOverview?.thread_health_status || null}
+                    threadHealthScore={currentThreadOverview?.thread_health_score ?? null}
                     compareTargetCount={compareTargets.length}
                     staleCount={staleContextCount}
                     refreshRecommendedCount={refreshRecommendedCount}
@@ -1499,23 +1513,68 @@ export default function StockAnalysis() {
                     lastFeedbackProcessQualityStatus={
                       latestResearchFeedback?.process_quality_status || null
                     }
+                    latestFeedbackAlignmentStatus={
+                      currentThreadOverview?.latest_feedback_alignment_status || null
+                    }
                     hasTrackingFollowupTasks={hasTrackingFollowupTasks}
                     lastFeedbackSummary={latestResearchFeedback?.summary || null}
                     currentPlanningProfile={
-                      latestAssistantMessage?.adaptive_planning_profile || null
+                      currentThreadOverview?.latest_planning_profile ||
+                      latestAssistantMessage?.adaptive_planning_profile ||
+                      null
                     }
                     currentEvidenceConflictLevel={
-                      typeof latestAssistantMessage?.evidence_conflict_summary
+                      currentThreadOverview?.latest_conflict_level ||
+                      (typeof latestAssistantMessage?.evidence_conflict_summary
                         ?.conflict_level === "string"
                         ? latestAssistantMessage.evidence_conflict_summary
                             .conflict_level
-                        : null
+                        : null)
                     }
                     recentFeedbackMethodBias={recentFeedbackMethodBias}
                     recentResearchQualityTrend={recentResearchQualityTrend}
                     lastRefreshAt={lastRefreshRun?.generated_at || null}
                     lastRefreshSummary={lastRefreshRun?.summary || null}
                   />
+
+                  <StockAnalysisResearchTaskPanel
+                    taskData={researchTaskData}
+                    currentFocusTickers={latestFocusTickers}
+                    currentFocusThemes={latestFocusThemes}
+                    relatedTaskIds={latestRelatedTaskIds}
+                    activeResearchTaskId={activeResearchTaskId}
+                    preferredEvidenceOrder={
+                      latestAssistantMessage?.preferred_evidence_order || []
+                    }
+                    isLoading={researchTasksLoading}
+                    generatePending={generateResearchTasks.isPending}
+                    createPending={createResearchTask.isPending}
+                    actionPending={
+                      completeResearchTask.isPending ||
+                      reopenResearchTask.isPending ||
+                      dismissResearchTask.isPending
+                    }
+                    onGenerate={() => void handleGenerateResearchTasks()}
+                    onCreate={(draft) => void handleCreateResearchTask(draft)}
+                    onResearch={(task) => void handleResearchFromTask(task)}
+                    onComplete={(task) => void handleCompleteResearchTask(task.task_id)}
+                    onReopen={(task) => void handleReopenResearchTask(task.task_id)}
+                    onDismiss={(task) => void handleDismissResearchTask(task.task_id)}
+                  />
+
+                  <div ref={feedbackPanelRef}>
+                    <StockAnalysisFeedbackPanel
+                      feedbackData={researchFeedbackData}
+                      isLoading={researchFeedbackLoading}
+                      capturePending={captureResearchFeedback.isPending}
+                      refreshPending={refreshResearchFeedback.isPending}
+                      selectedFeedbackId={selectedFeedbackId}
+                      onCaptureLatest={() => void handleCaptureResearchFeedback()}
+                      onRefresh={(feedbackId) =>
+                        void handleRefreshResearchFeedback(feedbackId)
+                      }
+                    />
+                  </div>
 
                   <StockAnalysisMemoryPanel
                     activeMemory={activeMemory}
@@ -1562,45 +1621,6 @@ export default function StockAnalysis() {
                     refreshPending={refreshThreadCompression.isPending}
                     activatePending={activateThreadCompression.isPending}
                   />
-
-                  <StockAnalysisResearchTaskPanel
-                    taskData={researchTaskData}
-                    currentFocusTickers={latestFocusTickers}
-                    currentFocusThemes={latestFocusThemes}
-                    relatedTaskIds={latestRelatedTaskIds}
-                    activeResearchTaskId={activeResearchTaskId}
-                    preferredEvidenceOrder={
-                      latestAssistantMessage?.preferred_evidence_order || []
-                    }
-                    isLoading={researchTasksLoading}
-                    generatePending={generateResearchTasks.isPending}
-                    createPending={createResearchTask.isPending}
-                    actionPending={
-                      completeResearchTask.isPending ||
-                      reopenResearchTask.isPending ||
-                      dismissResearchTask.isPending
-                    }
-                    onGenerate={() => void handleGenerateResearchTasks()}
-                    onCreate={(draft) => void handleCreateResearchTask(draft)}
-                    onResearch={(task) => void handleResearchFromTask(task)}
-                    onComplete={(task) => void handleCompleteResearchTask(task.task_id)}
-                    onReopen={(task) => void handleReopenResearchTask(task.task_id)}
-                    onDismiss={(task) => void handleDismissResearchTask(task.task_id)}
-                  />
-
-                  <div ref={feedbackPanelRef}>
-                    <StockAnalysisFeedbackPanel
-                      feedbackData={researchFeedbackData}
-                      isLoading={researchFeedbackLoading}
-                      capturePending={captureResearchFeedback.isPending}
-                      refreshPending={refreshResearchFeedback.isPending}
-                      selectedFeedbackId={selectedFeedbackId}
-                      onCaptureLatest={() => void handleCaptureResearchFeedback()}
-                      onRefresh={(feedbackId) =>
-                        void handleRefreshResearchFeedback(feedbackId)
-                      }
-                    />
-                  </div>
 
                   <StockAnalysisRefreshSummary refreshRun={lastRefreshRun} />
 

@@ -198,3 +198,5 @@ def test_stock_analysis_execution_planner_service_builds_conflict_summary() -> N
     assert conflict.supporting_evidence
     assert conflict.opposing_evidence
     assert conflict.resolution_suggestion
+    assert conflict.provider_support_map
+    assert conflict.provider_opposing_map

@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 
 type StockAnalysisThreadSummaryProps = {
+  threadHealthStatus?: string | null;
+  threadHealthScore?: number | null;
   compareTargetCount: number;
   staleCount: number;
   refreshRecommendedCount: number;
@@ -28,6 +30,7 @@ type StockAnalysisThreadSummaryProps = {
   lastFeedbackSummary?: string | null;
   currentPlanningProfile?: string | null;
   currentEvidenceConflictLevel?: string | null;
+  latestFeedbackAlignmentStatus?: string | null;
   recentFeedbackMethodBias?: string | null;
   recentResearchQualityTrend?: string | null;
   lastRefreshAt?: string | null;
@@ -42,6 +45,8 @@ const formatTime = (value?: string | null) => {
 };
 
 export function StockAnalysisThreadSummary({
+  threadHealthStatus,
+  threadHealthScore,
   compareTargetCount,
   staleCount,
   refreshRecommendedCount,
@@ -69,6 +74,7 @@ export function StockAnalysisThreadSummary({
   lastFeedbackSummary,
   currentPlanningProfile,
   currentEvidenceConflictLevel,
+  latestFeedbackAlignmentStatus,
   recentFeedbackMethodBias,
   recentResearchQualityTrend,
   lastRefreshAt,
@@ -78,22 +84,40 @@ export function StockAnalysisThreadSummary({
     <div className="rounded-xl border p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">研究流摘要</Badge>
+        {threadHealthStatus ? (
+          <Badge variant="outline">
+            health {threadHealthStatus}
+            {typeof threadHealthScore === "number" ? ` / ${threadHealthScore}` : ""}
+          </Badge>
+        ) : null}
         <Badge variant="outline">对比对象 {compareTargetCount}</Badge>
         <Badge variant="outline">较旧上下文 {staleCount}</Badge>
         <Badge variant="outline">建议刷新 {refreshRecommendedCount}</Badge>
-        <Badge variant="outline">长期证据 {savedEvidenceCount}</Badge>
-        <Badge variant="outline">
-          研究记忆 {activeMemoryAvailable ? "已启用" : "未启用"}
-        </Badge>
-        <Badge variant="outline">
-          对话压缩 {activeCompressionAvailable ? "已启用" : "未启用"}
-        </Badge>
-        <Badge variant="outline">
-          未压缩消息 {uncompressedMessageCount}
-        </Badge>
         <Badge variant="outline">Open tasks {openResearchTaskCount}</Badge>
         <Badge variant="outline">High tasks {highPriorityResearchTaskCount}</Badge>
-        <Badge variant="outline">当前相关 {relatedTaskCount}</Badge>
+        <Badge variant="outline">相关任务 {relatedTaskCount}</Badge>
+        {currentPlanningProfile ? (
+          <Badge variant="outline">planning {currentPlanningProfile}</Badge>
+        ) : null}
+        {currentEvidenceConflictLevel ? (
+          <Badge variant="outline">conflict {currentEvidenceConflictLevel}</Badge>
+        ) : null}
+        {latestFeedbackAlignmentStatus ? (
+          <Badge variant="outline">feedback {latestFeedbackAlignmentStatus}</Badge>
+        ) : null}
+        {lastFeedbackOutcomeStatus ? (
+          <Badge variant="outline">outcome {lastFeedbackOutcomeStatus}</Badge>
+        ) : null}
+        {lastFeedbackProcessQualityStatus ? (
+          <Badge variant="outline">quality {lastFeedbackProcessQualityStatus}</Badge>
+        ) : null}
+        <Badge variant="outline">Research feedback {recentFeedbackCount}</Badge>
+        <Badge variant="outline">长期证据 {savedEvidenceCount}</Badge>
+        <Badge variant="outline">memory {activeMemoryAvailable ? "on" : "off"}</Badge>
+        <Badge variant="outline">
+          compression {activeCompressionAvailable ? "on" : "off"}
+        </Badge>
+        <Badge variant="outline">未压缩消息 {uncompressedMessageCount}</Badge>
         <Badge variant={compressionRecommended ? "secondary" : "outline"}>
           {compressionRecommended ? "建议压缩" : "当前无需压缩"}
         </Badge>
@@ -112,22 +136,9 @@ export function StockAnalysisThreadSummary({
         <Badge variant={lastExecutionTriggeredValidation ? "secondary" : "outline"}>
           {lastExecutionTriggeredValidation ? "最近计划触发 validation" : "最近计划未触发 validation"}
         </Badge>
-        <Badge variant="outline">Research feedback {recentFeedbackCount}</Badge>
         <Badge variant={hasTrackingFollowupTasks ? "secondary" : "outline"}>
           {hasTrackingFollowupTasks ? "存在继续跟踪建议" : "暂无继续跟踪建议"}
         </Badge>
-        {lastFeedbackOutcomeStatus ? (
-          <Badge variant="outline">最近 feedback: {lastFeedbackOutcomeStatus}</Badge>
-        ) : null}
-        {lastFeedbackProcessQualityStatus ? (
-          <Badge variant="outline">过程偏 {lastFeedbackProcessQualityStatus}</Badge>
-        ) : null}
-        {currentPlanningProfile ? (
-          <Badge variant="outline">planning {currentPlanningProfile}</Badge>
-        ) : null}
-        {currentEvidenceConflictLevel ? (
-          <Badge variant="outline">conflict {currentEvidenceConflictLevel}</Badge>
-        ) : null}
         {recentFeedbackMethodBias ? (
           <Badge variant="outline">反馈偏向 {recentFeedbackMethodBias}</Badge>
         ) : null}

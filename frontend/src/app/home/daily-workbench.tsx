@@ -69,6 +69,9 @@ export default function DailyWorkbench() {
             <Link to="/home/strategy-preferences">去策略偏好</Link>
           </Button>
           <Button asChild variant="outline">
+            <Link to="/home/stock-analysis-overview">去股票研究总览</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link
               to="/home/stock-analysis?sourceModule=decision_effectiveness&sourceRef=__summary__&createThread=1"
             >
